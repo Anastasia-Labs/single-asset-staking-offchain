@@ -19,7 +19,7 @@ import {
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import stakingValidator from "./compiled/stakingValidator.json";
-import stakingPolicy from "./compiled/stakingMinting.json";
+import stakingPolicy from "./compiled/stakingMint.json";
 import stakingStakeValidator from "./compiled/stakingStakeValidator.json";
 import foldPolicy from "./compiled/foldMint.json";
 import foldValidator from "./compiled/foldValidator.json";

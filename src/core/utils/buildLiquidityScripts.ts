@@ -78,7 +78,7 @@ import {
       ]
     );
   
-    const stakingMintingPolicy: MintingPolicy = {
+    const stakingMintPolicy: MintingPolicy = {
       type: "PlutusV2",
       script: liquidityPolicy,
     };
@@ -89,7 +89,7 @@ import {
     // pfoldValidatorW = phoistAcyclic $
     //   plam $ \nodeCS stakingDeadline datum redeemer ctx ->
     const foldValidator = applyParamsToScript(config.unapplied.collectFoldValidator, [
-      lucid.utils.mintingPolicyToId(stakingMintingPolicy),
+      lucid.utils.mintingPolicyToId(stakingMintPolicy),
       BigInt(config.liquidityPolicy.deadline),
     ]);
     const foldSpendingValidator: SpendingValidator = {
@@ -122,7 +122,7 @@ import {
     // TODO: Fix applied parameters 
     const collectFoldPolicy = applyParamsToScript(config.unapplied.collectFoldPolicy, [
       new Constr(0, [
-        lucid.utils.mintingPolicyToId(stakingMintingPolicy),
+        lucid.utils.mintingPolicyToId(stakingMintPolicy),
         foldValidatorAddress.data,
         BigInt(config.liquidityPolicy.deadline), // stakingDeadline PInteger
       ]),
@@ -157,7 +157,7 @@ import {
       config.unapplied.distributionFoldValidator,
       [
         new Constr(0, [
-          lucid.utils.mintingPolicyToId(stakingMintingPolicy), //nodeCS
+          lucid.utils.mintingPolicyToId(stakingMintPolicy), //nodeCS
           config.rewardFoldValidator.projectCS, // projectCS
           fromText(config.rewardFoldValidator.projectTN), // projectTN
           projectAddress.data, // projectAddr
@@ -195,7 +195,7 @@ import {
     //       )
     const rewardFoldPolicy = applyParamsToScript(config.unapplied.distributionFoldPolicy, [
       new Constr(0, [
-        lucid.utils.mintingPolicyToId(stakingMintingPolicy), // nodeCS
+        lucid.utils.mintingPolicyToId(stakingMintPolicy), // nodeCS
         lucid.utils.mintingPolicyToId(tokenHolderMintingPolicy), //tokenHolderCS
         rewardValidatorAddress.data, // rewardScriptAddr
         fromText(config.rewardFoldValidator.projectTN), // projectTN
