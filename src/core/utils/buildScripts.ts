@@ -13,7 +13,7 @@ import { fromAddressToData } from "./utils.js";
 export type Scripts = {
   stakingPolicy: CborHex;
   stakingValidator: CborHex;
-  stakingStake: CborHex;
+  stakingStakeValidator: CborHex;
   foldPolicy: CborHex;
   foldValidator: CborHex;
   rewardPolicy: CborHex;
@@ -26,14 +26,14 @@ export const buildScripts = (
   lucid: Lucid,
   config: BuildScriptsConfig
 ): Result<Scripts> => {
-  const initUTXOprojectTokenHolder = new Constr(0, [
-    new Constr(0, [config.projectTokenHolder.initUTXO.txHash]),
-    BigInt(config.projectTokenHolder.initUTXO.outputIndex),
+  const initUTXOrewardTokenHolder = new Constr(0, [
+    new Constr(0, [config.rewardTokenHolder.initUTXO.txHash]),
+    BigInt(config.rewardTokenHolder.initUTXO.outputIndex),
   ]);
 
   const tokenHolderPolicy = applyParamsToScript(
     config.unapplied.tokenHolderPolicy,
-    [initUTXOprojectTokenHolder]
+    [initUTXOrewardTokenHolder]
   );
 
   const tokenHolderMintingPolicy: MintingPolicy = {
@@ -61,7 +61,7 @@ export const buildScripts = (
   //         s
   //         ( PDataRecord
   //             '[ "initUTxO" ':= PTxOutRef
-  //              , "stakingDeadline" ':= PPOSIXTime
+  //              , "freezeStake" ':= PPOSIXTime
   //              , "penaltyAddress" ':= PAddress
   //              ]
   //         )
@@ -71,7 +71,7 @@ export const buildScripts = (
     [
       new Constr(0, [
         initUTxO,
-        BigInt(config.stakingPolicy.deadline), // stakingDeadline PInteger
+        BigInt(config.stakingPolicy.freezeStake), // freezeStake PInteger
         penaltyAddress.data, // penaltyAddress PAddress
       ]),
     ]
@@ -86,10 +86,10 @@ export const buildScripts = (
   //
   // pfoldValidatorW :: Term s (PAsData PCurrencySymbol :--> PAsData PPOSIXTime :--> PValidator)
   // pfoldValidatorW = phoistAcyclic $
-  //   plam $ \nodeCS stakingDeadline datum redeemer ctx ->
+  //   plam $ \nodeCS freezeStake datum redeemer ctx ->
   const foldValidator = applyParamsToScript(config.unapplied.foldValidator, [
     lucid.utils.mintingPolicyToId(stakingMintPolicy),
-    BigInt(config.stakingPolicy.deadline),
+    BigInt(config.stakingPolicy.freezeStake),
   ]);
   const foldSpendingValidator: SpendingValidator = {
     type: "PlutusV2",
@@ -112,7 +112,7 @@ export const buildScripts = (
   //           ( PDataRecord
   //               '[ "nodeCS" ':= PCurrencySymbol
   //                , "foldAddr" ':= PAddress
-  //                , "stakingDeadline" ':= PPOSIXTime
+  //                , "freezeStake" ':= PPOSIXTime
   //                ]
   //           )
   //       )
@@ -122,7 +122,7 @@ export const buildScripts = (
     new Constr(0, [
       lucid.utils.mintingPolicyToId(stakingMintPolicy),
       foldValidatorAddress.data,
-      BigInt(config.stakingPolicy.deadline), // stakingDeadline PInteger
+      BigInt(config.stakingPolicy.freezeStake), // freezeStake PInteger
     ]),
   ]);
 
@@ -131,9 +131,9 @@ export const buildScripts = (
     script: foldPolicy,
   };
 
-  const projectAddress = fromAddressToData(config.rewardValidator.projectAddr);
-  if (projectAddress.type == "error")
-    return { type: "error", error: projectAddress.error };
+  const rewardAddress = fromAddressToData(config.rewardValidator.rewardAddr);
+  if (rewardAddress.type == "error")
+    return { type: "error", error: rewardAddress.error };
 
   //NOTE: REWARD VALIDATOR
   //
@@ -143,9 +143,9 @@ export const buildScripts = (
   //           s
   //           ( PDataRecord
   //               '[ "nodeCS" ':= PCurrencySymbol
-  //                , "projectCS" ':= PCurrencySymbol
-  //                , "projectTN" ':= PTokenName
-  //                , "projectAddr" ':= PAddress
+  //                , "rewardCS" ':= PCurrencySymbol
+  //                , "rewardTN" ':= PTokenName
+  //                , "rewardAddr" ':= PAddress
   //                ]
   //           )
   //       )
@@ -156,9 +156,9 @@ export const buildScripts = (
     [
       new Constr(0, [
         lucid.utils.mintingPolicyToId(stakingMintPolicy), //nodeCS
-        config.rewardValidator.projectCS, // projectCS
-        fromText(config.rewardValidator.projectTN), // projectTN
-        projectAddress.data, // projectAddr
+        config.rewardValidator.rewardCS, // rewardCS
+        fromText(config.rewardValidator.rewardTN), // rewardTN
+        rewardAddress.data, // rewardAddr
       ]),
     ]
   );
@@ -185,8 +185,8 @@ export const buildScripts = (
   //               '[ "nodeCS" ':= PCurrencySymbol,
   //                  "tokenHolderCS" ':= PCurrencySymbol,
   //                  "rewardScriptAddr" ':= PAddress,
-  //                  "projectTN" ':= PTokenName,
-  //                  "projectCS" ':= PCurrencySymbol,
+  //                  "rewardTN" ':= PTokenName,
+  //                  "rewardCS" ':= PCurrencySymbol,
   //                  "commitFoldCS" ':= PCurrencySymbol
   //                ]
   //           )
@@ -196,8 +196,8 @@ export const buildScripts = (
       lucid.utils.mintingPolicyToId(stakingMintPolicy), // nodeCS
       lucid.utils.mintingPolicyToId(tokenHolderMintingPolicy), //tokenHolderCS
       rewardValidatorAddress.data, // rewardScriptAddr
-      fromText(config.rewardValidator.projectTN), // projectTN
-      config.rewardValidator.projectCS, // projectCS
+      fromText(config.rewardValidator.rewardTN), // rewardTN
+      config.rewardValidator.rewardCS, // rewardCS
       lucid.utils.mintingPolicyToId(foldMintingPolicy), // commitFoldCS
     ]),
   ]);
@@ -209,13 +209,13 @@ export const buildScripts = (
   //NOTE: DISCOVERY STAKE VALIDATOR
   // pDiscoverGlobalLogicW :: Term s (PAsData PCurrencySymbol :--> PStakeValidator)
   // pDiscoverGlobalLogicW = phoistAcyclic $ plam $ \rewardCS' _redeemer ctx -> P.do
-  const stakingStake = applyParamsToScript(config.unapplied.stakingStake, [
+  const stakingStakeValidator = applyParamsToScript(config.unapplied.stakingStakeValidator, [
     lucid.utils.mintingPolicyToId(rewardMintingPolicy),
   ]);
 
   const stakingStakeValidator: WithdrawalValidator = {
     type: "PlutusV2",
-    script: stakingStake,
+    script: stakingStakeValidator,
   };
 
   // NOTE: DISCOVERY VALIDATOR
@@ -225,7 +225,7 @@ export const buildScripts = (
   //       ( Term
   //           s
   //           ( PDataRecord
-  //               '[ "stakingDeadline" ':= PPOSIXTime
+  //               '[ "freezeStake" ':= PPOSIXTime
   //                , "penaltyAddress" ':= PAddress
   //                , "rewardsCS" ':= PCurrencySymbol
   //                ]
@@ -235,7 +235,7 @@ export const buildScripts = (
     config.unapplied.stakingValidator,
     [
       new Constr(0, [
-        BigInt(config.stakingPolicy.deadline), // stakingDeadline PInteger
+        BigInt(config.stakingPolicy.freezeStake), // freezeStake PInteger
         penaltyAddress.data, // penaltyAddress PAddress
         new Constr(0, [new Constr(1, [lucid.utils.validatorToScriptHash(stakingStakeValidator)])]), // PStakingCredential
       ]),
@@ -248,8 +248,8 @@ export const buildScripts = (
   };
 
   //NOTE: PROJECT TOKEN HOLDER VALIDATOR
-  // pprojectTokenHolder :: Term s (PAsData PCurrencySymbol :--> PValidator)
-  // pprojectTokenHolder = phoistAcyclic $ plam $ \rewardsCS _dat _redeemer ctx -> unTermCont $ do
+  // prewardTokenHolder :: Term s (PAsData PCurrencySymbol :--> PValidator)
+  // prewardTokenHolder = phoistAcyclic $ plam $ \rewardsCS _dat _redeemer ctx -> unTermCont $ do
   const tokenHolderValidator = applyParamsToScript(
     config.unapplied.tokenHolderValidator,
     [lucid.utils.mintingPolicyToId(rewardMintingPolicy)]
@@ -260,7 +260,7 @@ export const buildScripts = (
     data: {
       stakingPolicy: stakingPolicy,
       stakingValidator: stakingValidator,
-      stakingStake: stakingStake,
+      stakingStakeValidator: stakingStakeValidator,
       foldPolicy: foldPolicy,
       foldValidator: foldValidator,
       rewardPolicy: rewardPolicy,

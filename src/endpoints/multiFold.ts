@@ -53,10 +53,10 @@ export const multiFold = async (
 
   const lastNodeRefDatum = Data.from(lastNodeRef, SetNode);
   // console.log("lastNodeRefDatum", lastNodeRefDatum )
-  const committed = nodeRefUTxOs.reduce((result: bigint, utxo: UTxO) => {
+  const staked = nodeRefUTxOs.reduce((result: bigint, utxo: UTxO) => {
     return result + utxo.assets.lovelace - 3_000_000n;
   }, 0n);
-  // console.log("committed", committed);
+  // console.log("staked", staked);
 
   const newFoldDatum = Data.to(
     {
@@ -64,7 +64,7 @@ export const multiFold = async (
         key: oldFoldDatum.currNode.key,
         next: lastNodeRefDatum.next,
       },
-      committed: oldFoldDatum.committed + committed,
+      staked: oldFoldDatum.staked + staked,
       owner: oldFoldDatum.owner,
     },
     FoldDatum

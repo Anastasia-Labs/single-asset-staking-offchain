@@ -99,27 +99,27 @@ export const removeNode = async (
   const upperBound = (config.currenTime + TIME_TOLERANCE_MS)
   const lowerBound = (config.currenTime - TIME_TOLERANCE_MS)
 
-  const beforeDeadline = upperBound < config.deadline;
+  const beforeDeadline = upperBound < config.freezeStake;
   const beforeTwentyFourHours =
-    upperBound < config.deadline - TWENTY_FOUR_HOURS_MS;
+    upperBound < config.freezeStake - TWENTY_FOUR_HOURS_MS;
 
   // console.log("beforeDeadline", beforeDeadline);
   // console.log("beforeTwentyFourHours", beforeTwentyFourHours);
   // console.log(
-  //   "time delta deadline - upperBound ms",
-  //   config.deadline - upperBound
+  //   "time delta freezeStake - upperBound ms",
+  //   config.freezeStake - upperBound
   // );
   // console.log(
-  //   "time delta deadline - upperBound secs",
-  //   (config.deadline - upperBound) / 1_000
+  //   "time delta freezeStake - upperBound secs",
+  //   (config.freezeStake - upperBound) / 1_000
   // );
   // console.log(
-  //   "time delta deadline - upperBound min",
-  //   (config.deadline - upperBound) / 60_000
+  //   "time delta freezeStake - upperBound min",
+  //   (config.freezeStake - upperBound) / 60_000
   // );
   // console.log(
-  //   "time delta deadline - upperBound hours",
-  //   (config.deadline - upperBound) / 3_600_000
+  //   "time delta freezeStake - upperBound hours",
+  //   (config.freezeStake - upperBound) / 3_600_000
   // );
 
   try {
@@ -189,7 +189,7 @@ export const removeNode = async (
 
       return { type: "ok", data: tx };
     } else {
-      //TODO: tests removing the node once project token is in user's wallet
+      //TODO: tests removing the node once reward token is in user's wallet
       const tx = await lucid
         .newTx()
         .collectFrom([node, prevNode], redeemerNodeValidator)

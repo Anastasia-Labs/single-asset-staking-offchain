@@ -6,7 +6,7 @@ import {
   toUnit,
   TxComplete,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { MIN_COMMITMENT_ADA, originNodeTokenName } from "../core/constants.js";
+import { EXACT_ADA_COMMITMENT, originNodeTokenName } from "../core/constants.js";
 import { StakingNodeAction, SetNode } from "../core/contract.types.js";
 import { InitNodeConfig, Result } from "../core/types.js";
 import { NODE_ADA } from "../core/constants.js";
@@ -52,7 +52,7 @@ export const initNode = async (
       .payToContract(
         nodeValidatorAddr,
         { inline: datum },
-        { ...assets, lovelace: MIN_COMMITMENT_ADA }
+        { ...assets, lovelace: EXACT_ADA_COMMITMENT }
       )
       .mintAssets(assets, redeemerNodePolicy)
       // .attachMintingPolicy(nodePolicy)

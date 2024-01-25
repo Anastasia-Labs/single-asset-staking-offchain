@@ -58,7 +58,7 @@ export const initFold = async (
   const datum = Data.to(
     {
       currNode: currentNode,
-      committed: 0n,
+      staked: 0n,
       owner: fromAddress(await lucid.wallet.address()), //NOTE: owner is not being used in fold minting or validator
     },
     FoldDatum

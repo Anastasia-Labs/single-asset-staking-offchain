@@ -35,7 +35,7 @@ import {
 import { test, expect, beforeEach } from "vitest";
 import stakingValidator from "./compiled/stakingValidator.json";
 import stakingPolicy from "./compiled/stakingMint.json";
-import stakingStake from "./compiled/stakingStakeValidator.json";
+import stakingStakeValidator from "./compiled/stakingStakeValidator.json";
 import foldPolicy from "./compiled/foldMint.json";
 import foldValidator from "./compiled/foldValidator.json";
 import rewardPolicy from "./compiled/rewardFoldMint.json";
@@ -57,7 +57,7 @@ beforeEach<LucidContext>(async (context) => {
     treasury1: await generateAccountSeedPhrase({
       lovelace: BigInt(800_000_000),
     }),
-    project1: await generateAccountSeedPhrase({
+    reward1: await generateAccountSeedPhrase({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
@@ -80,7 +80,7 @@ beforeEach<LucidContext>(async (context) => {
 
   context.emulator = new Emulator([
     context.users.treasury1,
-    context.users.project1,
+    context.users.reward1,
     context.users.account1,
     context.users.account2,
     context.users.account3,
@@ -89,7 +89,7 @@ beforeEach<LucidContext>(async (context) => {
   context.lucid = await Lucid.new(context.emulator);
 });
 
-test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - initFold - multiFold - initRewardFold - rewardFold)", async ({
+test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - initFold - multiFold - initRewardFold - rewardFold)", async ({
   lucid,
   users,
   emulator,
@@ -98,29 +98,29 @@ test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - in
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
   const treasuryAddress = await lucid.wallet.address();
   const [treasuryUTxO] = await lucid.wallet.getUtxos();
-  const deadline = emulator.now() + TWENTY_FOUR_HOURS_MS + ONE_HOUR_MS; // 24 hours + 1 hour
-  const [project1UTxO] = await lucid
-    .selectWalletFromSeed(users.project1.seedPhrase)
+  const freezeStake = emulator.now() + TWENTY_FOUR_HOURS_MS + ONE_HOUR_MS; // 24 hours + 1 hour
+  const [reward1UTxO] = await lucid
+    .selectWalletFromSeed(users.reward1.seedPhrase)
     .wallet.getUtxos();
 
   const newScripts = buildScripts(lucid, {
     stakingPolicy: {
       initUTXO: treasuryUTxO,
-      deadline: deadline,
+      freezeStake: freezeStake,
       penaltyAddress: treasuryAddress,
     },
     rewardValidator: {
-      projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-      projectTN: "LOBSTER",
-      projectAddr: treasuryAddress,
+      rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+      rewardTN: "LOBSTER",
+      rewardAddr: treasuryAddress,
     },
-    projectTokenHolder: {
-      initUTXO: project1UTxO,
+    rewardTokenHolder: {
+      initUTXO: reward1UTxO,
     },
     unapplied: {
       stakingPolicy: stakingPolicy.cborHex,
       stakingValidator: stakingValidator.cborHex,
-      stakingStake: stakingStake.cborHex,
+      stakingStakeValidator: stakingStakeValidator.cborHex,
       foldPolicy: foldPolicy.cborHex,
       foldValidator: foldValidator.cborHex,
       rewardPolicy: rewardPolicy.cborHex,
@@ -150,7 +150,7 @@ test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - in
 
   const stakingStakeRewardAddress = lucid.utils.validatorToRewardAddress({
     type: "PlutusV2",
-    script: newScripts.data.stakingStake,
+    script: newScripts.data.stakingStakeValidator,
   });
 
   await lucid.awaitTx(
@@ -168,17 +168,17 @@ test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - in
 
   // INIT PROJECT TOKEN HOLDER
   const initTokenHolderConfig: InitTokenHolderConfig = {
-    initUTXO: project1UTxO,
-    projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    projectTN: "LOBSTER",
-    projectAmount: 100_000_000,
+    initUTXO: reward1UTxO,
+    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "LOBSTER",
+    rewardAmount: 100_000_000,
     scripts: {
       tokenHolderPolicy: newScripts.data.tokenHolderPolicy,
       tokenHolderValidator: newScripts.data.tokenHolderValidator,
     },
   };
 
-  lucid.selectWalletFromSeed(users.project1.seedPhrase);
+  lucid.selectWalletFromSeed(users.reward1.seedPhrase);
   const initTokenHolderUnsigned = await initTokenHolder(
     lucid,
     initTokenHolderConfig
@@ -235,7 +235,7 @@ test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - in
   // INSERT NODES, ACCOUNT 1 -> ACCOUNT 2 -> ACCOUNT 3
   await insertThreeNodes(lucid, emulator, users, newScripts.data, refUTxOs, logFlag);
   
-  // Wait for deadline to pass
+  // Wait for freezeStake to pass
   emulator.awaitBlock(6000);
 
   // INIT FOLD
@@ -297,8 +297,8 @@ test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - in
   // INIT REWARD FOLD
 
   const initRewardFoldConfig: InitRewardFoldConfig = {
-    projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    projectTN: "LOBSTER",
+    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "LOBSTER",
     scripts: {
       nodeValidator: newScripts.data.stakingValidator,
       nodePolicy: newScripts.data.stakingPolicy,
@@ -369,7 +369,7 @@ test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - in
 
   const refScripts = {
     nodeValidator: refUTxOs.nodeValidatorUTxO,
-    stakingStake: refUTxOs.nodeStakeValidatorUTxO,
+    stakingStakeValidator: refUTxOs.nodeStakeValidatorUTxO,
     rewardFoldPolicy: refUTxOs.rewardPolicyUTxO,
     rewardFoldValidator: refUTxOs.rewardValidatorUTxO,
   };
@@ -377,12 +377,12 @@ test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - in
 
   const rewardFoldConfig: RewardFoldConfig = {
     nodeInputs: nodeUTxOs,
-    projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    projectTN: "LOBSTER",
-    projectAddress: treasuryAddress,
+    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "LOBSTER",
+    rewardAddress: treasuryAddress,
     scripts: {
       nodeValidator: newScripts.data.stakingValidator,
-      stakingStake: newScripts.data.stakingStake,
+      stakingStakeValidator: newScripts.data.stakingStakeValidator,
       rewardFoldPolicy: newScripts.data.rewardPolicy,
       rewardFoldValidator: newScripts.data.rewardValidator,
     },
@@ -406,12 +406,12 @@ test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - in
 
   const rewardFoldConfig2: RewardFoldConfig = {
     nodeInputs: nodeUTxOs,
-    projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    projectTN: "LOBSTER",
-    projectAddress: treasuryAddress,
+    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "LOBSTER",
+    rewardAddress: treasuryAddress,
     scripts: {
       nodeValidator: newScripts.data.stakingValidator,
-      stakingStake: newScripts.data.stakingStake,
+      stakingStakeValidator: newScripts.data.stakingStakeValidator,
       rewardFoldPolicy: newScripts.data.rewardPolicy,
       rewardFoldValidator: newScripts.data.rewardValidator,
     },
@@ -433,12 +433,12 @@ test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - in
 
   const rewardFoldConfig3: RewardFoldConfig = {
     nodeInputs: nodeUTxOs,
-    projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    projectTN: "LOBSTER",
-    projectAddress: treasuryAddress,
+    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "LOBSTER",
+    rewardAddress: treasuryAddress,
     scripts: {
       nodeValidator: newScripts.data.stakingValidator,
-      stakingStake: newScripts.data.stakingStake,
+      stakingStakeValidator: newScripts.data.stakingStakeValidator,
       rewardFoldPolicy: newScripts.data.rewardPolicy,
       rewardFoldValidator: newScripts.data.rewardValidator,
     },
@@ -461,12 +461,12 @@ test<LucidContext>("Test - initProjectTokenHolder - initNode  - insertNodes - in
 
   const rewardFoldConfig4: RewardFoldConfig = {
     nodeInputs: nodeUTxOs,
-    projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    projectTN: "LOBSTER",
-    projectAddress: treasuryAddress,
+    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "LOBSTER",
+    rewardAddress: treasuryAddress,
     scripts: {
       nodeValidator: newScripts.data.stakingValidator,
-      stakingStake: newScripts.data.stakingStake,
+      stakingStakeValidator: newScripts.data.stakingStakeValidator,
       rewardFoldPolicy: newScripts.data.rewardPolicy,
       rewardFoldValidator: newScripts.data.rewardValidator,
     },

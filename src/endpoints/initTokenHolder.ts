@@ -7,7 +7,7 @@ import {
   TxComplete,
   fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { PTHOLDER } from "../core/constants.js";
+import { RTHOLDER } from "../core/constants.js";
 import { InitTokenHolderConfig, Result } from "../core/types.js";
 
 export const TokenHolderMintActionSchema = Data.Enum([
@@ -39,7 +39,7 @@ export const initTokenHolder = async (
 
   const tokenHolderPolicyId = lucid.utils.mintingPolicyToId(tokenHolderPolicy);
 
-  const ptHolderAsset = toUnit(tokenHolderPolicyId, fromText(PTHOLDER));
+  const ptHolderAsset = toUnit(tokenHolderPolicyId, fromText(RTHOLDER));
   const mintPTHolderAct = Data.to("PMintHolder", TokenHolderMintAction);
 
   try {
@@ -51,8 +51,8 @@ export const initTokenHolder = async (
         { inline: Data.void() },
         {
           [ptHolderAsset]: BigInt(1),
-          [toUnit(config.projectCS, fromText(config.projectTN))]: BigInt(
-            config.projectAmount
+          [toUnit(config.rewardCS, fromText(config.rewardTN))]: BigInt(
+            config.rewardAmount
           ),
         }
       )

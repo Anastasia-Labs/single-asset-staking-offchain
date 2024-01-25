@@ -26,7 +26,7 @@ import {
 import { test, expect, beforeEach } from "vitest";
 import stakingValidator from "./compiled/stakingValidator.json";
 import stakingPolicy from "./compiled/stakingMint.json";
-import stakingStake from "./compiled/stakingStakeValidator.json"
+import stakingStakeValidator from "./compiled/stakingStakeValidator.json"
 import foldPolicy from "./compiled/foldMint.json";
 import foldValidator from "./compiled/foldValidator.json";
 import rewardPolicy from "./compiled/rewardFoldMint.json";
@@ -68,7 +68,7 @@ export async function deploy(
   }
 
   const deployStake = await deployRefScripts(lucid, {
-    script: scripts.stakingStake,
+    script: scripts.stakingStakeValidator,
     name: "StakingStakeValidator",
     alwaysFails: alwaysFailValidator.cborHex,
     currenTime: deployTime

@@ -44,7 +44,7 @@ beforeEach<LucidContext>(async (context) => {
     treasury1: await generateAccountSeedPhrase({
       lovelace: BigInt(100_000_000),
     }),
-    project1: await generateAccountSeedPhrase({
+    reward1: await generateAccountSeedPhrase({
       lovelace: BigInt(100_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
@@ -64,7 +64,7 @@ beforeEach<LucidContext>(async (context) => {
 
   context.emulator = new Emulator([
     context.users.treasury1,
-    context.users.project1,
+    context.users.reward1,
     context.users.account1,
     context.users.account2,
     context.users.account3,
@@ -83,29 +83,29 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
   const treasuryAddress = await lucid.wallet.address();
   const [treasuryUTxO] = await lucid.wallet.getUtxos();
-  const deadline = emulator.now() + TWENTY_FOUR_HOURS_MS + ONE_HOUR_MS; // 24 hours + 1 hour
-  const [project1UTxO] = await lucid
-    .selectWalletFromSeed(users.project1.seedPhrase)
+  const freezeStake = emulator.now() + TWENTY_FOUR_HOURS_MS + ONE_HOUR_MS; // 24 hours + 1 hour
+  const [reward1UTxO] = await lucid
+    .selectWalletFromSeed(users.reward1.seedPhrase)
     .wallet.getUtxos();
 
   const newScripts = buildScripts(lucid, {
     stakingPolicy: {
       initUTXO: treasuryUTxO,
-      deadline: deadline,
+      freezeStake: freezeStake,
       penaltyAddress: treasuryAddress,
     },
     rewardValidator: {
-      projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-      projectTN: "LOBSTER",
-      projectAddr: treasuryAddress,
+      rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+      rewardTN: "LOBSTER",
+      rewardAddr: treasuryAddress,
     },
-    projectTokenHolder: {
-      initUTXO: project1UTxO,
+    rewardTokenHolder: {
+      initUTXO: reward1UTxO,
     },
     unapplied: {
       stakingPolicy: stakingPolicy.cborHex,
       stakingValidator: stakingValidator.cborHex,
-      stakingStake: stakingStakeValidator.cborHex,
+      stakingStakeValidator: stakingStakeValidator.cborHex,
       foldPolicy: foldPolicy.cborHex,
       foldValidator: foldValidator.cborHex,
       rewardPolicy: rewardPolicy.cborHex,
@@ -167,7 +167,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   // INSERT NODES, ACCOUNT 1 -> ACCOUNT 2 -> ACCOUNT 3
   await insertThreeNodes(lucid, emulator, users, newScripts.data, refUTxOs, logFlag);
 
-  // Wait for deadline to pass
+  // Wait for freezeStake to pass
   emulator.awaitBlock(6000);
 
   // INIT FOLD

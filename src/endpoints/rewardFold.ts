@@ -47,7 +47,7 @@ export const rewardFold = async (
 
   const stakingStakeValidator: WithdrawalValidator = {
     type: "PlutusV2",
-    script: config.scripts.stakingStake,
+    script: config.scripts.stakingStakeValidator,
   };
 
   const [rewardUTxO] = await lucid.utxosAtWithUnit(
@@ -76,8 +76,8 @@ export const rewardFold = async (
         key: nodeDatum.key,
         next: nodeDatum.next,
       },
-      totalProjectTokens: oldRewardFoldDatum.totalProjectTokens,
-      totalCommitted: oldRewardFoldDatum.totalCommitted,
+      totalRewardTokens: oldRewardFoldDatum.totalRewardTokens,
+      totalStaked: oldRewardFoldDatum.totalStaked,
       owner: oldRewardFoldDatum.owner,
     },
     RewardFoldDatum
@@ -85,10 +85,10 @@ export const rewardFold = async (
 
   const nodeCommitment = nodeInput.assets["lovelace"] - NODE_ADA;
   // console.log("nodeCommitment", nodeCommitment);
-  const owedProjectTokenAmount =
-    (nodeCommitment * oldRewardFoldDatum.totalProjectTokens) /
-    oldRewardFoldDatum.totalCommitted;
-  // console.log("owedProjectTokenAmount", owedProjectTokenAmount);
+  const owedRewardTokenAmount =
+    (nodeCommitment * oldRewardFoldDatum.totalRewardTokens) /
+    oldRewardFoldDatum.totalStaked;
+  // console.log("owedRewardTokenAmount", owedRewardTokenAmount);
 
   const [nodeAsset] = Object.entries(nodeInput.assets).filter(
     ([key, value]) => {
@@ -96,9 +96,9 @@ export const rewardFold = async (
     }
   );
 
-  const remainingProjectTokenAmount =
-    rewardUTxO.assets[toUnit(config.projectCS, fromText(config.projectTN))] -
-    owedProjectTokenAmount;
+  const remainingRewardTokenAmount =
+    rewardUTxO.assets[toUnit(config.rewardCS, fromText(config.rewardTN))] -
+    owedRewardTokenAmount;
 
   try {
     if (oldRewardFoldDatum.currNode.next != null) {
@@ -120,8 +120,8 @@ export const rewardFold = async (
               lucid.utils.mintingPolicyToId(rewardFoldPolicy),
               fromText("RFold")
             )]: 1n,
-            [toUnit(config.projectCS, fromText(config.projectTN))]:
-              remainingProjectTokenAmount,
+            [toUnit(config.rewardCS, fromText(config.rewardTN))]:
+              remainingRewardTokenAmount,
           }
         )
         .payToContract(
@@ -129,12 +129,12 @@ export const rewardFold = async (
           { inline: nodeInput.datum },
           {
             [nodeAsset[0]]: nodeAsset[1],
-            [toUnit(config.projectCS, fromText(config.projectTN))]:
-              owedProjectTokenAmount,
+            [toUnit(config.rewardCS, fromText(config.rewardTN))]:
+              owedRewardTokenAmount,
             ["lovelace"]: NODE_ADA - FOLDING_FEE_ADA,
           }
         )
-        .payToAddress(config.projectAddress, { lovelace: nodeCommitment })
+        .payToAddress(config.rewardAddress, { lovelace: nodeCommitment })
         .payToAddress(
           lucid.utils.credentialToAddress(
             lucid.utils.keyHashToCredential(PROTOCOL_PAYMENT_KEY),
@@ -146,7 +146,7 @@ export const rewardFold = async (
         )
         .readFrom([config.refScripts.rewardFoldValidator])
         .readFrom([config.refScripts.nodeValidator])
-        .readFrom([config.refScripts.stakingStake]);
+        .readFrom([config.refScripts.stakingStakeValidator]);
 
       return { 
         type: "ok", 
@@ -172,14 +172,14 @@ export const rewardFold = async (
           { inline: nodeInput.datum },
           {
             [nodeAsset[0]]: nodeAsset[1],
-            [toUnit(config.projectCS, fromText(config.projectTN))]:
+            [toUnit(config.rewardCS, fromText(config.rewardTN))]:
               rewardUTxO.assets[
-                toUnit(config.projectCS, fromText(config.projectTN))
+                toUnit(config.rewardCS, fromText(config.rewardTN))
               ],
             ["lovelace"]: NODE_ADA - FOLDING_FEE_ADA,
           }
         )
-        .payToAddress(config.projectAddress, { lovelace: nodeCommitment })
+        .payToAddress(config.rewardAddress, { lovelace: nodeCommitment })
         .payToAddress(
           lucid.utils.credentialToAddress(
             lucid.utils.keyHashToCredential(PROTOCOL_PAYMENT_KEY),
@@ -191,7 +191,7 @@ export const rewardFold = async (
         )
         .readFrom([config.refScripts.rewardFoldValidator])
         .readFrom([config.refScripts.nodeValidator])
-        .readFrom([config.refScripts.stakingStake])
+        .readFrom([config.refScripts.stakingStakeValidator])
         .addSigner(await lucid.wallet.address())
         .complete();
       return { type: "ok", data: tx };

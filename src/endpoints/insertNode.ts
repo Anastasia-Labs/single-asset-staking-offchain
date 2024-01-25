@@ -12,7 +12,7 @@ import {
   SetNode,
 } from "../core/contract.types.js";
 import { InsertNodeConfig, Result } from "../core/types.js";
-import { NODE_ADA, mkNodeKeyTN, TIME_TOLERANCE_MS, MIN_COMMITMENT_ADA } from "../index.js";
+import { NODE_ADA, mkNodeKeyTN, TIME_TOLERANCE_MS, EXACT_ADA_COMMITMENT } from "../index.js";
 
 export const insertNode = async (
   lucid: Lucid,
@@ -117,7 +117,7 @@ export const insertNode = async (
     [toUnit(nodePolicyId, mkNodeKeyTN(userKey))]: 1n,
   };
 
-  const correctAmount = BigInt(config.amountLovelace) + MIN_COMMITMENT_ADA;
+  const correctAmount = BigInt(config.amountLovelace) + EXACT_ADA_COMMITMENT;
 
   const upperBound = config.currenTime + TIME_TOLERANCE_MS;
   const lowerBound = config.currenTime - TIME_TOLERANCE_MS;

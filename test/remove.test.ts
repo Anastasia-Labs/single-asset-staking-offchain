@@ -43,7 +43,7 @@ beforeEach<LucidContext>(async (context) => {
     treasury1: await generateAccountSeedPhrase({
       lovelace: BigInt(100_000_000),
     }),
-    project1: await generateAccountSeedPhrase({
+    reward1: await generateAccountSeedPhrase({
       lovelace: BigInt(100_000_000),
     }),
     account1: await generateAccountSeedPhrase({
@@ -59,7 +59,7 @@ beforeEach<LucidContext>(async (context) => {
 
   context.emulator = new Emulator([
     context.users.treasury1,
-    context.users.project1,
+    context.users.reward1,
     context.users.account1,
     context.users.account2,
     context.users.account3,
@@ -77,29 +77,29 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
   const treasuryAddress = await lucid.wallet.address();
   const [treasuryUTxO] = await lucid.wallet.getUtxos();
-  const deadline = emulator.now() + TWENTY_FOUR_HOURS_MS + ONE_HOUR_MS; // 24 hours + 1 hour
-  const [project1UTxO] = await lucid
-    .selectWalletFromSeed(users.project1.seedPhrase)
+  const freezeStake = emulator.now() + TWENTY_FOUR_HOURS_MS + ONE_HOUR_MS; // 24 hours + 1 hour
+  const [reward1UTxO] = await lucid
+    .selectWalletFromSeed(users.reward1.seedPhrase)
     .wallet.getUtxos();
 
   const newScripts = buildScripts(lucid, {
     stakingPolicy: {
       initUTXO: treasuryUTxO,
-      deadline: deadline,
+      freezeStake: freezeStake,
       penaltyAddress: treasuryAddress,
     },
     rewardValidator: {
-      projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-      projectTN: "test",
-      projectAddr: treasuryAddress,
+      rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+      rewardTN: "test",
+      rewardAddr: treasuryAddress,
     },
-    projectTokenHolder: {
-      initUTXO: project1UTxO,
+    rewardTokenHolder: {
+      initUTXO: reward1UTxO,
     },
     unapplied: {
       stakingPolicy: stakingPolicy.cborHex,
       stakingValidator: stakingValidator.cborHex,
-      stakingStake: stakingStakeValidator.cborHex,
+      stakingStakeValidator: stakingStakeValidator.cborHex,
       foldPolicy: foldPolicy.cborHex,
       foldValidator: foldValidator.cborHex,
       rewardPolicy: rewardPolicy.cborHex,
@@ -171,14 +171,14 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   // before 24 hours - up to 148 blocks
   // emulator.awaitBlock(100); // Remove without penalty
 
-  // within 24 hours of deadline
+  // within 24 hours of freezeStake
   // emulator.awaitBlock(200); // Remove with penalty
 
-  // after deadline 24 hours + 1 hour = 4500 - 48 blocks from previous = 4452
-  // 4445 is before deadline
+  // after freezeStake 24 hours + 1 hour = 4500 - 48 blocks from previous = 4452
+  // 4445 is before freezeStake
   // emulator.awaitBlock(4445); // Remove with penalty
 
-  // within 24 hours of deadline
+  // within 24 hours of freezeStake
   emulator.awaitBlock(200); // Remove with penalty
 
   logFlag
@@ -203,7 +203,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       nodePolicy: refUTxOs.nodePolicyUTxO,
     },
     currenTime: emulator.now(),
-    deadline: deadline,
+    freezeStake: freezeStake,
     penaltyAddress: treasuryAddress,
   };
 
@@ -244,7 +244,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       nodeValidator: refUTxOs.nodeValidatorUTxO,
       nodePolicy: refUTxOs.nodePolicyUTxO,
     },
-    deadline: deadline,
+    freezeStake: freezeStake,
     penaltyAddress: treasuryAddress,
   };
 

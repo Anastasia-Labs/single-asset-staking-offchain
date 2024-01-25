@@ -3,7 +3,7 @@ import { fromText } from "@anastasia-labs/lucid-cardano-fork";
 export const SETNODE_PREFIX = "FSN";
 export const CORRNODE_PREFIX = "FCN";
 export const CFOLD = "CFold";
-export const PTHOLDER = "PTHolder"
+export const RTHOLDER = "RTHolder"
 export const TWENTY_FOUR_HOURS_MS = 86_400_000;
 export const ONE_HOUR_MS = 3_600_000
 
@@ -13,7 +13,7 @@ export const cFold = fromText(CFOLD);
 
 export const NODE_ADA = 3_000_000n
 export const FOLDING_FEE_ADA = 1_000_000n
-export const MIN_COMMITMENT_ADA = NODE_ADA + FOLDING_FEE_ADA
+export const EXACT_ADA_COMMITMENT = NODE_ADA + FOLDING_FEE_ADA
 
 export const TIME_TOLERANCE_MS = process.env.NODE_ENV == "emulator" ? 0 : 100_000
 

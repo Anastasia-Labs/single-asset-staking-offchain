@@ -47,7 +47,7 @@ export const modifyNode = async (
   if (!ownNode || !ownNode.datum)
     return { type: "error", error: new Error("missing ownNode") };
 
-  const redeemerNodeValidator = Data.to("ModifyCommitment",NodeValidatorAction)
+  const redeemerNodeValidator = Data.to("ModifyStake",NodeValidatorAction)
 
   const newNodeAssets : Assets = {}
   Object.keys(ownNode.assets).forEach((unit) => newNodeAssets[unit] = ownNode.assets[unit]);

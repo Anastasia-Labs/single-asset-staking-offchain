@@ -20,7 +20,7 @@ import {
 import { test, expect, beforeEach } from "vitest";
 import stakingValidator from "./compiled/stakingValidator.json";
 import stakingPolicy from "./compiled/stakingMint.json";
-import stakingStake from "./compiled/stakingStakeValidator.json"
+import stakingStakeValidator from "./compiled/stakingStakeValidator.json"
 import foldPolicy from "./compiled/foldMint.json";
 import foldValidator from "./compiled/foldValidator.json";
 import rewardPolicy from "./compiled/rewardFoldMint.json";
@@ -42,7 +42,7 @@ beforeEach<LucidContext>(async (context) => {
     treasury1: await generateAccountSeedPhrase({
       lovelace: BigInt(500_000_000),
     }),
-    project1: await generateAccountSeedPhrase({
+    reward1: await generateAccountSeedPhrase({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
@@ -65,7 +65,7 @@ beforeEach<LucidContext>(async (context) => {
 
   context.emulator = new Emulator([
     context.users.treasury1,
-    context.users.project1,
+    context.users.reward1,
     context.users.account1,
     context.users.account2,
     context.users.account3,
@@ -84,28 +84,28 @@ test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
   const [treasuryUTxO] = await lucid
     .selectWalletFrom({ address: users.treasury1.address })
     .wallet.getUtxos();
-  const [project1UTxO] = await lucid
-    .selectWalletFrom({ address: users.project1.address })
+  const [reward1UTxO] = await lucid
+    .selectWalletFrom({ address: users.reward1.address })
     .wallet.getUtxos();
 
   const newScripts = buildScripts(lucid, {
     stakingPolicy: {
       initUTXO: treasuryUTxO,
-      deadline: emulator.now() + 600_000, // 10 minutes
+      freezeStake: emulator.now() + 600_000, // 10 minutes
       penaltyAddress: users.treasury1.address,
     },
     rewardValidator: {
-      projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-      projectTN: "LOBSTER",
-      projectAddr: users.treasury1.address,
+      rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+      rewardTN: "LOBSTER",
+      rewardAddr: users.treasury1.address,
     },
-    projectTokenHolder: {
-      initUTXO: project1UTxO,
+    rewardTokenHolder: {
+      initUTXO: reward1UTxO,
     },
     unapplied: {
       stakingPolicy: stakingPolicy.cborHex,
       stakingValidator: stakingValidator.cborHex,
-      stakingStake: stakingStake.cborHex,
+      stakingStakeValidator: stakingStakeValidator.cborHex,
       foldPolicy: foldPolicy.cborHex,
       foldValidator: foldValidator.cborHex,
       rewardPolicy: rewardPolicy.cborHex,
@@ -133,17 +133,17 @@ test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
 
   // INIT PROJECT TOKEN HOLDER
   const initTokenHolderConfig: InitTokenHolderConfig = {
-    initUTXO: project1UTxO,
-    projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    projectTN: "LOBSTER",
-    projectAmount: 100_000_000,
+    initUTXO: reward1UTxO,
+    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "LOBSTER",
+    rewardAmount: 100_000_000,
     scripts: {
       tokenHolderPolicy: newScripts.data.tokenHolderPolicy,
       tokenHolderValidator: newScripts.data.tokenHolderValidator,
     },
   };
 
-  lucid.selectWalletFromSeed(users.project1.seedPhrase);
+  lucid.selectWalletFromSeed(users.reward1.seedPhrase);
   const initTokenHolderUnsigned = await initTokenHolder(
     lucid,
     initTokenHolderConfig

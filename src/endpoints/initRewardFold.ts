@@ -104,13 +104,13 @@ export const initRewardFold = async (
   // console.log("headNodeDatum", headNodeDatum);
   // console.log("commitFoldUTxO", commitFoldUTxO)
 
-  const projectUnit = toUnit(config.projectCS, fromText(config.projectTN));
+  const rewardUnit = toUnit(config.rewardCS, fromText(config.rewardTN));
 
   const datum = Data.to(
     {
       currNode: headNodeDatum,
-      totalProjectTokens: tokenHolderUTxO.assets[projectUnit],
-      totalCommitted: commitFoldDatum.committed,
+      totalRewardTokens: tokenHolderUTxO.assets[rewardUnit],
+      totalStaked: commitFoldDatum.staked,
       owner: fromAddress(await lucid.wallet.address()),
     },
     RewardFoldDatum
@@ -131,7 +131,7 @@ export const initRewardFold = async (
         { inline: datum },
         {
           [toUnit(rewardFoldPolicyId, fromText("RFold"))]: 1n,
-          [projectUnit]: tokenHolderUTxO.assets[projectUnit],
+          [rewardUnit]: tokenHolderUTxO.assets[rewardUnit],
         }
       )
       .mintAssets(
