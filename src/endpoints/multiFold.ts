@@ -52,11 +52,10 @@ export const multiFold = async (
   if (!lastNodeRef) return { type: "error", error: new Error("missing datum") };
 
   const lastNodeRefDatum = Data.from(lastNodeRef, SetNode);
-  // console.log("lastNodeRefDatum", lastNodeRefDatum )
+  
   const staked = nodeRefUTxOs.reduce((result: bigint, utxo: UTxO) => {
-    return result + utxo.assets.lovelace - 3_000_000n;
+    return result + utxo.assets[toUnit(config.stakeCS, fromText(config.stakeTN))];
   }, 0n);
-  // console.log("staked", staked);
 
   const newFoldDatum = Data.to(
     {
@@ -69,7 +68,6 @@ export const multiFold = async (
     },
     FoldDatum
   );
-  // console.log("indices", config.indices);
 
   const redeemerValidator = Data.to(
     {
@@ -89,7 +87,11 @@ export const multiFold = async (
     const tx = await lucid
       .newTx()
       .collectFrom([foldUTxO], redeemerValidator)
-      .attachSpendingValidator(foldValidator)
+      .compose(
+        config.refScripts?.foldValidator
+          ? lucid.newTx().readFrom([config.refScripts.foldValidator])
+          : lucid.newTx().attachSpendingValidator(foldValidator)
+      )
       .readFrom(nodeRefUTxOs)
       .payToContract(
         foldValidatorAddr,

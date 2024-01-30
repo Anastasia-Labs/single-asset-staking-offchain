@@ -16,7 +16,7 @@ import {
   Script,
   toUnit,
   utxosAtScript,
-  Scripts,
+  AppliedScripts,
   Deploy,
   Result,
   UTxO,
@@ -38,7 +38,7 @@ import alwaysFailValidator from "./compiled/alwaysFails.json";
 export async function deploy(
   lucid: Lucid, 
   emulator: Emulator, 
-  scripts: Scripts, 
+  scripts: AppliedScripts, 
   deployTime: number
 ): Promise<Result<Deploy>> {
   const deploy1 = await deployRefScripts(lucid, {
@@ -268,7 +268,7 @@ export async function insertThreeNodes(
   lucid: Lucid,
   emulator: Emulator,
   users: any,
-  scripts: Scripts,
+  scripts: AppliedScripts,
   refUTxOs: {
     nodeValidatorUTxO: UTxO,
   nodePolicyUTxO: UTxO,

@@ -16,10 +16,8 @@ import {
 } from "../core/contract.types.js";
 import { Result, RewardFoldConfig } from "../core/types.js";
 import {
-  FOLDING_FEE_ADA,
   NODE_ADA,
-  PROTOCOL_PAYMENT_KEY,
-  PROTOCOL_STAKE_KEY,
+  rFold,
 } from "../index.js";
 
 export const rewardFold = async (
@@ -52,12 +50,15 @@ export const rewardFold = async (
 
   const [rewardUTxO] = await lucid.utxosAtWithUnit(
     lucid.utils.validatorToAddress(rewardFoldValidator),
-    toUnit(lucid.utils.mintingPolicyToId(rewardFoldPolicy), fromText("RFold"))
+    toUnit(rewardFoldPolicyId, rFold)
   );
   if (!rewardUTxO.datum)
     return { type: "error", error: new Error("missing RewardFoldDatum") };
 
   const oldRewardFoldDatum = Data.from(rewardUTxO.datum, RewardFoldDatum);
+
+  if(oldRewardFoldDatum.currNode.next == null)
+    return { type: "error", error: new Error("Rewards fold already completed")}
 
   const nodeInput = config.nodeInputs.find((utxo) => {
     if (utxo.datum) {
@@ -73,7 +74,7 @@ export const rewardFold = async (
   const newFoldDatum = Data.to(
     {
       currNode: {
-        key: nodeDatum.key,
+        key: oldRewardFoldDatum.currNode.key,
         next: nodeDatum.next,
       },
       totalRewardTokens: oldRewardFoldDatum.totalRewardTokens,
@@ -82,120 +83,72 @@ export const rewardFold = async (
     },
     RewardFoldDatum
   );
+  
+  const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
+  const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
+  const nodeStake = nodeInput.assets[stakeToken];
 
-  const nodeCommitment = nodeInput.assets["lovelace"] - NODE_ADA;
-  // console.log("nodeCommitment", nodeCommitment);
   const owedRewardTokenAmount =
-    (nodeCommitment * oldRewardFoldDatum.totalRewardTokens) /
+    (nodeStake * oldRewardFoldDatum.totalRewardTokens) /
     oldRewardFoldDatum.totalStaked;
-  // console.log("owedRewardTokenAmount", owedRewardTokenAmount);
 
-  const [nodeAsset] = Object.entries(nodeInput.assets).filter(
-    ([key, value]) => {
-      return key != "lovelace";
-    }
-  );
+  const nodeOutputAssets = {...nodeInput.assets};
+  nodeOutputAssets["lovelace"] = NODE_ADA; // EXACT_ADA_COMMITMENT - FOLDING_FEE
+  
+  // nodeOutputAssets[rewardToken] maynot be undefined in case stake and reward tokens are one and the same
+  nodeOutputAssets[rewardToken] = (nodeOutputAssets[rewardToken] || 0n) + owedRewardTokenAmount;
 
-  const remainingRewardTokenAmount =
-    rewardUTxO.assets[toUnit(config.rewardCS, fromText(config.rewardTN))] -
-    owedRewardTokenAmount;
+  const remainingRewardTokenAmount = rewardUTxO.assets[rewardToken] - owedRewardTokenAmount;
 
   try {
-    if (oldRewardFoldDatum.currNode.next != null) {
-      const tx = await lucid
-        .newTx()
-        .collectFrom([nodeInput], Data.to("RewardFoldAct", NodeValidatorAction))
-        .collectFrom([rewardUTxO], Data.to("RewardsFoldNode", RewardFoldAct))
-        .withdraw(
-          lucid.utils.validatorToRewardAddress(stakingStakeValidator),
-          0n,
-          Data.void()
-        )
-        .payToContract(
-          rewardFoldValidatorAddr,
-          { inline: newFoldDatum },
-          {
-            ["lovelace"]: rewardUTxO.assets["lovelace"],
-            [toUnit(
-              lucid.utils.mintingPolicyToId(rewardFoldPolicy),
-              fromText("RFold")
-            )]: 1n,
-            [toUnit(config.rewardCS, fromText(config.rewardTN))]:
-              remainingRewardTokenAmount,
-          }
-        )
-        .payToContract(
-          nodeValidatorAddr,
-          { inline: nodeInput.datum },
-          {
-            [nodeAsset[0]]: nodeAsset[1],
-            [toUnit(config.rewardCS, fromText(config.rewardTN))]:
-              owedRewardTokenAmount,
-            ["lovelace"]: NODE_ADA - FOLDING_FEE_ADA,
-          }
-        )
-        .payToAddress(config.rewardAddress, { lovelace: nodeCommitment })
-        .payToAddress(
-          lucid.utils.credentialToAddress(
-            lucid.utils.keyHashToCredential(PROTOCOL_PAYMENT_KEY),
-            lucid.utils.keyHashToCredential(PROTOCOL_STAKE_KEY)
-          ),
-          {
-            lovelace: FOLDING_FEE_ADA,
-          }
-        )
-        .readFrom([config.refScripts.rewardFoldValidator])
-        .readFrom([config.refScripts.nodeValidator])
-        .readFrom([config.refScripts.stakingStakeValidator]);
+    const tx = lucid
+      .newTx()
+      .collectFrom([nodeInput], Data.to("RewardFoldAct", NodeValidatorAction))
+      .collectFrom([rewardUTxO], Data.to("RewardsFoldNode", RewardFoldAct))
+      .withdraw(
+        lucid.utils.validatorToRewardAddress(stakingStakeValidator),
+        0n,
+        Data.void()
+      )
+      .payToContract(
+        rewardFoldValidatorAddr,
+        { inline: newFoldDatum },
+        {
+          ...rewardUTxO.assets,
+          [stakeToken]: remainingRewardTokenAmount
+        }
+      )
+      .payToContract(
+        nodeValidatorAddr,
+        { inline: nodeInput.datum },
+        nodeOutputAssets
+      )
+      .compose(
+        config.refScripts?.rewardFoldValidator
+          ? lucid.newTx().readFrom([config.refScripts.rewardFoldValidator])
+          : lucid.newTx().attachSpendingValidator(rewardFoldValidator)
+      )
+      .compose(
+        config.refScripts?.nodeValidator
+          ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
+          : lucid.newTx().attachSpendingValidator(nodeValidator)
+      )
+      .compose(
+        config.refScripts?.stakingStakeValidator
+          ? lucid.newTx().readFrom([config.refScripts.stakingStakeValidator])
+          : lucid.newTx().attachWithdrawalValidator(stakingStakeValidator)
+      )
 
-      return { 
-        type: "ok", 
-        data: await 
-              (
-                process.env.NODE_ENV == "emulator" 
-                  ? tx.complete() 
-                  : tx.complete({nativeUplc : false})
-              )
-        };
-    } else {
-      const tx = await lucid
-        .newTx()
-        .collectFrom([nodeInput], Data.to("RewardFoldAct", NodeValidatorAction))
-        .collectFrom([rewardUTxO], Data.to("RewardsReclaim", RewardFoldAct))
-        .withdraw(
-          lucid.utils.validatorToRewardAddress(stakingStakeValidator),
-          0n,
-          Data.void()
-        )
-        .payToContract(
-          nodeValidatorAddr,
-          { inline: nodeInput.datum },
-          {
-            [nodeAsset[0]]: nodeAsset[1],
-            [toUnit(config.rewardCS, fromText(config.rewardTN))]:
-              rewardUTxO.assets[
-                toUnit(config.rewardCS, fromText(config.rewardTN))
-              ],
-            ["lovelace"]: NODE_ADA - FOLDING_FEE_ADA,
-          }
-        )
-        .payToAddress(config.rewardAddress, { lovelace: nodeCommitment })
-        .payToAddress(
-          lucid.utils.credentialToAddress(
-            lucid.utils.keyHashToCredential(PROTOCOL_PAYMENT_KEY),
-            lucid.utils.keyHashToCredential(PROTOCOL_STAKE_KEY)
-          ),
-          {
-            lovelace: FOLDING_FEE_ADA,
-          }
-        )
-        .readFrom([config.refScripts.rewardFoldValidator])
-        .readFrom([config.refScripts.nodeValidator])
-        .readFrom([config.refScripts.stakingStakeValidator])
-        .addSigner(await lucid.wallet.address())
-        .complete();
-      return { type: "ok", data: tx };
-    }
+    return { 
+      type: "ok", 
+      data: await 
+            (
+              process.env.NODE_ENV == "emulator" 
+                ? tx.complete() 
+                : tx.complete({nativeUplc : false})
+            )
+      };
+
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };
 

@@ -9,7 +9,6 @@ import {
 import { EXACT_ADA_COMMITMENT, originNodeTokenName } from "../core/constants.js";
 import { StakingNodeAction, SetNode } from "../core/contract.types.js";
 import { InitNodeConfig, Result } from "../core/types.js";
-import { NODE_ADA } from "../core/constants.js";
 
 export const initNode = async (
   lucid: Lucid,
@@ -31,10 +30,18 @@ export const initNode = async (
 
   const assets = {
     [toUnit(nodePolicyId, originNodeTokenName)]: 1n,
-    // [toUnit(nodePolicyId, corrNodeTokenName)]: 1n,
   };
 
-  //TODO: Add PStakingNode struct
+  // data PStakingSetNode (s :: S)
+  // = PStakingSetNode
+  //     ( Term
+  //         s
+  //         ( PDataRecord
+  //             '[ "key" ':= PNodeKey
+  //              , "next" ':= PNodeKey
+  //              ]
+  //         )
+  //     )
   const datum = Data.to(
     {
       key: null,
@@ -55,7 +62,6 @@ export const initNode = async (
         { ...assets, lovelace: EXACT_ADA_COMMITMENT }
       )
       .mintAssets(assets, redeemerNodePolicy)
-      // .attachMintingPolicy(nodePolicy)
       .compose(
         config.refScripts?.nodePolicy
           ? lucid.newTx().readFrom([config.refScripts.nodePolicy])

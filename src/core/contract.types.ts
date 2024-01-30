@@ -148,3 +148,13 @@ export const RewardFoldActSchema = Data.Enum([
 ]);
 export type RewardFoldAct = Data.Static<typeof RewardFoldActSchema>;
 export const RewardFoldAct = RewardFoldActSchema as unknown as RewardFoldAct;
+
+export const TokenHolderMintActionSchema = Data.Enum([
+  Data.Literal("PMintHolder"),
+  Data.Literal("PBurnHolder"),
+]);
+export type TokenHolderMintAction = Data.Static<
+  typeof TokenHolderMintActionSchema
+>;
+export const TokenHolderMintAction =
+  TokenHolderMintActionSchema as unknown as TokenHolderMintAction;

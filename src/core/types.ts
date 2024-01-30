@@ -3,6 +3,7 @@ import {
   Assets,
   OutRef,
   PolicyId,
+  TxComplete,
   UTxO,
 } from "@anastasia-labs/lucid-cardano-fork";
 import { SetNode } from "./contract.types.js";
@@ -18,10 +19,6 @@ export type Result<T> =
 export type Either<L, R> =
   | { type: "left"; value: L }
   | { type: "right"; value: R };
-
-export type AppliedScripts = {
-  nodePolicy: string;
-};
 
 export type AssetClass = {
   policyId: string;
@@ -43,6 +40,9 @@ export type InitTokenHolderConfig = {
   scripts: {
     tokenHolderPolicy: CborHex;
     tokenHolderValidator: CborHex;
+  };
+  refScripts?: {
+    tokenHolderPolicy?: UTxO;
   };
 };
 
@@ -106,6 +106,9 @@ export type InitFoldConfig = {
     foldPolicy: CborHex;
     foldValidator: CborHex;
   };
+  refScripts?: {
+    foldPolicy?: UTxO 
+  }
   currenTime?: POSIXTime;
 };
 
@@ -116,6 +119,11 @@ export type MultiFoldConfig = {
     foldPolicy: CborHex;
     foldValidator: CborHex;
   };
+  refScripts?: {
+    foldValidator?: UTxO 
+  }
+  stakeCS: PolicyId;
+  stakeTN: string;
   currenTime?: POSIXTime;
 };
 
@@ -207,4 +215,21 @@ export type ReadableUTxO = {
   outRef: OutRef;
   datum: SetNode;
   assets: Assets;
+};
+
+export type AppliedScripts = {
+  stakingPolicy: CborHex;
+  stakingValidator: CborHex;
+  stakingStakeValidator: CborHex;
+  foldPolicy: CborHex;
+  foldValidator: CborHex;
+  rewardPolicy: CborHex;
+  rewardValidator: CborHex;
+  tokenHolderPolicy: CborHex;
+  tokenHolderValidator: CborHex;
+};
+
+export type Deploy = {
+  tx: TxComplete;
+  deployPolicyId: string;
 };

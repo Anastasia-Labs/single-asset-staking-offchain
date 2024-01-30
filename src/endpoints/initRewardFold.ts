@@ -8,7 +8,7 @@ import {
   Constr,
   fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { cFold, SETNODE_PREFIX } from "../core/constants.js";
+import { cFold, originNodeTokenName, rFold, RTHOLDER, SETNODE_PREFIX } from "../core/constants.js";
 import { SetNode, FoldDatum, RewardFoldDatum } from "../core/contract.types.js";
 import { InitRewardFoldConfig, Result } from "../core/types.js";
 import { fromAddress, toAddress } from "../index.js";
@@ -66,13 +66,12 @@ export const initRewardFold = async (
     type: "PlutusV2",
     script: config.scripts.nodeValidator,
   };
-  // console.log("script hash", lucid.utils.validatorToScriptHash(tokenHolderValidator))
 
   const [headNodeUTxO] = await lucid.utxosAtWithUnit(
     lucid.utils.validatorToAddress(stakingValidator),
     toUnit(
       lucid.utils.mintingPolicyToId(stakingPolicy),
-      fromText(SETNODE_PREFIX)
+      originNodeTokenName
     )
   );
 
@@ -81,9 +80,9 @@ export const initRewardFold = async (
 
   const headNodeDatum = Data.from(headNodeUTxO.datum, SetNode);
 
-  const ptHolderUnit = toUnit(tokenHolderPolicyId, fromText("PTHolder"));
+  const rtHolderUnit = toUnit(tokenHolderPolicyId, fromText(RTHOLDER));
 
-  const tokenHolderUTxO = await lucid.utxoByUnit(ptHolderUnit);
+  const tokenHolderUTxO = await lucid.utxoByUnit(rtHolderUnit);
 
   const commitFoldUnit = toUnit(commitFoldPolicyId, cFold);
   const commitFoldUTxO = (
@@ -100,10 +99,6 @@ export const initRewardFold = async (
 
   const commitFoldDatum = Data.from(commitFoldUTxO.datum, FoldDatum);
 
-  // console.log("tokenHolderUTxO assets", tokenHolderUTxO.assets);
-  // console.log("headNodeDatum", headNodeDatum);
-  // console.log("commitFoldUTxO", commitFoldUTxO)
-
   const rewardUnit = toUnit(config.rewardCS, fromText(config.rewardTN));
 
   const datum = Data.to(
@@ -116,7 +111,7 @@ export const initRewardFold = async (
     RewardFoldDatum
   );
 
-  const burnPTHolderAct = Data.to(new Constr(1, []));
+  const burnRTHolderAct = Data.to(new Constr(1, []));
   const burnCommitFoldAct = Data.to(new Constr(1, []));
   const reclaimCommitFoldAct = Data.to(new Constr(1, []));
 
@@ -130,16 +125,16 @@ export const initRewardFold = async (
         rewardFoldValidatorAddr,
         { inline: datum },
         {
-          [toUnit(rewardFoldPolicyId, fromText("RFold"))]: 1n,
+          [toUnit(rewardFoldPolicyId, rFold)]: 1n,
           [rewardUnit]: tokenHolderUTxO.assets[rewardUnit],
         }
       )
       .mintAssets(
-        { [toUnit(rewardFoldPolicyId, fromText("RFold"))]: 1n },
+        { [toUnit(rewardFoldPolicyId, rFold)]: 1n },
         Data.void()
       )
       .mintAssets({ [commitFoldUnit]: -1n }, burnCommitFoldAct)
-      .mintAssets({ [ptHolderUnit]: -1n }, burnPTHolderAct)
+      .mintAssets({ [rtHolderUnit]: -1n }, burnRTHolderAct)
       .compose(
         config.refScripts?.tokenHolderValidator
           ? lucid.newTx().readFrom([config.refScripts.tokenHolderValidator])

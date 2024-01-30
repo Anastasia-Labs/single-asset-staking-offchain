@@ -1,33 +1,12 @@
 import {
   Lucid,
   SpendingValidator,
-  MintingPolicy,
-  TxComplete,
   toUnit,
   fromText,
-  Data,
   Script,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { DeployRefScriptsConfig, Result } from "../core/types.js";
+import { Deploy, DeployRefScriptsConfig, Result } from "../core/types.js";
 
-// type RefScripts = {
-//   stakingValidator: string;
-//   stakingPolicy: string;
-//   commitFoldPolicy: string;
-//   commitFoldValidator: string;
-//   rewardFoldPolicy: string;
-//   rewardFoldValidator: string;
-//   tokenHolderPolicy: string;
-//   tokenHolderValidator: string;
-// };
-type RefScripts = Record<string, { unit: string; script: Script }>;
-
-export type Deploy = {
-  tx: TxComplete;
-  deployPolicyId: string;
-};
-
-//TODO: make this generic
 export const deployRefScripts = async (
   lucid: Lucid,
   config: DeployRefScriptsConfig
@@ -62,55 +41,13 @@ export const deployRefScripts = async (
       { type: "sig", keyHash: deployKey },
       {
         type: "before",
-        slot: lucid.utils.unixTimeToSlot(config.currenTime + 900_000), // 15 minutes
+        // 30 minutes interval to create all Reference Script UTxOs
+        slot: lucid.utils.unixTimeToSlot(config.currenTime + 30 * 60 * 1000),
       },
     ],
   });
 
   const deployPolicyId = lucid.utils.mintingPolicyToId(deployPolicy);
-
-  // const tuple = ['stakingPolicy', 'stakingValidator', 'commitFoldPolicy', 'commitFoldValidator', 'rewardFoldPolicy', 'rewardFoldValidator'] as const
-  //
-  // type MyType<T extends string[]> = {
-  //   [P in T[number]]: string
-  // }
-  //
-
-  // const refScripts: RefScripts = {
-  //   stakingPolicy: {
-  //     unit: toUnit(deployPolicyId, fromText("StakingPolicy")),
-  //     script: stakingPolicy,
-  //   },
-  //   stakingValidator: {
-  //     unit: toUnit(deployPolicyId, fromText("StakingValidator")),
-  //     script: stakingValidator,
-  //   },
-  //   commitFoldPolicy: {
-  //     unit: toUnit(deployPolicyId, fromText("CommitFoldPolicy")),
-  //     script: commitFoldPolicy,
-  //   },
-  //   commitFoldValidator: {
-  //     unit: toUnit(deployPolicyId, fromText("CommitFoldValidator")),
-  //     script: commitFoldValidator,
-  //   },
-  //
-  //   rewardFoldPolicy: {
-  //     unit: toUnit(deployPolicyId, fromText("RewardFoldPolicy")),
-  //     script: rewardFoldPolicy,
-  //   },
-  //   rewardFoldValidator: {
-  //     unit: toUnit(deployPolicyId, fromText("RewardFoldValidator")),
-  //     script: rewardFoldValidator,
-  //   },
-  //   tokenHolderPolicy: {
-  //     unit: toUnit(deployPolicyId, fromText("TokenHolderPolicy")),
-  //     script: tokenHolderPolicy,
-  //   },
-  //   tokenHolderValidator: {
-  //     unit: toUnit(deployPolicyId, fromText("TokenHolderValidator")),
-  //     script: tokenHolderValidator,
-  //   },
-  // };
 
   try {
     const tx = await lucid
@@ -124,83 +61,8 @@ export const deployRefScripts = async (
         { scriptRef: script },
         { [toUnit(deployPolicyId, fromText(config.name))]: 1n }
       )
-      .validTo(config.currenTime + 800_000)
+      .validTo(config.currenTime + 29 * 60 * 1000)
       .complete();
-    // const tx1 = await lucid
-    //   .newTx()
-    //   .attachMintingPolicy(deployPolicy)
-    //   .mintAssets({
-    //     [units.stakingPolicy]: 1n,
-    //     [units.stakingValidator]: 1n,
-    //   })
-    //   .payToAddressWithData(
-    //     alwaysFailsAddr,
-    //     { scriptRef: stakingPolicy },
-    //     { [units.stakingPolicy]: 1n }
-    //   )
-    //   .payToAddressWithData(
-    //     alwaysFailsAddr,
-    //     { scriptRef: stakingValidator },
-    //     { [units.stakingValidator]: 1n }
-    //   )
-    //   .complete();
-    //
-    // const tx2 = await lucid
-    //   .newTx()
-    //   .attachMintingPolicy(deployPolicy)
-    //   .mintAssets({
-    //     [units.commitFoldPolicy]: 1n,
-    //     [units.commitFoldValidator]: 1n,
-    //   })
-    //   .payToAddressWithData(
-    //     alwaysFailsAddr,
-    //     { scriptRef: commitFoldPolicy },
-    //     { [units.commitFoldPolicy]: 1n }
-    //   )
-    //   .payToAddressWithData(
-    //     alwaysFailsAddr,
-    //     { scriptRef: commitFoldValidator },
-    //     { [units.commitFoldValidator]: 1n }
-    //   )
-    //   .complete();
-    //
-    // const tx3 = await lucid
-    //   .newTx()
-    //   .attachMintingPolicy(deployPolicy)
-    //   .mintAssets({
-    //     [units.rewardFoldPolicy]: 1n,
-    //     [units.rewardFoldValidator]: 1n,
-    //   })
-    //   .payToAddressWithData(
-    //     alwaysFailsAddr,
-    //     { scriptRef: rewardFoldPolicy },
-    //     { [units.rewardFoldPolicy]: 1n }
-    //   )
-    //   .payToAddressWithData(
-    //     alwaysFailsAddr,
-    //     { scriptRef: rewardFoldValidator },
-    //     { [units.rewardFoldValidator]: 1n }
-    //   )
-    //   .complete();
-    //
-    // const tx4 = await lucid
-    //   .newTx()
-    //   .attachMintingPolicy(deployPolicy)
-    //   .mintAssets({
-    //     [units.tokenHolderPolicy]: 1n,
-    //     [units.tokenHolderValidator]: 1n,
-    //   })
-    //   .payToAddressWithData(
-    //     alwaysFailsAddr,
-    //     { scriptRef: tokenHolderPolicy },
-    //     { [units.tokenHolderPolicy]: 1n }
-    //   )
-    //   .payToAddressWithData(
-    //     alwaysFailsAddr,
-    //     { scriptRef: tokenHolderValidator },
-    //     { [units.tokenHolderValidator]: 1n }
-    //   )
-    //   .complete();
 
     return {
       type: "ok",

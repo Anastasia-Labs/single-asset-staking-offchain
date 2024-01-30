@@ -1,6 +1,6 @@
 import { Data, Lucid, SpendingValidator, UTxO } from "@anastasia-labs/lucid-cardano-fork";
 import { SetNode } from "../contract.types.js";
-import { Either, ReadableUTxO } from "../types.js";
+import { Either, ReadableUTxO, Result } from "../types.js";
 
 export const utxosAtScript = async (
   lucid: Lucid,
@@ -130,6 +130,37 @@ export const sortByOutRefWithIndex = (utxos: ReadableUTxO[]) => {
 
   return sortByDatumKeys(sortedByOutRef, head.datum.next)
 };
+
+export const findCoveringNode = (nodeUTxOs : UTxO[], userKey: string): Result<UTxO> => {
+  const coveringNode = nodeUTxOs.find((value) => {
+    if (value.datum) {
+      const datum = Data.from(value.datum, SetNode);
+      return (
+        (datum.key == null || datum.key < userKey) &&
+        (datum.next == null || userKey < datum.next)
+      );
+    }
+  });
+
+  if (!coveringNode || !coveringNode.datum)
+    return { type: "error", error: new Error("missing coveringNode") };
+  else
+    return { type: "ok", data: coveringNode }
+}
+
+export const findOwnNode = (nodeUTxOs : UTxO[], userKey: string): Result<UTxO> => {
+  const node = nodeUTxOs.find((value) => {
+    if (value.datum) {
+      const datum = Data.from(value.datum, SetNode);
+      return datum.key !== null && datum.key == userKey;
+    }
+  });
+
+  if (!node || !node.datum)
+    return { type: "error", error: new Error("missing node") };
+  else
+    return { type: "ok", data: node }
+}
 
 export const chunkArray = <T>(array: T[], chunkSize: number) => {
   const numberOfChunks = Math.ceil(array.length / chunkSize);
