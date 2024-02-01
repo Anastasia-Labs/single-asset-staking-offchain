@@ -11,9 +11,9 @@ export const originNodeTokenName = fromText(SETNODE_PREFIX);
 export const cFold = fromText(CFOLD);
 export const rFold = fromText(RFOLD);
 
-export const NODE_ADA = 3_000_000n
-export const FOLDING_FEE_ADA = 1_000_000n
-export const EXACT_ADA_COMMITMENT = NODE_ADA + FOLDING_FEE_ADA
+export const FOLDING_FEE_ADA = 1_000_000n;
+export const MIN_ADA = 2_000_000n;
+export const NODE_ADA = 3_000_000n;
 
 export const TIME_TOLERANCE_MS = process.env.NODE_ENV == "emulator" ? 0 : 100_000
 

@@ -16,7 +16,7 @@ export const initFold = async (
   lucid: Lucid,
   config: InitFoldConfig
 ): Promise<Result<TxComplete>> => {
-  config.currenTime ??= Date.now();
+  config.currentTime ??= Date.now();
 
   const foldValidator: SpendingValidator = {
     type: "PlutusV2",
@@ -70,8 +70,8 @@ export const initFold = async (
     [toUnit(foldPolicyId, cFold)]: 1n,
   };
 
-  const upperBound = config.currenTime + TIME_TOLERANCE_MS;
-  const lowerBound = config.currenTime - TIME_TOLERANCE_MS;
+  const upperBound = config.currentTime + TIME_TOLERANCE_MS;
+  const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
   try {
     const tx = await lucid

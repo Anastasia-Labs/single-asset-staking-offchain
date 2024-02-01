@@ -42,7 +42,7 @@ export const deployRefScripts = async (
       {
         type: "before",
         // 30 minutes interval to create all Reference Script UTxOs
-        slot: lucid.utils.unixTimeToSlot(config.currenTime + 30 * 60 * 1000),
+        slot: lucid.utils.unixTimeToSlot(config.currentTime + 30 * 60 * 1000),
       },
     ],
   });
@@ -61,7 +61,7 @@ export const deployRefScripts = async (
         { scriptRef: script },
         { [toUnit(deployPolicyId, fromText(config.name))]: 1n }
       )
-      .validTo(config.currenTime + 29 * 60 * 1000)
+      .validTo(config.currentTime + 29 * 60 * 1000)
       .complete();
 
     return {

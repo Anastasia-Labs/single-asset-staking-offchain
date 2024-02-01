@@ -73,6 +73,11 @@ export const StakingNodeActionSchema = Data.Enum([
       coveringNode: SetNodeSchema,
     }),
   }),
+  Data.Object({
+    PClaim: Data.Object({
+      keyToRemove: PubKeyHashSchema
+    }),
+  }),
 ]);
 export type StakingNodeAction = Data.Static<typeof StakingNodeActionSchema>;
 export const StakingNodeAction =

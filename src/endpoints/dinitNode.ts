@@ -7,7 +7,7 @@ import {
   TxComplete,
 } from "@anastasia-labs/lucid-cardano-fork";
 import { originNodeTokenName } from "../core/constants.js";
-import { StakingNodeAction, SetNode } from "../core/contract.types.js";
+import { StakingNodeAction } from "../core/contract.types.js";
 import { InitNodeConfig, Result } from "../core/types.js";
 
 export const dinitNode = async (

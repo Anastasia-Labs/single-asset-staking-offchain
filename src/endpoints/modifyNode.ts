@@ -11,13 +11,13 @@ import {
 } from "@anastasia-labs/lucid-cardano-fork";
 import { StakingNodeAction, NodeValidatorAction, SetNode } from "../core/contract.types.js";
 import { InsertNodeConfig, Result } from "../core/types.js";
-import { findOwnNode, mkNodeKeyTN } from "../index.js";
+import { MIN_ADA, TIME_TOLERANCE_MS, findOwnNode, mkNodeKeyTN } from "../index.js";
 
 export const modifyNode = async (
   lucid: Lucid,
   config: InsertNodeConfig
 ): Promise<Result<TxComplete>> => {
-  config.currenTime ??= Date.now();
+  config.currentTime ??= Date.now();
 
   const walletUtxos = await lucid.wallet.getUtxos();
 
@@ -33,6 +33,9 @@ export const modifyNode = async (
 
   if(config.toStake < config.minimumStake)
     return { type: "error", error: new Error("toStake cannot be less than minimumStake") };
+
+  if(config.currentTime > config.freezeStake)
+    return { type: "error", error: new Error("Stake has been frozen") }
 
   const nodeValidator: SpendingValidator = {
     type: "PlutusV2",
@@ -60,6 +63,9 @@ export const modifyNode = async (
   if(differenceAmount == 0n)
     return { type: "error", error: new Error("New stake is equal to old stake")}
 
+  const upperBound = (config.currentTime + TIME_TOLERANCE_MS);
+  const lowerBound = (config.currentTime - TIME_TOLERANCE_MS);
+
   try {
     const tx = await lucid
       .newTx()
@@ -74,12 +80,15 @@ export const modifyNode = async (
         { inline: ownNode.data.datum },
         { ...ownNode.data.assets, [stakeToken]: newStake } // Only updating the stakeToken to new stake
       )
-      // Balancing stake token if stake is reduced
-      .compose(
-        differenceAmount > 0n
-          ? lucid.newTx().payToAddress(userAddress, {[stakeToken] : differenceAmount})
-          : null
-      )
+      // // Balancing stake token if stake is reduced
+      // .compose(
+      //   differenceAmount > 0n
+      //     ? lucid.newTx().payToAddress(userAddress, {[stakeToken] : differenceAmount})
+      //     : null
+      // )
+      .addSignerKey(userKey)
+      .validFrom(lowerBound)
+      .validTo(upperBound)
       .complete();
 
     return { type: "ok", data: tx };

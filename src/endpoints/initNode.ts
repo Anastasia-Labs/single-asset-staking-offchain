@@ -5,8 +5,9 @@ import {
   Data,
   toUnit,
   TxComplete,
+  fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { EXACT_ADA_COMMITMENT, originNodeTokenName } from "../core/constants.js";
+import { NODE_ADA, originNodeTokenName } from "../core/constants.js";
 import { StakingNodeAction, SetNode } from "../core/contract.types.js";
 import { InitNodeConfig, Result } from "../core/types.js";
 
@@ -51,6 +52,7 @@ export const initNode = async (
   );
 
   const redeemerNodePolicy = Data.to("PInit", StakingNodeAction);
+  const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
 
   try {
     const tx = await lucid
@@ -59,7 +61,11 @@ export const initNode = async (
       .payToContract(
         nodeValidatorAddr,
         { inline: datum },
-        { ...assets, lovelace: EXACT_ADA_COMMITMENT }
+        { 
+          ...assets, 
+          lovelace: NODE_ADA,  
+          [stakeToken]: BigInt(config.minimumStake) // Evey node must have minimum stake commitment
+        }
       )
       .mintAssets(assets, redeemerNodePolicy)
       .compose(

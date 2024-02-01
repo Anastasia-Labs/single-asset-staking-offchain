@@ -96,10 +96,12 @@ export const buildScripts = (
   //         )
   //     )
   const foldValidator = applyParamsToScript(config.unapplied.foldValidator, [
-    lucid.utils.mintingPolicyToId(stakingMintPolicy),
-    config.stakingPolicy.stakeCS,
-    fromText(config.stakingPolicy.stakeTN),
-    BigInt(config.stakingPolicy.endStaking),
+    new Constr(0, [
+      lucid.utils.mintingPolicyToId(stakingMintPolicy),
+      config.stakingPolicy.stakeCS,
+      fromText(config.stakingPolicy.stakeTN),
+      BigInt(config.stakingPolicy.endStaking),
+    ])
   ]);
   
   const foldSpendingValidator: SpendingValidator = {

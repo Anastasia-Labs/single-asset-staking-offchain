@@ -49,7 +49,7 @@ export const reclaimReward = async (
   
   if(!userPubKeyHash)
     return { type: "error", error: new Error("User PubKeyHash not found")}
-
+  
   if("PublicKeyCredential" in oldRewardFoldDatum.owner.paymentCredential && 
       userPubKeyHash !== oldRewardFoldDatum.owner.paymentCredential.PublicKeyCredential[0])
     return { type: "error", error: new Error("User not authorized to reclaim reward") }  
@@ -58,7 +58,7 @@ export const reclaimReward = async (
     const tx = await lucid
       .newTx()
       .collectFrom([rewardUTxO], Data.to("RewardsReclaim", RewardFoldAct))
-      .addSigner(userPubKeyHash)
+      .addSigner(userAddr)
       .compose(
         config.refScripts?.rewardFoldValidator
           ? lucid.newTx().readFrom([config.refScripts.rewardFoldValidator])

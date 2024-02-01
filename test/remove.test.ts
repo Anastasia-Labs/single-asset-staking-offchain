@@ -1,21 +1,13 @@
 import {
   buildScripts,
-  deployRefScripts,
-  DeployRefScriptsConfig,
-  Emulator,
-  generateAccountSeedPhrase,
   initNode,
   InitNodeConfig,
-  insertNode,
-  InsertNodeConfig,
-  Lucid,
   ONE_HOUR_MS,
   parseUTxOsAtScript,
-  PROTOCOL_PAYMENT_KEY,
-  PROTOCOL_STAKE_KEY,
   removeNode,
   RemoveNodeConfig,
   replacer,
+  SetNode,
   TWENTY_FOUR_HOURS_MS,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
@@ -27,46 +19,10 @@ import rewardPolicy from "./compiled/rewardFoldMint.json";
 import rewardValidator from "./compiled/rewardFoldValidator.json";
 import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json"
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json"
-import alwaysFailValidator from "./compiled/alwaysFails.json";
 import stakingStakeValidator from "./compiled/stakingStakeValidator.json";
-import { deploy, getRefUTxOs, insertThreeNodes } from "./setup.js";
+import { deploy, getRefUTxOs, initializeLucidContext, insertThreeNodes, LucidContext } from "./setup.js";
 
-type LucidContext = {
-  lucid: Lucid;
-  users: any;
-  emulator: Emulator;
-};
-
-// INITIALIZE EMULATOR + ACCOUNTS
-beforeEach<LucidContext>(async (context) => {
-  context.users = {
-    treasury1: await generateAccountSeedPhrase({
-      lovelace: BigInt(100_000_000),
-    }),
-    reward1: await generateAccountSeedPhrase({
-      lovelace: BigInt(100_000_000),
-    }),
-    account1: await generateAccountSeedPhrase({
-      lovelace: BigInt(100_000_000),
-    }),
-    account2: await generateAccountSeedPhrase({
-      lovelace: BigInt(100_000_000),
-    }),
-    account3: await generateAccountSeedPhrase({
-      lovelace: BigInt(500_000_000),
-    }),
-  };
-
-  context.emulator = new Emulator([
-    context.users.treasury1,
-    context.users.reward1,
-    context.users.account1,
-    context.users.account2,
-    context.users.account3,
-  ]);
-
-  context.lucid = await Lucid.new(context.emulator);
-});
+beforeEach<LucidContext>(initializeLucidContext);
 
 test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode - account3 insertNode - account2 removeNode", async ({
   lucid,
@@ -74,24 +30,29 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   emulator,
 }) => {
   const logFlag = false;
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const treasuryAddress = await lucid.wallet.address();
-  const [treasuryUTxO] = await lucid.wallet.getUtxos();
-  const freezeStake = emulator.now() + TWENTY_FOUR_HOURS_MS + ONE_HOUR_MS; // 24 hours + 1 hour
-  const [reward1UTxO] = await lucid
-    .selectWalletFromSeed(users.reward1.seedPhrase)
+
+  const [treasuryUTxO] = await lucid
+    .selectWalletFrom({ address: users.treasury1.address })
     .wallet.getUtxos();
+  const [reward1UTxO] = await lucid
+    .selectWalletFrom({ address: users.reward1.address })
+    .wallet.getUtxos();
+
+  const currentTime = emulator.now();
 
   const newScripts = buildScripts(lucid, {
     stakingPolicy: {
       initUTXO: treasuryUTxO,
-      freezeStake: freezeStake,
-      penaltyAddress: treasuryAddress,
+      freezeStake: currentTime + ONE_HOUR_MS,
+      endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
+      penaltyAddress: users.treasury1.address,    
+      stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+      stakeTN: "MIN",
+      minimumStake : 1_000,
     },
     rewardValidator: {
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-      rewardTN: "test",
-      rewardAddr: treasuryAddress,
+      rewardTN: "MIN",
     },
     rewardTokenHolder: {
       initUTXO: reward1UTxO,
@@ -114,20 +75,23 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
 
   // DEPLOY
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
+
   const deployTime = emulator.now();
+  const deployRefScripts = await deploy(lucid, emulator, newScripts.data, deployTime);
   
-  // Total blocks elapsed in step - 36
-  const deployRefScripts = await deploy(lucid, emulator, newScripts.data, emulator.now());
-  
+  expect(deployRefScripts.type).toBe("ok");
+  if (deployRefScripts.type == "error") return;
   // Find node refs script
-  const deployPolicyId =
-  deployRefScripts.type == "ok" ? deployRefScripts.data.deployPolicyId : "";
+  const deployPolicyId = deployRefScripts.data.deployPolicyId;
 
   const refUTxOs = await getRefUTxOs(lucid, deployPolicyId);
 
   // INIT NODE
   const initNodeConfig: InitNodeConfig = {
     initUTXO: treasuryUTxO,
+    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    stakeTN: "MIN",
+    minimumStake: 1000,
     scripts: {
       nodePolicy: newScripts.data.stakingPolicy,
       nodeValidator: newScripts.data.stakingValidator,
@@ -151,7 +115,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "initNode result ",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator),
+          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
           replacer,
           2
         )
@@ -160,39 +124,28 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
 
   // INSERT NODES, ACCOUNT 1 -> ACCOUNT 2 -> ACCOUNT 3
   // Total blocks elapsed in step - 12
-  await insertThreeNodes(lucid, emulator, users, newScripts.data, refUTxOs, logFlag);
+  const freezeStake = currentTime + ONE_HOUR_MS;
+  await insertThreeNodes(lucid, emulator, users, newScripts.data, refUTxOs, freezeStake, logFlag);
 
-  //1 block = 20 secs
-  //1 hour = 180 blocks
-  //24 hours = 4320 blocks
+  // 1 block = 20 secs
+  // 1 hour = 180 blocks
+  // 24 hours = 4320 blocks
   
   // Total blocks eplased till now = 36 + 12 = 48
 
-  // before 24 hours - up to 148 blocks
+  // before freezeStake or within 1 hour - up to 148 blocks
   // emulator.awaitBlock(100); // Remove without penalty
 
-  // within 24 hours of freezeStake
+  // after freezeStake and before endStaking
   // emulator.awaitBlock(200); // Remove with penalty
 
-  // after freezeStake 24 hours + 1 hour = 4500 - 48 blocks from previous = 4452
-  // 4445 is before freezeStake
-  // emulator.awaitBlock(4445); // Remove with penalty
+  // after endStaking
+  // emulator.awaitBlock(5000); // Claim stake & reward
 
-  // within 24 hours of freezeStake
-  emulator.awaitBlock(200); // Remove with penalty
+  // before freezeStake
+  emulator.awaitBlock(100); // Remove without penalty
 
-  logFlag
-    ? console.log(
-        "insertNode result",
-        JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator),
-          replacer,
-          2
-        )
-      )
-    : null;
-
-  // REMOVE NODE
+  // REMOVE NODE 1
   const removeNodeConfig: RemoveNodeConfig = {
     scripts: {
       nodePolicy: newScripts.data.stakingPolicy,
@@ -202,17 +155,21 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       nodeValidator: refUTxOs.nodeValidatorUTxO,
       nodePolicy: refUTxOs.nodePolicyUTxO,
     },
-    currenTime: emulator.now(),
-    freezeStake: freezeStake,
-    penaltyAddress: treasuryAddress,
+    currentTime: emulator.now(),
+    freezeStake: currentTime + ONE_HOUR_MS,
+    endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
+    penaltyAddress: users.treasury1.address,
+    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    stakeTN: "MIN",
   };
 
-  lucid.selectWalletFromSeed(users.account2.seedPhrase);
+  lucid.selectWalletFromSeed(users.account1.seedPhrase);
   const removeNodeUnsigned = await removeNode(lucid, removeNodeConfig);
+  // console.log(removeNodeUnsigned);
 
   expect(removeNodeUnsigned.type).toBe("ok");
   if (removeNodeUnsigned.type == "error") return;
-  // console.log(removeNodeUnsigned.data.txComplete.to_json())
+  
   const removeNodeSigned = await removeNodeUnsigned.data.sign().complete();
   const removeNodeHash = await removeNodeSigned.submit();
 
@@ -220,9 +177,57 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
 
   logFlag
     ? console.log(
-        "removeNode result",
+        "removeNode 1 result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator),
+          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
+          replacer,
+          2
+        )
+      )
+    : null;
+  logFlag
+    ? console.log(
+    "account1 address with stake",
+    await lucid.utxosAt(users.account1.address)
+  ): null;
+
+  // after freezeStake before endStaking
+  emulator.awaitBlock(100); // Remove with penalty
+
+  // REMOVE NODE 2
+  const removeNodeConfig2: RemoveNodeConfig = {
+    scripts: {
+      nodePolicy: newScripts.data.stakingPolicy,
+      nodeValidator: newScripts.data.stakingValidator,
+    },
+    refScripts: {
+      nodeValidator: refUTxOs.nodeValidatorUTxO,
+      nodePolicy: refUTxOs.nodePolicyUTxO,
+    },
+    currentTime: emulator.now(),
+    freezeStake: currentTime + ONE_HOUR_MS,
+    endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
+    penaltyAddress: users.treasury1.address,
+    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    stakeTN: "MIN",
+  };
+
+  lucid.selectWalletFromSeed(users.account2.seedPhrase);
+  const removeNodeUnsigned2 = await removeNode(lucid, removeNodeConfig2);
+
+  expect(removeNodeUnsigned2.type).toBe("ok");
+  if (removeNodeUnsigned2.type == "error") return;
+  // console.log(removeNodeUnsigned.data.txComplete.to_json())
+  const removeNodeSigned2 = await removeNodeUnsigned2.data.sign().complete();
+  const removeNodeHash2 = await removeNodeSigned2.submit();
+
+  emulator.awaitBlock(4);
+
+  logFlag
+    ? console.log(
+        "removeNode 2 result",
+        JSON.stringify(
+          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
           replacer,
           2
         )
@@ -234,8 +239,8 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     await lucid.utxosAt(users.treasury1.address)
   ): null;
 
-  // FAIL REMOVE NODE
-  const removeNodeConfig2: RemoveNodeConfig = {
+  // FAIL REMOVE NODE 2
+  const removeNodeConfig3: RemoveNodeConfig = {
     scripts: {
       nodePolicy: newScripts.data.stakingPolicy,
       nodeValidator: newScripts.data.stakingValidator,
@@ -244,20 +249,22 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       nodeValidator: refUTxOs.nodeValidatorUTxO,
       nodePolicy: refUTxOs.nodePolicyUTxO,
     },
-    freezeStake: freezeStake,
-    penaltyAddress: treasuryAddress,
+    currentTime: emulator.now(),
+    freezeStake: currentTime + ONE_HOUR_MS,
+    endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
+    penaltyAddress: users.treasury1.address,
+    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    stakeTN: "MIN",
   };
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const removeNodeUnsigned2 = await removeNode(lucid, removeNodeConfig2);
+  const removeNodeUnsigned3 = await removeNode(lucid, removeNodeConfig3);
 
-  expect(removeNodeUnsigned2.type).toBe("error");
+  expect(removeNodeUnsigned3.type).toBe("error");
 
-  if (removeNodeUnsigned2.type == "ok") {
-    // console.log(insertNodeUnsigned.data.txComplete.to_json())
-    lucid.selectWalletFromSeed(users.account2.seedPhrase);
-    const removeNodeSigned2 = await removeNodeUnsigned2.data.sign().complete();
-    const removeNodeHash = await removeNodeSigned2.submit();
+  if (removeNodeUnsigned3.type == "ok") {
+    const removeNodeSigned3 = await removeNodeUnsigned3.data.sign().complete();
+    const removeNodeHash3 = await removeNodeSigned3.submit();
   }
 
   emulator.awaitBlock(4);
@@ -266,7 +273,48 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "failed removeNode result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator),
+          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
+          replacer,
+          2
+        )
+      )
+    : null;
+
+  // after endStaking
+  emulator.awaitBlock(5000); //
+
+  // FAIL REMOVE NODE 3
+  const removeNodeConfig4: RemoveNodeConfig = {
+    scripts: {
+      nodePolicy: newScripts.data.stakingPolicy,
+      nodeValidator: newScripts.data.stakingValidator,
+    },
+    refScripts: {
+      nodeValidator: refUTxOs.nodeValidatorUTxO,
+      nodePolicy: refUTxOs.nodePolicyUTxO,
+    },
+    currentTime: emulator.now(),
+    freezeStake: currentTime + ONE_HOUR_MS,
+    endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
+    penaltyAddress: users.treasury1.address,
+    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    stakeTN: "MIN",
+  };
+
+  lucid.selectWalletFromSeed(users.account3.seedPhrase);
+  const removeNodeUnsigned4 = await removeNode(lucid, removeNodeConfig4);
+  
+  // console.log(removeNodeUnsigned4);
+  expect(removeNodeUnsigned4.type).toBe("error");
+  if (removeNodeUnsigned4.type == "ok") return;
+
+  emulator.awaitBlock(4);
+
+  logFlag
+    ? console.log(
+        "removeNode 3 result",
+        JSON.stringify(
+          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
           replacer,
           2
         )

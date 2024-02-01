@@ -16,7 +16,7 @@ import {
 } from "../core/contract.types.js";
 import { Result, RewardFoldConfig } from "../core/types.js";
 import {
-  NODE_ADA,
+  MIN_ADA,
   rFold,
 } from "../index.js";
 
@@ -93,9 +93,9 @@ export const rewardFold = async (
     oldRewardFoldDatum.totalStaked;
 
   const nodeOutputAssets = {...nodeInput.assets};
-  nodeOutputAssets["lovelace"] = NODE_ADA; // EXACT_ADA_COMMITMENT - FOLDING_FEE
+  nodeOutputAssets["lovelace"] = MIN_ADA; // NODE_ADA - FOLDING_FEE
   
-  // nodeOutputAssets[rewardToken] maynot be undefined in case stake and reward tokens are one and the same
+  // nodeOutputAssets[rewardToken] may not be undefined in case stake and reward tokens are one and the same
   nodeOutputAssets[rewardToken] = (nodeOutputAssets[rewardToken] || 0n) + owedRewardTokenAmount;
 
   const remainingRewardTokenAmount = rewardUTxO.assets[rewardToken] - owedRewardTokenAmount;

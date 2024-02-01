@@ -29,7 +29,7 @@ export type DeployRefScriptsConfig = {
   script: CborHex;
   name: string;
   alwaysFails: CborHex;
-  currenTime: POSIXTime;
+  currentTime: POSIXTime;
 };
 
 export type InitTokenHolderConfig = {
@@ -48,6 +48,9 @@ export type InitTokenHolderConfig = {
 
 export type InitNodeConfig = {
   initUTXO: UTxO;
+  stakeCS: PolicyId;
+  stakeTN: string;
+  minimumStake : number;
   scripts: {
     nodePolicy: CborHex;
     nodeValidator: CborHex;
@@ -78,7 +81,8 @@ export type InsertNodeConfig = {
   stakeTN: string;
   minimumStake : number;
   toStake: number;
-  currenTime?: POSIXTime;
+  freezeStake: POSIXTime;
+  currentTime?: POSIXTime;
 };
 
 export type RemoveNodeConfig = {
@@ -96,7 +100,7 @@ export type RemoveNodeConfig = {
   stakeCS: PolicyId;
   stakeTN: string;
   penaltyAddress: Address;
-  currenTime?: POSIXTime;
+  currentTime?: POSIXTime;
 };
 
 export type InitFoldConfig = {
@@ -109,7 +113,7 @@ export type InitFoldConfig = {
   refScripts?: {
     foldPolicy?: UTxO 
   }
-  currenTime?: POSIXTime;
+  currentTime?: POSIXTime;
 };
 
 export type MultiFoldConfig = {
@@ -124,7 +128,7 @@ export type MultiFoldConfig = {
   }
   stakeCS: PolicyId;
   stakeTN: string;
-  currenTime?: POSIXTime;
+  currentTime?: POSIXTime;
 };
 
 export type FoldNodeConfig = {
@@ -211,9 +215,9 @@ export type BuildScriptsConfig = {
   };
 };
 
-export type ReadableUTxO = {
+export type ReadableUTxO<T> = {
   outRef: OutRef;
-  datum: SetNode;
+  datum: T;
   assets: Assets;
 };
 

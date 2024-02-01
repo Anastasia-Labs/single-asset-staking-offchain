@@ -7,16 +7,18 @@ import {
   fromText,
   toUnit,
   UTxO,
+  Constr,
 } from "@anastasia-labs/lucid-cardano-fork";
 import { FoldAct, FoldDatum, SetNode } from "../core/contract.types.js";
 import { MultiFoldConfig, Result } from "../core/types.js";
 import { CFOLD, TIME_TOLERANCE_MS } from "../index.js";
+import { log } from "console";
 
 export const multiFold = async (
   lucid: Lucid,
   config: MultiFoldConfig
 ): Promise<Result<TxComplete>> => {
-  config.currenTime ??= Date.now();
+  config.currentTime ??= Date.now();
 
   const walletUtxos = await lucid.wallet.getUtxos();
 
@@ -80,8 +82,8 @@ export const multiFold = async (
     FoldAct
   );
 
-  const upperBound = config.currenTime + TIME_TOLERANCE_MS;
-  const lowerBound = config.currenTime - TIME_TOLERANCE_MS;
+  const upperBound = config.currentTime + TIME_TOLERANCE_MS;
+  const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
   try {
     const tx = await lucid

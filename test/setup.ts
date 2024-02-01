@@ -21,7 +21,9 @@ import {
   Result,
   UTxO,
   InsertNodeConfig,
-  insertNode
+  insertNode,
+  SetNode,
+  POSIXTime
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import stakingValidator from "./compiled/stakingValidator.json";
@@ -35,6 +37,63 @@ import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json"
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json"
 import alwaysFailValidator from "./compiled/alwaysFails.json";
 
+export type LucidContext = {
+  lucid: Lucid;
+  users: any;
+  emulator: Emulator;
+};
+
+// INITIALIZE EMULATOR + ACCOUNTS
+export async function initializeLucidContext(context: LucidContext) {
+  context.users = {
+    treasury1: await generateAccountSeedPhrase({
+      lovelace: BigInt(500_000_000),
+      [toUnit(
+        "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+        fromText("MIN")
+      )]: BigInt(10_000_000),
+    }),
+    reward1: await generateAccountSeedPhrase({
+      lovelace: BigInt(500_000_000),
+      [toUnit(
+        "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+        fromText("MIN")
+      )]: BigInt(100_000_000),
+    }),
+    account1: await generateAccountSeedPhrase({
+      lovelace: BigInt(500_000_000),
+      [toUnit(
+        "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+        fromText("MIN")
+      )]: BigInt(10_000_000),
+    }),
+    account2: await generateAccountSeedPhrase({
+      lovelace: BigInt(500_000_000),
+      [toUnit(
+        "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+        fromText("MIN")
+      )]: BigInt(10_000_000),
+    }),
+    account3: await generateAccountSeedPhrase({
+      lovelace: BigInt(500_000_000),
+      [toUnit(
+        "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+        fromText("MIN")
+      )]: BigInt(10_000_000),
+    })
+  };
+
+  context.emulator = new Emulator([
+    context.users.treasury1,
+    context.users.reward1,
+    context.users.account1,
+    context.users.account2,
+    context.users.account3,
+  ]);
+
+  context.lucid = await Lucid.new(context.emulator);
+}
+
 export async function deploy(
   lucid: Lucid, 
   emulator: Emulator, 
@@ -45,7 +104,7 @@ export async function deploy(
     script: scripts.stakingPolicy,
     name: "StakingPolicy",
     alwaysFails: alwaysFailValidator.cborHex,
-    currenTime: deployTime
+    currentTime: deployTime
   });
 
   expect(deploy1.type).toBe("ok");
@@ -58,7 +117,7 @@ export async function deploy(
     script: scripts.stakingValidator,
     name: "StakingValidator",
     alwaysFails: alwaysFailValidator.cborHex,
-    currenTime: deployTime
+    currentTime: deployTime
   });
 
   expect(deploy2.type).toBe("ok");
@@ -71,7 +130,7 @@ export async function deploy(
     script: scripts.stakingStakeValidator,
     name: "StakingStakeValidator",
     alwaysFails: alwaysFailValidator.cborHex,
-    currenTime: deployTime
+    currentTime: deployTime
   });
 
   expect(deployStake.type).toBe("ok");
@@ -84,7 +143,7 @@ export async function deploy(
     script: scripts.foldPolicy,
     name: "FoldPolicy",
     alwaysFails: alwaysFailValidator.cborHex,
-    currenTime: deployTime
+    currentTime: deployTime
   });
 
   expect(deploy3.type).toBe("ok");
@@ -97,7 +156,7 @@ export async function deploy(
     script: scripts.foldValidator,
     name: "FoldValidator",
     alwaysFails: alwaysFailValidator.cborHex,
-    currenTime: deployTime
+    currentTime: deployTime
   });
 
   expect(deploy4.type).toBe("ok");
@@ -110,7 +169,7 @@ export async function deploy(
     script: scripts.rewardPolicy,
     name: "RewardFoldPolicy",
     alwaysFails: alwaysFailValidator.cborHex,
-    currenTime: deployTime
+    currentTime: deployTime
   });
 
   expect(deploy5.type).toBe("ok");
@@ -123,7 +182,7 @@ export async function deploy(
     script: scripts.rewardValidator,
     name: "RewardFoldValidator",
     alwaysFails: alwaysFailValidator.cborHex,
-    currenTime: deployTime
+    currentTime: deployTime
   });
 
   if(deploy6.type == "error"){
@@ -139,7 +198,7 @@ export async function deploy(
     script: scripts.tokenHolderPolicy,
     name: "TokenHolderPolicy",
     alwaysFails: alwaysFailValidator.cborHex,
-    currenTime: deployTime
+    currentTime: deployTime
   });
 
   expect(deploy7.type).toBe("ok");
@@ -152,7 +211,7 @@ export async function deploy(
     script: scripts.tokenHolderValidator,
     name: "TokenHolderValidator",
     alwaysFails: alwaysFailValidator.cborHex,
-    currenTime: deployTime
+    currentTime: deployTime
   });
 
   expect(deploy8.type).toBe("ok");
@@ -280,6 +339,7 @@ export async function insertThreeNodes(
   tokenHolderPolicyUTxO: UTxO,
   tokenHolderValidatorUTxO: UTxO, 
   },
+  freezeStake: POSIXTime,
   logFlag: Boolean
 ): Promise<void> {
   // INSERT NODE ACCOUNT 1
@@ -293,8 +353,12 @@ export async function insertThreeNodes(
       nodeValidator: refUTxOs.nodeValidatorUTxO,
       nodePolicy: refUTxOs.nodePolicyUTxO,
     },
-    amountLovelace: 4_000_000,
-    currenTime: emulator.now(),
+    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    stakeTN: "MIN",
+    minimumStake: 1_000,
+    toStake: 4_000,
+    freezeStake: freezeStake,
+    currentTime: emulator.now(),
   };
 
   lucid.selectWalletFromSeed(users.account1.seedPhrase);
@@ -314,16 +378,9 @@ export async function insertThreeNodes(
   // INSERT NODE ACCOUNT 2
 
   const insertNodeConfig2: InsertNodeConfig = {
-    scripts: {
-      nodePolicy: scripts.stakingPolicy,
-      nodeValidator: scripts.stakingValidator,
-    },
-    refScripts: {
-      nodeValidator: refUTxOs.nodeValidatorUTxO,
-      nodePolicy: refUTxOs.nodePolicyUTxO,
-    },
-    amountLovelace: 5_000_000,
-    currenTime: emulator.now(),
+    ...insertNodeConfig,
+    toStake: 5_000,
+    currentTime: emulator.now(),
   };
 
   lucid.selectWalletFromSeed(users.account2.seedPhrase);
@@ -340,16 +397,9 @@ export async function insertThreeNodes(
   // INSERT NODE ACCOUNT 3
 
   const insertNodeConfig3: InsertNodeConfig = {
-    scripts: {
-      nodePolicy: scripts.stakingPolicy,
-      nodeValidator: scripts.stakingValidator,
-    },
-    refScripts: {
-      nodeValidator: refUTxOs.nodeValidatorUTxO,
-      nodePolicy: refUTxOs.nodePolicyUTxO,
-    },
-    amountLovelace: 5_000_000,
-    currenTime: emulator.now(),
+    ...insertNodeConfig,
+    toStake: 5_000,
+    currentTime: emulator.now(),
   };
 
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
@@ -368,7 +418,7 @@ export async function insertThreeNodes(
     ? console.log(
         "insertNode result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, scripts.stakingValidator),
+          await parseUTxOsAtScript(lucid, scripts.stakingValidator, SetNode),
           replacer,
           2
         )

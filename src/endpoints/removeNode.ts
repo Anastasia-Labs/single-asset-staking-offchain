@@ -13,13 +13,13 @@ import {
   SetNode,
 } from "../core/contract.types.js";
 import { RemoveNodeConfig, Result } from "../core/types.js";
-import { divCeil, EXACT_ADA_COMMITMENT, mkNodeKeyTN, NODE_ADA, TIME_TOLERANCE_MS, TWENTY_FOUR_HOURS_MS } from "../index.js";
+import { divCeil, NODE_ADA, mkNodeKeyTN, TIME_TOLERANCE_MS } from "../index.js";
 
 export const removeNode = async (
   lucid: Lucid,
   config: RemoveNodeConfig
 ): Promise<Result<TxComplete>> => {
-  config.currenTime ??= Date.now();
+  config.currentTime ??= Date.now();
 
   const walletUtxos = await lucid.wallet.getUtxos();
 
@@ -60,8 +60,9 @@ export const removeNode = async (
   if (!node || !node.datum)
     return { type: "error", error: new Error("missing node") };
 
-  if (config.currenTime > config.endStaking 
-      && node.assets["lovelace"] == EXACT_ADA_COMMITMENT)
+  // After rewards fold is completed for a node, its lovelace value is MIN_ADA (NODE_ADA - FOLDING_FEE)
+  if (config.currentTime > config.endStaking 
+      && node.assets["lovelace"] == NODE_ADA)
     return { type: "error", error: new Error("Cannot remove node as rewards are not processed yet")}
 
   const nodeDatum = Data.from(node.datum, SetNode);
@@ -89,7 +90,7 @@ export const removeNode = async (
 
   const newPrevNodeDatum = Data.to(newPrevNode, SetNode);
 
-  const redeemerNodePolicy = Data.to(
+  let redeemerNodePolicy = Data.to(
     {
       PRemove: {
         keyToRemove: userPubKeyHash,
@@ -101,15 +102,15 @@ export const removeNode = async (
   
   const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
   const redeemerNodeValidator = Data.to("LinkedListAct", NodeValidatorAction);
-  const upperBound = (config.currenTime + TIME_TOLERANCE_MS)
-  const lowerBound = (config.currenTime - TIME_TOLERANCE_MS)
+  const upperBound = (config.currentTime + TIME_TOLERANCE_MS)
+  const lowerBound = (config.currentTime - TIME_TOLERANCE_MS)
 
   const beforeStakeFreeze = upperBound < config.freezeStake;
   const afterFreezeBeforeEnd = lowerBound > config.freezeStake && upperBound < config.endStaking;
-  const afterEndStaking = lowerBound > config.endStaking;    
+  const afterEndStaking = lowerBound > config.endStaking;
 
   try {
-    if (beforeStakeFreeze || afterEndStaking) {
+    if (beforeStakeFreeze) {
 
       const tx = await lucid
         .newTx()
@@ -123,10 +124,6 @@ export const removeNode = async (
           nodeValidatorAddr,
           { inline: newPrevNodeDatum },
           prevNode.assets
-        )
-        .payToAddress(
-          userAddress,
-          node.assets
         )
         .addSignerKey(userPubKeyHash)
         .mintAssets(assets, redeemerNodePolicy)
@@ -176,6 +173,36 @@ export const removeNode = async (
         .complete();
 
       return { type: "ok", data: tx };
+
+    } else if(afterEndStaking) {
+        // performing a claim instead of remove
+        redeemerNodePolicy = Data.to({
+          PClaim: {
+            keyToRemove: userPubKeyHash
+          }
+        }, StakingNodeAction);
+
+        const tx = await lucid
+        .newTx()
+        .collectFrom([node], redeemerNodeValidator)
+        .compose(
+          config.refScripts?.nodeValidator
+            ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
+            : lucid.newTx().attachSpendingValidator(nodeValidator)
+        )
+        .addSignerKey(userPubKeyHash)
+        .mintAssets(assets, redeemerNodePolicy)
+        .compose(
+          config.refScripts?.nodePolicy
+            ? lucid.newTx().readFrom([config.refScripts.nodePolicy])
+            : lucid.newTx().attachMintingPolicy(nodePolicy)
+        )
+        .validFrom(lowerBound)
+        .validTo(upperBound)
+        .complete();
+      
+        return { type: "ok", data: tx };
+
     } else {
       return { type: "error", 
             error: new Error(`Transaction validity range is overlapping staking phases. 

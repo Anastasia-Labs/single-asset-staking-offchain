@@ -11,10 +11,12 @@ import {
   initTokenHolder,
   InitTokenHolderConfig,
   Lucid,
+  ONE_HOUR_MS,
   parseUTxOsAtScript,
   replacer,
   Script,
   toUnit,
+  TWENTY_FOUR_HOURS_MS,
   utxosAtScript,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
@@ -28,51 +30,9 @@ import rewardValidator from "./compiled/rewardFoldValidator.json";
 import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json"
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json"
 import alwaysFailValidator from "./compiled/alwaysFails.json";
-import { deploy, getRefUTxOs } from "./setup.js";
+import { deploy, getRefUTxOs, initializeLucidContext, LucidContext } from "./setup.js";
 
-type LucidContext = {
-  lucid: Lucid;
-  users: any;
-  emulator: Emulator;
-};
-
-// INITIALIZE EMULATOR + ACCOUNTS
-beforeEach<LucidContext>(async (context) => {
-  context.users = {
-    treasury1: await generateAccountSeedPhrase({
-      lovelace: BigInt(500_000_000),
-    }),
-    reward1: await generateAccountSeedPhrase({
-      lovelace: BigInt(500_000_000),
-      [toUnit(
-        "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-        fromText("LOBSTER")
-      )]: BigInt(100_000_000),
-    }),
-    account1: await generateAccountSeedPhrase({
-      lovelace: BigInt(500_000_000),
-    }),
-    account2: await generateAccountSeedPhrase({
-      lovelace: BigInt(500_000_000),
-    }),
-    account3: await generateAccountSeedPhrase({
-      lovelace: BigInt(500_000_000),
-    }),
-    null: await generateAccountSeedPhrase({
-      lovelace: BigInt(0),
-    }),
-  };
-
-  context.emulator = new Emulator([
-    context.users.treasury1,
-    context.users.reward1,
-    context.users.account1,
-    context.users.account2,
-    context.users.account3,
-  ]);
-
-  context.lucid = await Lucid.new(context.emulator);
-});
+beforeEach<LucidContext>(initializeLucidContext);
 
 test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
   lucid,
@@ -88,16 +48,21 @@ test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
     .selectWalletFrom({ address: users.reward1.address })
     .wallet.getUtxos();
 
+  const currentTime = emulator.now();
+
   const newScripts = buildScripts(lucid, {
     stakingPolicy: {
       initUTXO: treasuryUTxO,
-      freezeStake: emulator.now() + 600_000, // 10 minutes
-      penaltyAddress: users.treasury1.address,
+      freezeStake: currentTime + ONE_HOUR_MS,
+      endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
+      penaltyAddress: users.treasury1.address,    
+      stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+      stakeTN: "MIN",
+      minimumStake : 1_000,
     },
     rewardValidator: {
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-      rewardTN: "LOBSTER",
-      rewardAddr: users.treasury1.address,
+      rewardTN: "MIN",
     },
     rewardTokenHolder: {
       initUTXO: reward1UTxO,
@@ -122,12 +87,12 @@ test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
 
   const deployTime = emulator.now();
-
   const deployRefScripts = await deploy(lucid, emulator, newScripts.data, deployTime);
   
-  //Find node refs script
-  const deployPolicyId =
-  deployRefScripts.type == "ok" ? deployRefScripts.data.deployPolicyId : "";
+  expect(deployRefScripts.type).toBe("ok");
+  if (deployRefScripts.type == "error") return;
+  // Find node refs script
+  const deployPolicyId = deployRefScripts.data.deployPolicyId;
 
   const refUTxOs = await getRefUTxOs(lucid, deployPolicyId);
 
@@ -135,8 +100,8 @@ test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
   const initTokenHolderConfig: InitTokenHolderConfig = {
     initUTXO: reward1UTxO,
     rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    rewardTN: "LOBSTER",
-    rewardAmount: 100_000_000,
+    rewardTN: "MIN",
+    rewardAmount: 90_000_000,
     scripts: {
       tokenHolderPolicy: newScripts.data.tokenHolderPolicy,
       tokenHolderValidator: newScripts.data.tokenHolderValidator,
@@ -148,6 +113,7 @@ test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
     lucid,
     initTokenHolderConfig
   );
+  // console.log(initTokenHolderUnsigned);
 
   expect(initTokenHolderUnsigned.type).toBe("ok");
   if (initTokenHolderUnsigned.type == "ok") {
@@ -156,8 +122,6 @@ test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
       .complete();
     const initTokenHolderHash = await initTokenHolderSigned.submit();
   }
-  // RESET WALLET
-  lucid.selectWalletFromSeed(users.null.seedPhrase)
 
   emulator.awaitBlock(4);
   // console.log(
@@ -168,6 +132,9 @@ test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
   // INIT NODE - treasury1 account
   const initNodeConfig: InitNodeConfig = {
     initUTXO: treasuryUTxO,
+    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    stakeTN: "MIN",
+    minimumStake: 1000,
     scripts: {
       nodePolicy: newScripts.data.stakingPolicy,
       nodeValidator: newScripts.data.stakingValidator,
@@ -178,6 +145,7 @@ test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
   };
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
   const initNodeUnsigned = await initNode(lucid, initNodeConfig);
+  // console.log(initNodeUnsigned);
 
   expect(initNodeUnsigned.type).toBe("ok");
   if (initNodeUnsigned.type == "error") return;
@@ -185,15 +153,13 @@ test<LucidContext>("Test - deploy - initTokenHolder - initNode", async ({
   const initNodeSigned = await initNodeUnsigned.data.sign().complete();
   const initNodeHash = await initNodeSigned.submit();
   // console.log(initNodeHash)
-  // RESET WALLET
-  lucid.selectWalletFromSeed(users.null.seedPhrase)
 
   emulator.awaitBlock(4);
   logFlag
     ? console.log(
         "initNode result ",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator),
+          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
           replacer,
           2
         )

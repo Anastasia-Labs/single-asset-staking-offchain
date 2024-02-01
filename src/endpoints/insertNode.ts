@@ -13,13 +13,13 @@ import {
   SetNode,
 } from "../core/contract.types.js";
 import { InsertNodeConfig, Result } from "../core/types.js";
-import { NODE_ADA, mkNodeKeyTN, TIME_TOLERANCE_MS, EXACT_ADA_COMMITMENT, findCoveringNode } from "../index.js";
+import { NODE_ADA, mkNodeKeyTN, TIME_TOLERANCE_MS, findCoveringNode } from "../index.js";
 
 export const insertNode = async (
   lucid: Lucid,
   config: InsertNodeConfig
 ): Promise<Result<TxComplete>> => {
-  config.currenTime ??= Date.now();
+  config.currentTime ??= Date.now();
 
   const walletUtxos = await lucid.wallet.getUtxos();
 
@@ -28,6 +28,9 @@ export const insertNode = async (
 
   if(config.toStake < config.minimumStake)
     return { type: "error", error: new Error("toStake cannot be less than minimumStake") };
+
+  if(config.currentTime > config.freezeStake)
+    return { type: "error", error: new Error("Stake has been frozen") }
 
   const nodeValidator: SpendingValidator = {
     type: "PlutusV2",
@@ -95,8 +98,8 @@ export const insertNode = async (
     [toUnit(nodePolicyId, mkNodeKeyTN(userKey))]: 1n,
   };
 
-  const upperBound = config.currenTime + TIME_TOLERANCE_MS;
-  const lowerBound = config.currenTime - TIME_TOLERANCE_MS;
+  const upperBound = config.currentTime + TIME_TOLERANCE_MS;
+  const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
   try {
     const tx = await lucid
@@ -117,7 +120,7 @@ export const insertNode = async (
         { inline: nodeDatum },
         { ...assets, 
           [toUnit(config.stakeCS, fromText(config.stakeTN))]: BigInt(config.toStake),
-          lovelace: EXACT_ADA_COMMITMENT 
+          lovelace: NODE_ADA 
         }
       )
       .addSignerKey(userKey)
