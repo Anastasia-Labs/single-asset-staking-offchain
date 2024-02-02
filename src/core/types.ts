@@ -65,6 +65,10 @@ export type DInitNodeConfig = {
     nodePolicy: CborHex;
     nodeValidator: CborHex;
   };
+  refScripts?: {
+    nodePolicy?: UTxO;
+    nodeValidator: UTxO;
+  };
 };
 
 export type InsertNodeConfig = {
@@ -152,6 +156,7 @@ export type InitRewardFoldConfig = {
     rewardFoldValidator: CborHex;
     tokenHolderPolicy: CborHex;
     tokenHolderValidator: CborHex;
+    stakingStakeValidator: CborHex;
   };
   refScripts?: {
     nodeValidator?: UTxO;
@@ -162,6 +167,7 @@ export type InitRewardFoldConfig = {
     rewardFoldValidator?: UTxO;
     tokenHolderPolicy?: UTxO;
     tokenHolderValidator?: UTxO;
+    stakingStakeValidator: UTxO;
   };
 };
 

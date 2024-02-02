@@ -1,23 +1,15 @@
 import {
   buildScripts,
-  deployRefScripts,
-  DeployRefScriptsConfig,
-  Emulator,
-  fromText,
-  generateAccountSeedPhrase,
   initNode,
   InitNodeConfig,
   insertNode,
   InsertNodeConfig,
-  Lucid,
   modifyNode,
   ONE_HOUR_MS,
   parseUTxOsAtScript,
   replacer,
   SetNode,
-  toUnit,
   TWENTY_FOUR_HOURS_MS,
-  utxosAtScript,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import stakingValidator from "./compiled/stakingValidator.json";
@@ -29,7 +21,6 @@ import rewardPolicy from "./compiled/rewardFoldMint.json";
 import rewardValidator from "./compiled/rewardFoldValidator.json";
 import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json"
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json"
-import alwaysFailValidator from "./compiled/alwaysFails.json";
 import { deploy, getRefUTxOs, initializeLucidContext, LucidContext } from "./setup.js";
 
 beforeEach<LucidContext>(initializeLucidContext);

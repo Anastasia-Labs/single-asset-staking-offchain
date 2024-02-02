@@ -1,11 +1,5 @@
 import {
   buildScripts,
-  chunkArray,
-  Data,
-  deployRefScripts,
-  Emulator,
-  fromText,
-  generateAccountSeedPhrase,
   initFold,
   InitFoldConfig,
   initNode,
@@ -14,9 +8,6 @@ import {
   InitRewardFoldConfig,
   initTokenHolder,
   InitTokenHolderConfig,
-  insertNode,
-  InsertNodeConfig,
-  Lucid,
   multiFold,
   MultiFoldConfig,
   ONE_HOUR_MS,
@@ -25,9 +16,7 @@ import {
   RewardFoldDatum,
   SetNode,
   sortByOutRefWithIndex,
-  toUnit,
   TWENTY_FOUR_HOURS_MS,
-  utxosAtScript,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import stakingValidator from "./compiled/stakingValidator.json";
@@ -39,7 +28,6 @@ import rewardPolicy from "./compiled/rewardFoldMint.json";
 import rewardValidator from "./compiled/rewardFoldValidator.json";
 import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
-import alwaysFailValidator from "./compiled/alwaysFails.json";
 import { deploy, getRefUTxOs, initializeLucidContext, insertThreeNodes, LucidContext } from "./setup.js";
 
 beforeEach<LucidContext>(initializeLucidContext);
@@ -105,6 +93,27 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   const deployPolicyId = deployRefScripts.data.deployPolicyId;
 
   const refUTxOs = await getRefUTxOs(lucid, deployPolicyId);
+
+  // REGISTER STAKE VALIDATOR
+  emulator.distributeRewards(BigInt(100_000_000));
+
+  const stakingStakeRewardAddress = lucid.utils.validatorToRewardAddress({
+    type: "PlutusV2",
+    script: newScripts.data.stakingStakeValidator,
+  });
+
+  await lucid.awaitTx(
+    await (
+      await (
+        await lucid
+          .newTx()
+          .registerStake(stakingStakeRewardAddress!)
+          .complete()
+      )
+        .sign()
+        .complete()
+    ).submit()
+  );
 
   // INIT PROJECT TOKEN HOLDER
   const initTokenHolderConfig: InitTokenHolderConfig = {
@@ -249,6 +258,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     scripts: {
       nodeValidator: newScripts.data.stakingValidator,
       nodePolicy: newScripts.data.stakingPolicy,
+      stakingStakeValidator: newScripts.data.stakingStakeValidator,
       foldPolicy: newScripts.data.foldPolicy,
       foldValidator: newScripts.data.foldValidator,
       rewardFoldPolicy: newScripts.data.rewardPolicy,
@@ -265,7 +275,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
       rewardFoldValidator: refUTxOs.rewardValidatorUTxO,
       tokenHolderPolicy: refUTxOs.tokenHolderPolicyUTxO,
       tokenHolderValidator: refUTxOs.tokenHolderValidatorUTxO,
-    }
+      stakingStakeValidator: refUTxOs.nodeStakeValidatorUTxO,
+    },
   };
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
@@ -273,6 +284,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     lucid,
     initRewardFoldConfig
   );
+  // console.log(initRewardFoldUnsigned);
 
   expect(initRewardFoldUnsigned.type).toBe("ok");
   if (initRewardFoldUnsigned.type == "error") return;
