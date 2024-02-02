@@ -9,10 +9,10 @@ import {
   fromText,
   WithdrawalValidator,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { cFold, MIN_ADA, originNodeTokenName, rFold, RTHOLDER, SETNODE_PREFIX } from "../core/constants.js";
+import { cFold, MIN_ADA, originNodeTokenName, rFold, RTHOLDER } from "../core/constants.js";
 import { SetNode, FoldDatum, RewardFoldDatum, NodeValidatorAction } from "../core/contract.types.js";
 import { InitRewardFoldConfig, Result } from "../core/types.js";
-import { findOwnNode, fromAddress, toAddress } from "../index.js";
+import { fromAddress } from "../index.js";
 
 export const initRewardFold = async (
   lucid: Lucid,

@@ -5,9 +5,8 @@ import {
   Data,
   toUnit,
   TxComplete,
-  fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { cFold, originNodeTokenName, SETNODE_PREFIX, TIME_TOLERANCE_MS } from "../core/constants.js";
+import { cFold, originNodeTokenName, TIME_TOLERANCE_MS } from "../core/constants.js";
 import { FoldDatum, FoldMintAct, SetNode } from "../core/contract.types.js";
 import { InitFoldConfig, Result } from "../core/types.js";
 import { fromAddress } from "../index.js";

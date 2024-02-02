@@ -2,16 +2,14 @@
 import {
   Lucid,
   SpendingValidator,
-  MintingPolicy,
   Data,
   toUnit,
   TxComplete,
-  Assets,
   fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { StakingNodeAction, NodeValidatorAction, SetNode } from "../core/contract.types.js";
+import { NodeValidatorAction } from "../core/contract.types.js";
 import { InsertNodeConfig, Result } from "../core/types.js";
-import { MIN_ADA, TIME_TOLERANCE_MS, findOwnNode, mkNodeKeyTN } from "../index.js";
+import { TIME_TOLERANCE_MS, findOwnNode } from "../index.js";
 
 export const modifyNode = async (
   lucid: Lucid,
@@ -80,12 +78,6 @@ export const modifyNode = async (
         { inline: ownNode.data.datum },
         { ...ownNode.data.assets, [stakeToken]: newStake } // Only updating the stakeToken to new stake
       )
-      // // Balancing stake token if stake is reduced
-      // .compose(
-      //   differenceAmount > 0n
-      //     ? lucid.newTx().payToAddress(userAddress, {[stakeToken] : differenceAmount})
-      //     : null
-      // )
       .addSignerKey(userKey)
       .validFrom(lowerBound)
       .validTo(upperBound)
