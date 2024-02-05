@@ -90,20 +90,6 @@ export const rewardFoldNodes = async (
     },
     RewardFoldDatum
   );
-
-  console.log(firstNodeDatum);
-  console.log(Data.from(nodeUTxOs[1].datum!, SetNode));
-  console.log(lastNodeDatum);
-  console.log({
-    currNode: {
-      key: oldRewardFoldDatum.currNode.key,
-      next: lastNodeDatum.next,
-    },
-    totalRewardTokens: oldRewardFoldDatum.totalRewardTokens,
-    totalStaked: oldRewardFoldDatum.totalStaked,
-    owner: oldRewardFoldDatum.owner,
-  });
-  console.log(oldRewardFoldDatum);
   
   const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
   const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
@@ -118,8 +104,6 @@ export const rewardFoldNodes = async (
     let tx = lucid
       .newTx()
       .collectFrom(nodeUTxOs, Data.to("RewardFoldAct", NodeValidatorAction));
-
-    console.log(Data.to("RewardFoldAct", NodeValidatorAction));
 
     nodeUTxOs.forEach((utxo, index) => {
       const owedRewardTokenAmount = (utxo.assets[stakeToken] * oldRewardFoldDatum.totalRewardTokens) /
@@ -154,14 +138,6 @@ export const rewardFoldNodes = async (
         nodeOutIdxs: nodeOutIdxs
       }
     }, RewardFoldAct);
-
-    console.log(rewardFoldValidatorRedeemer);
-    console.log({
-      nodeIdxs: config.indices.map((index) => {
-        return BigInt(index);
-      }),
-      nodeOutIdxs: nodeOutIdxs
-    });
 
     tx = tx
       .collectFrom([rewardUTxO], rewardFoldValidatorRedeemer)

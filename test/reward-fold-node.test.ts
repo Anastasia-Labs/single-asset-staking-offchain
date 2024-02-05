@@ -418,7 +418,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
   const reclaimRewardUnsigned = await reclaimReward(lucid, initRewardFoldConfig);
-  console.log(reclaimRewardUnsigned);
+  // console.log(reclaimRewardUnsigned);
 
   expect(reclaimRewardUnsigned.type).toBe("ok");
   if (reclaimRewardUnsigned.type == "error") return;
