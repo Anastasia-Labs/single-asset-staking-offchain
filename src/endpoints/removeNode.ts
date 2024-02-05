@@ -13,7 +13,7 @@ import {
   SetNode,
 } from "../core/contract.types.js";
 import { RemoveNodeConfig, Result } from "../core/types.js";
-import { divCeil, NODE_ADA, mkNodeKeyTN, TIME_TOLERANCE_MS } from "../index.js";
+import { divCeil, mkNodeKeyTN, TIME_TOLERANCE_MS } from "../index.js";
 
 export const removeNode = async (
   lucid: Lucid,
@@ -60,10 +60,8 @@ export const removeNode = async (
   if (!node || !node.datum)
     return { type: "error", error: new Error("missing node") };
 
-  // After rewards fold is completed for a node, its lovelace value is MIN_ADA (NODE_ADA - FOLDING_FEE)
-  if (config.currentTime > config.endStaking 
-      && node.assets["lovelace"] == NODE_ADA)
-    return { type: "error", error: new Error("Cannot remove node as rewards are not processed yet")}
+  if (config.currentTime > config.endStaking)
+    return { type: "error", error: new Error("Cannot remove node after endStaking. Please claim node instead.")}
 
   const nodeDatum = Data.from(node.datum, SetNode);
 
@@ -90,7 +88,7 @@ export const removeNode = async (
 
   const newPrevNodeDatum = Data.to(newPrevNode, SetNode);
 
-  let redeemerNodePolicy = Data.to(
+  const redeemerNodePolicy = Data.to(
     {
       PRemove: {
         keyToRemove: userPubKeyHash,
@@ -102,12 +100,12 @@ export const removeNode = async (
   
   const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
   const redeemerNodeValidator = Data.to("LinkedListAct", NodeValidatorAction);
+
   const upperBound = (config.currentTime + TIME_TOLERANCE_MS)
   const lowerBound = (config.currentTime - TIME_TOLERANCE_MS)
 
   const beforeStakeFreeze = upperBound < config.freezeStake;
   const afterFreezeBeforeEnd = lowerBound > config.freezeStake && upperBound < config.endStaking;
-  const afterEndStaking = lowerBound > config.endStaking;
 
   try {
     if (beforeStakeFreeze) {
@@ -173,35 +171,6 @@ export const removeNode = async (
         .complete();
 
       return { type: "ok", data: tx };
-
-    } else if(afterEndStaking) {
-        // performing a claim instead of remove
-        redeemerNodePolicy = Data.to({
-          PClaim: {
-            keyToRemove: userPubKeyHash
-          }
-        }, StakingNodeAction);
-
-        const tx = await lucid
-        .newTx()
-        .collectFrom([node], redeemerNodeValidator)
-        .compose(
-          config.refScripts?.nodeValidator
-            ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-            : lucid.newTx().attachSpendingValidator(nodeValidator)
-        )
-        .addSignerKey(userPubKeyHash)
-        .mintAssets(assets, redeemerNodePolicy)
-        .compose(
-          config.refScripts?.nodePolicy
-            ? lucid.newTx().readFrom([config.refScripts.nodePolicy])
-            : lucid.newTx().attachMintingPolicy(nodePolicy)
-        )
-        .validFrom(lowerBound)
-        .validTo(upperBound)
-        .complete();
-      
-        return { type: "ok", data: tx };
 
     } else {
       return { type: "error", 

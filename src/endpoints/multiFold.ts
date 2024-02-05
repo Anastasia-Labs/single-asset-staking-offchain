@@ -45,7 +45,7 @@ export const multiFold = async (
 
   const oldFoldDatum = Data.from(foldUTxO.datum, FoldDatum);
 
-  //NOTE: node nodeRefUTxOs shuold be already ordered by keys, utxo type is better than outref since outref does not holds datum information, not sure yet if using utxo though
+  //NOTE: node nodeRefUTxOs should be already ordered by keys
   const nodeRefUTxOs = await lucid.utxosByOutRef(config.nodeRefInputs);
 
   const lastNodeRef = nodeRefUTxOs[config.indices.length - 1].datum;

@@ -171,8 +171,8 @@ export type InitRewardFoldConfig = {
   };
 };
 
-export type RewardFoldConfig = {
-  nodeInputs: UTxO[];
+export type RewardFoldNodeConfig = {
+  nodeInputs?: UTxO[];
   scripts: {
     nodeValidator: CborHex;
     stakingStakeValidator: CborHex;
@@ -189,6 +189,29 @@ export type RewardFoldConfig = {
   rewardTN: string;
   stakeCS: PolicyId;
   stakeTN: string;
+  currentTime?: POSIXTime;
+};
+
+export type RewardFoldNodesConfig = {
+  nodeInputs: OutRef[];
+  indices: number[];
+  scripts: {
+    nodeValidator: CborHex;
+    stakingStakeValidator: CborHex;
+    rewardFoldPolicy: CborHex;
+    rewardFoldValidator: CborHex;
+  };
+  refScripts: {
+    nodeValidator: UTxO;
+    stakingStakeValidator: UTxO;
+    rewardFoldPolicy: UTxO;
+    rewardFoldValidator: UTxO;
+  };
+  rewardCS: PolicyId;
+  rewardTN: string;
+  stakeCS: PolicyId;
+  stakeTN: string;
+  currentTime?: POSIXTime;
 };
 
 export type BuildScriptsConfig = {

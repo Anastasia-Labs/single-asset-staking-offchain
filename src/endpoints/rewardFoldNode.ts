@@ -14,21 +14,26 @@ import {
   RewardFoldDatum,
   RewardFoldAct
 } from "../core/contract.types.js";
-import { Result, RewardFoldConfig } from "../core/types.js";
+import { Result, RewardFoldNodeConfig } from "../core/types.js";
 import {
   MIN_ADA,
+  TIME_TOLERANCE_MS,
   rFold,
 } from "../index.js";
 
-export const rewardFold = async (
+export const rewardFoldNode = async (
   lucid: Lucid,
-  config: RewardFoldConfig
+  config: RewardFoldNodeConfig
 ): Promise<Result<TxComplete>> => {
   const nodeValidator: SpendingValidator = {
     type: "PlutusV2",
     script: config.scripts.nodeValidator,
   };
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+
+  const nodeInputs = config.nodeInputs
+    ? config.nodeInputs
+    : await lucid.utxosAt(nodeValidatorAddr);
 
   const rewardFoldValidator: SpendingValidator = {
     type: "PlutusV2",
@@ -60,7 +65,7 @@ export const rewardFold = async (
   if(oldRewardFoldDatum.currNode.next == null)
     return { type: "error", error: new Error("Rewards fold already completed")}
 
-  const nodeInput = config.nodeInputs.find((utxo) => {
+  const nodeInput = nodeInputs.find((utxo) => {
     if (utxo.datum) {
       const nodeDatum = Data.from(utxo.datum, SetNode);
       return nodeDatum.key == oldRewardFoldDatum.currNode.next;
@@ -100,6 +105,10 @@ export const rewardFold = async (
 
   const remainingRewardTokenAmount = rewardUTxO.assets[rewardToken] - owedRewardTokenAmount;
 
+  config.currentTime ??= Date.now();
+  const upperBound = config.currentTime + TIME_TOLERANCE_MS;
+  const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
+
   try {
     const tx = lucid
       .newTx()
@@ -138,6 +147,8 @@ export const rewardFold = async (
           ? lucid.newTx().readFrom([config.refScripts.stakingStakeValidator])
           : lucid.newTx().attachWithdrawalValidator(stakingStakeValidator)
       )
+      .validFrom(lowerBound)
+      .validTo(upperBound)
 
     return { 
       type: "ok", 

@@ -13,8 +13,8 @@ import {
   ONE_HOUR_MS,
   parseUTxOsAtScript,
   replacer,
-  rewardFold,
-  RewardFoldConfig,
+  rewardFoldNode,
+  RewardFoldNodeConfig,
   sortByOutRefWithIndex,
   TWENTY_FOUR_HOURS_MS,
   utxosAtScript,
@@ -23,7 +23,8 @@ import {
   RemoveNodeConfig,
   removeNode,
   dinitNode,
-  DInitNodeConfig
+  DInitNodeConfig,
+  claimNode
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import stakingValidator from "./compiled/stakingValidator.json";
@@ -45,7 +46,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   users,
   emulator,
 }) => {
-  const logFlag = true;
+  const logFlag = false;
 
   const [treasuryUTxO] = await lucid
     .selectWalletFrom({ address: users.treasury1.address })
@@ -317,8 +318,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   };
   // console.log(refScripts);
 
-  const rewardFoldConfig: RewardFoldConfig = {
-    nodeInputs: nodeUTxOs,
+  const rewardFoldConfig: RewardFoldNodeConfig = {
     rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     rewardTN: "MIN",
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
@@ -330,10 +330,11 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
       rewardFoldValidator: newScripts.data.rewardValidator,
     },
     refScripts: refScripts,
+    currentTime: emulator.now()
   };
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const rewardFoldUnsigned = await rewardFold(lucid, rewardFoldConfig);
+  const rewardFoldUnsigned = await rewardFoldNode(lucid, rewardFoldConfig);
   // console.log(rewardFoldUnsigned);
 
   expect(rewardFoldUnsigned.type).toBe("ok");
@@ -355,7 +356,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     }
   }
   const dinitNodeUnsigned = await dinitNode(lucid, dinitNodeConfig);
-  console.log(dinitNodeUnsigned);
+  // console.log(dinitNodeUnsigned);
 
   expect(dinitNodeUnsigned.type).toBe("ok");
   if (dinitNodeUnsigned.type == "error") return;
@@ -379,7 +380,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
 
   // REWARD FOLD 2
 
-  const rewardFoldUnsigned2 = await rewardFold(lucid, rewardFoldConfig);
+  const rewardFoldUnsigned2 = await rewardFoldNode(lucid, {...rewardFoldConfig, currentTime: emulator.now()});
   // console.log(rewardFoldUnsigned2);
 
   expect(rewardFoldUnsigned2.type).toBe("ok");
@@ -393,7 +394,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   // REWARD FOLD 3
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const rewardFoldUnsigned3 = await rewardFold(lucid, rewardFoldConfig);
+  const rewardFoldUnsigned3 = await rewardFoldNode(lucid, {...rewardFoldConfig, currentTime: emulator.now()});
   // console.log(rewardFoldUnsigned2);
 
   expect(rewardFoldUnsigned3.type).toBe("ok");
@@ -407,7 +408,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   // REWARD FOLD 4
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const rewardFoldUnsigned4 = await rewardFold(lucid, rewardFoldConfig);
+  const rewardFoldUnsigned4 = await rewardFoldNode(lucid, {...rewardFoldConfig, currentTime: emulator.now()});
   // console.log(rewardFoldUnsigned4);
 
   expect(rewardFoldUnsigned4.type).toBe("error");
@@ -416,8 +417,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   // RECLAIM REWARD
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const reclaimRewardUnsigned = await reclaimReward(lucid, rewardFoldConfig);
-  // console.log(reclaimRewardUnsigned);
+  const reclaimRewardUnsigned = await reclaimReward(lucid, initRewardFoldConfig);
+  console.log(reclaimRewardUnsigned);
 
   expect(reclaimRewardUnsigned.type).toBe("ok");
   if (reclaimRewardUnsigned.type == "error") return;
@@ -438,7 +439,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
       await lucid.utxosAt(users.treasury1.address)
     ) : null;
 
-  // REMOVE NODE - CLAIM REWARD & STAKE
+  // CLAIM REWARD & STAKE
   const removeNodeConfig: RemoveNodeConfig = {
     scripts: {
       nodePolicy: newScripts.data.stakingPolicy,
@@ -457,7 +458,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   };
 
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
-  const removeNodeUnsigned = await removeNode(lucid, removeNodeConfig);
+  const removeNodeUnsigned = await claimNode(lucid, removeNodeConfig);
   // console.log(removeNodeUnsigned);
   expect(removeNodeUnsigned.type).toBe("ok");
   if (removeNodeUnsigned.type == "error") return;

@@ -10,7 +10,7 @@ import {
   WithdrawalValidator,
 } from "@anastasia-labs/lucid-cardano-fork";
 import { cFold, MIN_ADA, originNodeTokenName, rFold, RTHOLDER } from "../core/constants.js";
-import { SetNode, FoldDatum, RewardFoldDatum, NodeValidatorAction } from "../core/contract.types.js";
+import { SetNode, FoldDatum, RewardFoldDatum, NodeValidatorAction, RewardFoldMintAct } from "../core/contract.types.js";
 import { InitRewardFoldConfig, Result } from "../core/types.js";
 import { fromAddress } from "../index.js";
 
@@ -141,7 +141,7 @@ export const initRewardFold = async (
       )
       .mintAssets(
         { [toUnit(rewardFoldPolicyId, rFold)]: 1n },
-        Data.void()
+        Data.to("MintRewardFold", RewardFoldMintAct)
       )
       .mintAssets({ [commitFoldUnit]: -1n }, burnCommitFoldAct)
       .mintAssets({ [rtHolderUnit]: -1n }, burnRTHolderAct)

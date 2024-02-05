@@ -131,6 +131,13 @@ export const FoldMintActSchema = Data.Enum([
 export type FoldMintAct = Data.Static<typeof FoldMintActSchema>;
 export const FoldMintAct = FoldMintActSchema as unknown as FoldMintAct;
 
+export const RewardFoldMintActSchema = Data.Enum([
+  Data.Literal("MintRewardFold"),
+  Data.Literal("BurnRewardFold"),
+]);
+export type RewardFoldMintAct = Data.Static<typeof RewardFoldMintActSchema>;
+export const RewardFoldMintAct = RewardFoldMintActSchema as unknown as RewardFoldMintAct;
+
 export const RewardFoldDatumSchema = Data.Object({
   currNode: SetNodeSchema,
   totalRewardTokens: Data.Integer(),
