@@ -5,6 +5,7 @@ import {
   Data,
   toUnit,
   TxComplete,
+  fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
 import {
   StakingNodeAction,
@@ -12,13 +13,13 @@ import {
   SetNode,
 } from "../core/contract.types.js";
 import { RemoveNodeConfig, Result } from "../core/types.js";
-import { divCeil, mkNodeKeyTN, TIME_TOLERANCE_MS, TWENTY_FOUR_HOURS_MS } from "../index.js";
+import { divCeil, mkNodeKeyTN, TIME_TOLERANCE_MS } from "../index.js";
 
 export const removeNode = async (
   lucid: Lucid,
   config: RemoveNodeConfig
 ): Promise<Result<TxComplete>> => {
-  config.currenTime ??= Date.now();
+  config.currentTime ??= Date.now();
 
   const walletUtxos = await lucid.wallet.getUtxos();
 
@@ -39,9 +40,8 @@ export const removeNode = async (
 
   const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
 
-  const userPubKeyHash = lucid.utils.getAddressDetails(
-    await lucid.wallet.address()
-  ).paymentCredential?.hash;
+  const userAddress = await lucid.wallet.address();
+  const userPubKeyHash = lucid.utils.getAddressDetails(userAddress).paymentCredential?.hash;
 
   if (!userPubKeyHash)
     return { type: "error", error: new Error("missing PubKeyHash") };
@@ -59,6 +59,9 @@ export const removeNode = async (
 
   if (!node || !node.datum)
     return { type: "error", error: new Error("missing node") };
+
+  if (config.currentTime > config.endStaking)
+    return { type: "error", error: new Error("Cannot remove node after endStaking. Please claim node instead.")}
 
   const nodeDatum = Data.from(node.datum, SetNode);
 
@@ -94,41 +97,22 @@ export const removeNode = async (
     },
     StakingNodeAction
   );
-
+  
+  const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
   const redeemerNodeValidator = Data.to("LinkedListAct", NodeValidatorAction);
-  const upperBound = (config.currenTime + TIME_TOLERANCE_MS)
-  const lowerBound = (config.currenTime - TIME_TOLERANCE_MS)
 
-  const beforeDeadline = upperBound < config.deadline;
-  const beforeTwentyFourHours =
-    upperBound < config.deadline - TWENTY_FOUR_HOURS_MS;
+  const upperBound = (config.currentTime + TIME_TOLERANCE_MS)
+  const lowerBound = (config.currentTime - TIME_TOLERANCE_MS)
 
-  // console.log("beforeDeadline", beforeDeadline);
-  // console.log("beforeTwentyFourHours", beforeTwentyFourHours);
-  // console.log(
-  //   "time delta deadline - upperBound ms",
-  //   config.deadline - upperBound
-  // );
-  // console.log(
-  //   "time delta deadline - upperBound secs",
-  //   (config.deadline - upperBound) / 1_000
-  // );
-  // console.log(
-  //   "time delta deadline - upperBound min",
-  //   (config.deadline - upperBound) / 60_000
-  // );
-  // console.log(
-  //   "time delta deadline - upperBound hours",
-  //   (config.deadline - upperBound) / 3_600_000
-  // );
+  const beforeStakeFreeze = upperBound < config.freezeStake;
+  const afterFreezeBeforeEnd = lowerBound > config.freezeStake && upperBound < config.endStaking;
 
   try {
-    if (beforeDeadline && beforeTwentyFourHours) {
-      // console.log("beforeDeadline && beforeTwentyFourHours");
+    if (beforeStakeFreeze) {
+
       const tx = await lucid
         .newTx()
         .collectFrom([node, prevNode], redeemerNodeValidator)
-        // .attachSpendingValidator(nodeValidator)
         .compose(
           config.refScripts?.nodeValidator
             ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
@@ -141,7 +125,6 @@ export const removeNode = async (
         )
         .addSignerKey(userPubKeyHash)
         .mintAssets(assets, redeemerNodePolicy)
-        // .attachMintingPolicy(nodePolicy)
         .compose(
           config.refScripts?.nodePolicy
             ? lucid.newTx().readFrom([config.refScripts.nodePolicy])
@@ -151,17 +134,15 @@ export const removeNode = async (
         .validTo(upperBound)
         .complete();
       return { type: "ok", data: tx };
-    } else if (beforeDeadline && !beforeTwentyFourHours) {
-      // console.log("beforeDeadline && !beforeTwentyFourHours");
-      // console.log("node value", node.assets);
-      // console.log("penaly ", divCeil(node.assets["lovelace"], 4n));
 
-      const penaltyAmount = divCeil(node.assets["lovelace"], 4n);
+    } else if (afterFreezeBeforeEnd) {
+
+      const penaltyAmount = divCeil(node.assets[stakeToken], 4n);
+      const balanceAmount = node.assets[stakeToken] - penaltyAmount;
 
       const tx = await lucid
         .newTx()
         .collectFrom([node, prevNode], redeemerNodeValidator)
-        // .attachSpendingValidator(nodeValidator)
         .compose(
           config.refScripts?.nodeValidator
             ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
@@ -173,11 +154,13 @@ export const removeNode = async (
           prevNode.assets
         )
         .payToAddress(config.penaltyAddress, {
-          lovelace: penaltyAmount,
+          [stakeToken]: penaltyAmount,
+        })
+        .payToAddress(userAddress, {
+          [stakeToken]: balanceAmount
         })
         .addSignerKey(userPubKeyHash)
         .mintAssets(assets, redeemerNodePolicy)
-        // .attachMintingPolicy(nodePolicy)
         .compose(
           config.refScripts?.nodePolicy
             ? lucid.newTx().readFrom([config.refScripts.nodePolicy])
@@ -188,34 +171,13 @@ export const removeNode = async (
         .complete();
 
       return { type: "ok", data: tx };
+
     } else {
-      //TODO: tests removing the node once project token is in user's wallet
-      const tx = await lucid
-        .newTx()
-        .collectFrom([node, prevNode], redeemerNodeValidator)
-        // .attachSpendingValidator(nodeValidator)
-        .compose(
-          config.refScripts?.nodeValidator
-            ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-            : lucid.newTx().attachSpendingValidator(nodeValidator)
-        )
-        .payToContract(
-          nodeValidatorAddr,
-          { inline: newPrevNodeDatum },
-          prevNode.assets
-        )
-        .addSignerKey(userPubKeyHash)
-        .mintAssets(assets, redeemerNodePolicy)
-        // .attachMintingPolicy(nodePolicy)
-        .compose(
-          config.refScripts?.nodePolicy
-            ? lucid.newTx().readFrom([config.refScripts.nodePolicy])
-            : lucid.newTx().attachMintingPolicy(nodePolicy)
-        )
-        .validFrom(lowerBound)
-        .validTo(upperBound)
-        .complete();
-      return { type: "ok", data: tx };
+      return { type: "error", 
+            error: new Error(`Transaction validity range is overlapping staking phases. 
+                              Please wait for ${TIME_TOLERANCE_MS/1_000} seconds before trying
+                              to remove node.`)
+        }
     }
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };

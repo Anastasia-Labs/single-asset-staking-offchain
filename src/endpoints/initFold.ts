@@ -5,9 +5,8 @@ import {
   Data,
   toUnit,
   TxComplete,
-  fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { cFold, SETNODE_PREFIX, TIME_TOLERANCE_MS } from "../core/constants.js";
+import { cFold, originNodeTokenName, TIME_TOLERANCE_MS } from "../core/constants.js";
 import { FoldDatum, FoldMintAct, SetNode } from "../core/contract.types.js";
 import { InitFoldConfig, Result } from "../core/types.js";
 import { fromAddress } from "../index.js";
@@ -16,7 +15,7 @@ export const initFold = async (
   lucid: Lucid,
   config: InitFoldConfig
 ): Promise<Result<TxComplete>> => {
-  config.currenTime ??= Date.now();
+  config.currentTime ??= Date.now();
 
   const foldValidator: SpendingValidator = {
     type: "PlutusV2",
@@ -46,7 +45,7 @@ export const initFold = async (
     lucid.utils.validatorToAddress(stakingValidator),
     toUnit(
       lucid.utils.mintingPolicyToId(stakingPolicy),
-      fromText(SETNODE_PREFIX)
+      originNodeTokenName
     )
   );
 
@@ -58,7 +57,7 @@ export const initFold = async (
   const datum = Data.to(
     {
       currNode: currentNode,
-      committed: 0n,
+      staked: 0n,
       owner: fromAddress(await lucid.wallet.address()), //NOTE: owner is not being used in fold minting or validator
     },
     FoldDatum
@@ -70,8 +69,8 @@ export const initFold = async (
     [toUnit(foldPolicyId, cFold)]: 1n,
   };
 
-  const upperBound = config.currenTime + TIME_TOLERANCE_MS;
-  const lowerBound = config.currenTime - TIME_TOLERANCE_MS;
+  const upperBound = config.currentTime + TIME_TOLERANCE_MS;
+  const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
   try {
     const tx = await lucid
@@ -79,7 +78,11 @@ export const initFold = async (
       .readFrom([headNodeUTxO])
       .payToContract(foldValidatorAddr, { inline: datum }, assets)
       .mintAssets(assets, redeemerFoldPolicy)
-      .attachMintingPolicy(foldPolicy)
+      .compose(
+        config.refScripts?.foldPolicy
+          ? lucid.newTx().readFrom([config.refScripts.foldPolicy])
+          : lucid.newTx().attachMintingPolicy(foldPolicy)
+      )
       .validFrom(lowerBound)
       .validTo(upperBound)
       .complete();

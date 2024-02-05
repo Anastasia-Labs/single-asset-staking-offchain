@@ -1,6 +1,6 @@
 import { Data, Lucid, SpendingValidator, UTxO } from "@anastasia-labs/lucid-cardano-fork";
 import { SetNode } from "../contract.types.js";
-import { Either, ReadableUTxO } from "../types.js";
+import { Either, ReadableUTxO, Result } from "../types.js";
 
 export const utxosAtScript = async (
   lucid: Lucid,
@@ -22,14 +22,14 @@ export const utxosAtScript = async (
   return lucid.utxosAt(scriptValidatorAddr);
 };
 
-//TODO: makes this generic
-export const parseDatum = (
+export const parseSafeDatum = <T>(
   lucid: Lucid,
-  utxo: UTxO
-): Either<string, SetNode> => {
-  if (utxo.datum) {
+  datum: string | null | undefined,
+  datumType: T
+): Either<string, T> => {
+  if (datum) {
     try {
-      const parsedDatum = Data.from(utxo.datum, SetNode);
+      const parsedDatum = Data.from(datum, datumType);
       return {
         type: "right",
         value: parsedDatum,
@@ -42,15 +42,16 @@ export const parseDatum = (
   }
 };
 
-//TODO: make this generic
-export const parseUTxOsAtScript = async (
+export const parseUTxOsAtScript = async <T>(
   lucid: Lucid,
   script: string,
+  datumType: T,
   stakeCredentialHash?: string
-): Promise<ReadableUTxO[]> => {
+): Promise<ReadableUTxO<T>[]> => {
+  //FIX: this can throw an error if script is empty or not initialized
   const utxos = await utxosAtScript(lucid, script, stakeCredentialHash);
   return utxos.flatMap((utxo) => {
-    const result = parseDatum(lucid, utxo);
+    const result = parseSafeDatum<T>(lucid, utxo.datum, datumType);
     if (result.type == "right") {
       return {
         outRef: {
@@ -68,7 +69,7 @@ export const parseUTxOsAtScript = async (
 
 export type ResultSorted = {
   index: number;
-  value: ReadableUTxO;
+  value: ReadableUTxO<SetNode>;
 };
 
 export const sortByDatumKeys = (
@@ -100,7 +101,7 @@ export const sortByDatumKeys = (
 
 //TODO: cleanup function and try to make it generic
 //TODO: test with chunkArray
-export const sortByOutRefWithIndex = (utxos: ReadableUTxO[]) => {
+export const sortByOutRefWithIndex = (utxos: ReadableUTxO<SetNode>[]) => {
   const head = utxos.find((utxo) => {
     return utxo.datum.key == null;
   });
@@ -130,6 +131,37 @@ export const sortByOutRefWithIndex = (utxos: ReadableUTxO[]) => {
 
   return sortByDatumKeys(sortedByOutRef, head.datum.next)
 };
+
+export const findCoveringNode = (nodeUTxOs : UTxO[], userKey: string): Result<UTxO> => {
+  const coveringNode = nodeUTxOs.find((value) => {
+    if (value.datum) {
+      const datum = Data.from(value.datum, SetNode);
+      return (
+        (datum.key == null || datum.key < userKey) &&
+        (datum.next == null || userKey < datum.next)
+      );
+    }
+  });
+
+  if (!coveringNode || !coveringNode.datum)
+    return { type: "error", error: new Error("missing coveringNode") };
+  else
+    return { type: "ok", data: coveringNode }
+}
+
+export const findOwnNode = (nodeUTxOs : UTxO[], userKey: string): Result<UTxO> => {
+  const node = nodeUTxOs.find((value) => {
+    if (value.datum) {
+      const datum = Data.from(value.datum, SetNode);
+      return datum.key !== null && datum.key == userKey;
+    }
+  });
+
+  if (!node || !node.datum)
+    return { type: "error", error: new Error("missing node") };
+  else
+    return { type: "ok", data: node }
+}
 
 export const chunkArray = <T>(array: T[], chunkSize: number) => {
   const numberOfChunks = Math.ceil(array.length / chunkSize);

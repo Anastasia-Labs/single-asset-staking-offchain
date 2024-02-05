@@ -2,20 +2,38 @@
 import {
   Lucid,
   SpendingValidator,
-  MintingPolicy,
   Data,
   toUnit,
   TxComplete,
-  Assets,
+  fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { StakingNodeAction, NodeValidatorAction, SetNode } from "../core/contract.types.js";
+import { NodeValidatorAction } from "../core/contract.types.js";
 import { InsertNodeConfig, Result } from "../core/types.js";
-import { mkNodeKeyTN } from "../index.js";
+import { TIME_TOLERANCE_MS, findOwnNode } from "../index.js";
 
 export const modifyNode = async (
   lucid: Lucid,
   config: InsertNodeConfig
 ): Promise<Result<TxComplete>> => {
+  config.currentTime ??= Date.now();
+
+  const walletUtxos = await lucid.wallet.getUtxos();
+
+  if (!walletUtxos.length)
+    return { type: "error", error: new Error("No utxos in wallet") };
+
+  const userAddress = await lucid.wallet.address();
+  const userKey = lucid.utils.getAddressDetails(userAddress)
+    .paymentCredential?.hash;
+
+  if (!userKey)
+    return { type: "error", error: new Error("missing PubKeyHash") };
+
+  if(config.toStake < config.minimumStake)
+    return { type: "error", error: new Error("toStake cannot be less than minimumStake") };
+
+  if(config.currentTime > config.freezeStake)
+    return { type: "error", error: new Error("Stake has been frozen") }
 
   const nodeValidator: SpendingValidator = {
     type: "PlutusV2",
@@ -24,39 +42,32 @@ export const modifyNode = async (
 
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
-  const userKey = lucid.utils.getAddressDetails(await lucid.wallet.address())
-    .paymentCredential?.hash;
-
-  if (!userKey)
-    return { type: "error", error: new Error("missing PubKeyHash") };
-
   const nodeUTXOs = config.nodeUTxOs
     ? config.nodeUTxOs
     : await lucid.utxosAt(nodeValidatorAddr);
-  // console.log(nodeUTXOs)
 
-  //TODO: move this to utils
-  const ownNode = nodeUTXOs.find((utxo) => {
-    if (utxo.datum){
-      const nodeDat = Data.from(utxo.datum, SetNode)
-      return nodeDat.key == userKey 
-    }
-  });
-  // console.log("found covering node ", coveringNode)
+  const ownNode = findOwnNode(nodeUTXOs, userKey);
 
-  if (!ownNode || !ownNode.datum)
+  if (ownNode.type == "error" || !ownNode.data.datum)
     return { type: "error", error: new Error("missing ownNode") };
 
-  const redeemerNodeValidator = Data.to("ModifyCommitment",NodeValidatorAction)
+  const redeemerNodeValidator = Data.to("ModifyStake", NodeValidatorAction)
 
-  const newNodeAssets : Assets = {}
-  Object.keys(ownNode.assets).forEach((unit) => newNodeAssets[unit] = ownNode.assets[unit]);
-  newNodeAssets['lovelace'] = newNodeAssets['lovelace'] + BigInt(config.amountLovelace)
+  const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
+  const oldStake = ownNode.data.assets[stakeToken];
+  const newStake = BigInt(config.toStake);
+  const differenceAmount = oldStake - newStake; 
+  
+  if(differenceAmount == 0n)
+    return { type: "error", error: new Error("New stake is equal to old stake")}
+
+  const upperBound = (config.currentTime + TIME_TOLERANCE_MS);
+  const lowerBound = (config.currentTime - TIME_TOLERANCE_MS);
 
   try {
     const tx = await lucid
       .newTx()
-      .collectFrom([ownNode], redeemerNodeValidator)
+      .collectFrom([ownNode.data], redeemerNodeValidator)
       .compose(
         config.refScripts?.nodeValidator
           ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
@@ -64,9 +75,12 @@ export const modifyNode = async (
       )
       .payToContract(
         nodeValidatorAddr,
-        { inline: ownNode.datum },
-        newNodeAssets
+        { inline: ownNode.data.datum },
+        { ...ownNode.data.assets, [stakeToken]: newStake } // Only updating the stakeToken to new stake
       )
+      .addSignerKey(userKey)
+      .validFrom(lowerBound)
+      .validTo(upperBound)
       .complete();
 
     return { type: "ok", data: tx };

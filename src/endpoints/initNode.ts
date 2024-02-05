@@ -5,11 +5,11 @@ import {
   Data,
   toUnit,
   TxComplete,
+  fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { MIN_COMMITMENT_ADA, originNodeTokenName } from "../core/constants.js";
+import { NODE_ADA, originNodeTokenName } from "../core/constants.js";
 import { StakingNodeAction, SetNode } from "../core/contract.types.js";
 import { InitNodeConfig, Result } from "../core/types.js";
-import { NODE_ADA } from "../core/constants.js";
 
 export const initNode = async (
   lucid: Lucid,
@@ -31,10 +31,18 @@ export const initNode = async (
 
   const assets = {
     [toUnit(nodePolicyId, originNodeTokenName)]: 1n,
-    // [toUnit(nodePolicyId, corrNodeTokenName)]: 1n,
   };
 
-  //TODO: Add PStakingNode struct
+  // data PStakingSetNode (s :: S)
+  // = PStakingSetNode
+  //     ( Term
+  //         s
+  //         ( PDataRecord
+  //             '[ "key" ':= PNodeKey
+  //              , "next" ':= PNodeKey
+  //              ]
+  //         )
+  //     )
   const datum = Data.to(
     {
       key: null,
@@ -44,6 +52,7 @@ export const initNode = async (
   );
 
   const redeemerNodePolicy = Data.to("PInit", StakingNodeAction);
+  const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
 
   try {
     const tx = await lucid
@@ -52,10 +61,13 @@ export const initNode = async (
       .payToContract(
         nodeValidatorAddr,
         { inline: datum },
-        { ...assets, lovelace: MIN_COMMITMENT_ADA }
+        { 
+          ...assets, 
+          lovelace: NODE_ADA,  
+          [stakeToken]: BigInt(config.minimumStake) // Evey node must have minimum stake commitment
+        }
       )
       .mintAssets(assets, redeemerNodePolicy)
-      // .attachMintingPolicy(nodePolicy)
       .compose(
         config.refScripts?.nodePolicy
           ? lucid.newTx().readFrom([config.refScripts.nodePolicy])

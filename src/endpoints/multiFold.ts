@@ -16,7 +16,7 @@ export const multiFold = async (
   lucid: Lucid,
   config: MultiFoldConfig
 ): Promise<Result<TxComplete>> => {
-  config.currenTime ??= Date.now();
+  config.currentTime ??= Date.now();
 
   const walletUtxos = await lucid.wallet.getUtxos();
 
@@ -45,18 +45,17 @@ export const multiFold = async (
 
   const oldFoldDatum = Data.from(foldUTxO.datum, FoldDatum);
 
-  //NOTE: node nodeRefUTxOs shuold be already ordered by keys, utxo type is better than outref since outref does not holds datum information, not sure yet if using utxo though
+  //NOTE: node nodeRefUTxOs should be already ordered by keys
   const nodeRefUTxOs = await lucid.utxosByOutRef(config.nodeRefInputs);
 
   const lastNodeRef = nodeRefUTxOs[config.indices.length - 1].datum;
   if (!lastNodeRef) return { type: "error", error: new Error("missing datum") };
 
   const lastNodeRefDatum = Data.from(lastNodeRef, SetNode);
-  // console.log("lastNodeRefDatum", lastNodeRefDatum )
-  const committed = nodeRefUTxOs.reduce((result: bigint, utxo: UTxO) => {
-    return result + utxo.assets.lovelace - 3_000_000n;
+  
+  const staked = nodeRefUTxOs.reduce((result: bigint, utxo: UTxO) => {
+    return result + utxo.assets[toUnit(config.stakeCS, fromText(config.stakeTN))];
   }, 0n);
-  // console.log("committed", committed);
 
   const newFoldDatum = Data.to(
     {
@@ -64,12 +63,11 @@ export const multiFold = async (
         key: oldFoldDatum.currNode.key,
         next: lastNodeRefDatum.next,
       },
-      committed: oldFoldDatum.committed + committed,
+      staked: oldFoldDatum.staked + staked,
       owner: oldFoldDatum.owner,
     },
     FoldDatum
   );
-  // console.log("indices", config.indices);
 
   const redeemerValidator = Data.to(
     {
@@ -82,14 +80,18 @@ export const multiFold = async (
     FoldAct
   );
 
-  const upperBound = config.currenTime + TIME_TOLERANCE_MS;
-  const lowerBound = config.currenTime - TIME_TOLERANCE_MS;
+  const upperBound = config.currentTime + TIME_TOLERANCE_MS;
+  const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
   try {
     const tx = await lucid
       .newTx()
       .collectFrom([foldUTxO], redeemerValidator)
-      .attachSpendingValidator(foldValidator)
+      .compose(
+        config.refScripts?.foldValidator
+          ? lucid.newTx().readFrom([config.refScripts.foldValidator])
+          : lucid.newTx().attachSpendingValidator(foldValidator)
+      )
       .readFrom(nodeRefUTxOs)
       .payToContract(
         foldValidatorAddr,

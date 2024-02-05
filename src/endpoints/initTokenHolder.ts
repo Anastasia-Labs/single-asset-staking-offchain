@@ -7,18 +7,9 @@ import {
   TxComplete,
   fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { PTHOLDER } from "../core/constants.js";
+import { PROTOCOL_FEE, PROTOCOL_PAYMENT_KEY, PROTOCOL_STAKE_KEY, RTHOLDER } from "../core/constants.js";
 import { InitTokenHolderConfig, Result } from "../core/types.js";
-
-export const TokenHolderMintActionSchema = Data.Enum([
-  Data.Literal("PMintHolder"),
-  Data.Literal("PBurnHolder"),
-]);
-export type TokenHolderMintAction = Data.Static<
-  typeof TokenHolderMintActionSchema
->;
-export const TokenHolderMintAction =
-  TokenHolderMintActionSchema as unknown as TokenHolderMintAction;
+import { TokenHolderMintAction } from "../index.js";
 
 export const initTokenHolder = async (
   lucid: Lucid,
@@ -39,8 +30,9 @@ export const initTokenHolder = async (
 
   const tokenHolderPolicyId = lucid.utils.mintingPolicyToId(tokenHolderPolicy);
 
-  const ptHolderAsset = toUnit(tokenHolderPolicyId, fromText(PTHOLDER));
-  const mintPTHolderAct = Data.to("PMintHolder", TokenHolderMintAction);
+  const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN))
+  const rtHolderAsset = toUnit(tokenHolderPolicyId, fromText(RTHOLDER));
+  const mintRTHolderAct = Data.to("PMintHolder", TokenHolderMintAction);
 
   try {
     const tx = await lucid
@@ -50,14 +42,25 @@ export const initTokenHolder = async (
         tokenHolderValidatorAddr,
         { inline: Data.void() },
         {
-          [ptHolderAsset]: BigInt(1),
-          [toUnit(config.projectCS, fromText(config.projectTN))]: BigInt(
-            config.projectAmount
-          ),
+          [rtHolderAsset]: BigInt(1),
+          [rewardToken]: BigInt(config.rewardAmount),
         }
       )
-      .mintAssets({ [ptHolderAsset]: BigInt(1) }, mintPTHolderAct)
-      .attachMintingPolicy(tokenHolderPolicy)
+      .mintAssets({ [rtHolderAsset]: BigInt(1) }, mintRTHolderAct)
+      .payToAddress(
+        lucid.utils.credentialToAddress(
+          lucid.utils.keyHashToCredential(PROTOCOL_PAYMENT_KEY),
+          lucid.utils.keyHashToCredential(PROTOCOL_STAKE_KEY)
+        ),
+        {
+          [rewardToken]: BigInt(config.rewardAmount * PROTOCOL_FEE),
+        }
+      )
+      .compose(
+        config.refScripts?.tokenHolderPolicy
+          ? lucid.newTx().readFrom([config.refScripts.tokenHolderPolicy])
+          : lucid.newTx().attachMintingPolicy(tokenHolderPolicy)
+      )
       .complete();
 
     return { type: "ok", data: tx };

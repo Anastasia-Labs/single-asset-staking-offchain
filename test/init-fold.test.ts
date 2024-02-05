@@ -1,27 +1,19 @@
 import {
   buildScripts,
-  deployRefScripts,
-  DeployRefScriptsConfig,
-  Emulator,
-  fromText,
-  generateAccountSeedPhrase,
+  FoldDatum,
   initFold,
   InitFoldConfig,
   initNode,
   InitNodeConfig,
-  insertNode,
-  InsertNodeConfig,
-  Lucid,
   ONE_HOUR_MS,
   parseUTxOsAtScript,
   replacer,
-  toUnit,
+  SetNode,
   TWENTY_FOUR_HOURS_MS,
-  utxosAtScript,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import stakingValidator from "./compiled/stakingValidator.json";
-import stakingPolicy from "./compiled/stakingMinting.json";
+import stakingPolicy from "./compiled/stakingMint.json";
 import stakingStakeValidator from "./compiled/stakingStakeValidator.json";
 import foldPolicy from "./compiled/foldMint.json";
 import foldValidator from "./compiled/foldValidator.json";
@@ -29,49 +21,9 @@ import rewardPolicy from "./compiled/rewardFoldMint.json";
 import rewardValidator from "./compiled/rewardFoldValidator.json";
 import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
-import { deploy, getRefUTxOs, insertThreeNodes } from "./setup.js";
+import { deploy, getRefUTxOs, initializeLucidContext, insertThreeNodes, LucidContext } from "./setup.js";
 
-
-type LucidContext = {
-  lucid: Lucid;
-  users: any;
-  emulator: Emulator;
-};
-
-// INITIALIZE EMULATOR + ACCOUNTS
-beforeEach<LucidContext>(async (context) => {
-  context.users = {
-    treasury1: await generateAccountSeedPhrase({
-      lovelace: BigInt(100_000_000),
-    }),
-    project1: await generateAccountSeedPhrase({
-      lovelace: BigInt(100_000_000),
-      [toUnit(
-        "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-        fromText("LOBSTER")
-      )]: BigInt(100_000_000),
-    }),
-    account1: await generateAccountSeedPhrase({
-      lovelace: BigInt(100_000_000),
-    }),
-    account2: await generateAccountSeedPhrase({
-      lovelace: BigInt(100_000_000),
-    }),
-    account3: await generateAccountSeedPhrase({
-      lovelace: BigInt(500_000_000),
-    }),
-  };
-
-  context.emulator = new Emulator([
-    context.users.treasury1,
-    context.users.project1,
-    context.users.account1,
-    context.users.account2,
-    context.users.account3,
-  ]);
-
-  context.lucid = await Lucid.new(context.emulator);
-});
+beforeEach<LucidContext>(initializeLucidContext);
 
 test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode - account3 insertNode - treasury1 initFold", async ({
   lucid,
@@ -79,33 +31,37 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   emulator,
 }) => {
   const logFlag = false;
-  
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const treasuryAddress = await lucid.wallet.address();
-  const [treasuryUTxO] = await lucid.wallet.getUtxos();
-  const deadline = emulator.now() + TWENTY_FOUR_HOURS_MS + ONE_HOUR_MS; // 24 hours + 1 hour
-  const [project1UTxO] = await lucid
-    .selectWalletFromSeed(users.project1.seedPhrase)
+
+  const [treasuryUTxO] = await lucid
+    .selectWalletFrom({ address: users.treasury1.address })
     .wallet.getUtxos();
+  const [reward1UTxO] = await lucid
+    .selectWalletFrom({ address: users.reward1.address })
+    .wallet.getUtxos();
+
+  const currentTime = emulator.now();
 
   const newScripts = buildScripts(lucid, {
     stakingPolicy: {
       initUTXO: treasuryUTxO,
-      deadline: deadline,
-      penaltyAddress: treasuryAddress,
+      freezeStake: currentTime + ONE_HOUR_MS,
+      endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
+      penaltyAddress: users.treasury1.address,    
+      stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+      stakeTN: "MIN",
+      minimumStake : 1_000,
     },
     rewardValidator: {
-      projectCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-      projectTN: "LOBSTER",
-      projectAddr: treasuryAddress,
+      rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+      rewardTN: "MIN",
     },
-    projectTokenHolder: {
-      initUTXO: project1UTxO,
+    rewardTokenHolder: {
+      initUTXO: reward1UTxO,
     },
     unapplied: {
       stakingPolicy: stakingPolicy.cborHex,
       stakingValidator: stakingValidator.cborHex,
-      stakingStake: stakingStakeValidator.cborHex,
+      stakingStakeValidator: stakingStakeValidator.cborHex,
       foldPolicy: foldPolicy.cborHex,
       foldValidator: foldValidator.cborHex,
       rewardPolicy: rewardPolicy.cborHex,
@@ -120,25 +76,30 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
 
   // DEPLOY
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
+
+  const deployTime = emulator.now();
+  const deployRefScripts = await deploy(lucid, emulator, newScripts.data, deployTime);
   
-  const deployRefScripts = await deploy(lucid, emulator, newScripts.data, emulator.now());
-  
-  //Find node refs script
-  const deployPolicyId =
-    deployRefScripts.type == "ok" ? deployRefScripts.data.deployPolicyId : "";
+  expect(deployRefScripts.type).toBe("ok");
+  if (deployRefScripts.type == "error") return;
+  // Find node refs script
+  const deployPolicyId = deployRefScripts.data.deployPolicyId;
 
   const refUTxOs = await getRefUTxOs(lucid, deployPolicyId);
 
   // INIT NODE
   const initNodeConfig: InitNodeConfig = {
     initUTXO: treasuryUTxO,
+    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    stakeTN: "MIN",
+    minimumStake: 1000,
     scripts: {
       nodePolicy: newScripts.data.stakingPolicy,
       nodeValidator: newScripts.data.stakingValidator,
     },
     refScripts: {
       nodePolicy: refUTxOs.nodePolicyUTxO,
-    }
+    },
   };
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
@@ -157,7 +118,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "initNode result ",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator),
+          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
           replacer,
           2
         )
@@ -165,12 +126,10 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     : null;
 
   // INSERT NODES, ACCOUNT 1 -> ACCOUNT 2 -> ACCOUNT 3
-  await insertThreeNodes(lucid, emulator, users, newScripts.data, refUTxOs, logFlag);
-
-  // Wait for deadline to pass
-  emulator.awaitBlock(6000);
-
-  // INIT FOLD
+  const freezeStake = currentTime + ONE_HOUR_MS;
+  await insertThreeNodes(lucid, emulator, users, newScripts.data, refUTxOs, freezeStake, logFlag);
+  
+  // Incorrect INIT FOLD - Init before endStaking
 
   const initFoldConfig: InitFoldConfig = {
     scripts: {
@@ -179,11 +138,23 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       foldPolicy: newScripts.data.foldPolicy,
       foldValidator: newScripts.data.foldValidator,
     },
-    currenTime: emulator.now(),
+    currentTime: emulator.now(),
   };
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const initFoldUnsigned = await initFold(lucid, initFoldConfig);
+  const initFoldUnsignedF = await initFold(lucid, initFoldConfig);
+
+  // console.log(initFoldUnsignedF);
+  expect(initFoldUnsignedF.type).toBe("error");
+  if (initFoldUnsignedF.type == "ok") return;
+
+  // Wait for endStaking to pass
+  emulator.awaitBlock(5000);
+
+  // INIT FOLD
+
+  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  const initFoldUnsigned = await initFold(lucid, {...initFoldConfig, currentTime: emulator.now()});
 
   // console.log(initFoldUnsigned);
   expect(initFoldUnsigned.type).toBe("ok");
@@ -199,7 +170,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "init fold result",
         JSON.stringify(
-          await utxosAtScript(lucid, newScripts.data.foldValidator),
+          await parseUTxOsAtScript(lucid, newScripts.data.foldValidator, FoldDatum),
           replacer,
           2
         )

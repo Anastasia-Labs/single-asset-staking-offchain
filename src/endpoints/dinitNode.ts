@@ -6,13 +6,13 @@ import {
   toUnit,
   TxComplete,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { corrNodeTokenName, originNodeTokenName } from "../core/constants.js";
-import { StakingNodeAction, SetNode } from "../core/contract.types.js";
-import { InitNodeConfig, Result } from "../core/types.js";
+import { originNodeTokenName } from "../core/constants.js";
+import { NodeValidatorAction, StakingNodeAction } from "../core/contract.types.js";
+import { DInitNodeConfig, Result } from "../core/types.js";
 
 export const dinitNode = async (
   lucid: Lucid,
-  config: InitNodeConfig
+  config: DInitNodeConfig
 ): Promise<Result<TxComplete>> => {
   const nodeValidator: SpendingValidator = {
     type: "PlutusV2",
@@ -28,15 +28,16 @@ export const dinitNode = async (
 
   const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
 
-  //TODO: make sure FCN and FSN tokens are in node validator
-  const [emptySetUTXO] = await lucid.utxosAtWithUnit(
+  const [headNodeUTxO] = await lucid.utxosAtWithUnit(
     nodeValidatorAddr,
-    toUnit(nodePolicyId, corrNodeTokenName)
+    toUnit(nodePolicyId, originNodeTokenName)
   );
 
+  if (!headNodeUTxO)
+    return { type: "error", error: new Error("Head node token not found at validator address: " + nodeValidatorAddr) };
+
   const assets = {
-    [toUnit(nodePolicyId, originNodeTokenName)]: -1n,
-    [toUnit(nodePolicyId, corrNodeTokenName)]: -1n,
+    [toUnit(nodePolicyId, originNodeTokenName)]: -1n
   };
 
   const redeemerNodePolicy = Data.to("PDInit", StakingNodeAction);
@@ -44,9 +45,18 @@ export const dinitNode = async (
   try {
     const tx = await lucid
       .newTx()
-      .collectFrom([emptySetUTXO])
+      .collectFrom([headNodeUTxO], Data.to("LinkedListAct", NodeValidatorAction))
       .mintAssets(assets, redeemerNodePolicy)
-      .attachMintingPolicy(nodePolicy)
+      .compose(
+        config.refScripts?.nodePolicy
+          ? lucid.newTx().readFrom([config.refScripts.nodePolicy])
+          : lucid.newTx().attachMintingPolicy(nodePolicy)
+      )
+      .compose(
+        config.refScripts?.nodeValidator
+          ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
+          : lucid.newTx().attachMintingPolicy(nodeValidator)
+      )
       .complete();
 
     return { type: "ok", data: tx };

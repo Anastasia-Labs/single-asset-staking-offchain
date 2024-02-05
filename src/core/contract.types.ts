@@ -48,13 +48,6 @@ export type AddressD = Data.Static<typeof AddressSchema>;
 export const AddressD = AddressSchema as unknown as AddressD;
 
 export const NodeKeySchema = Data.Nullable(Data.Bytes());
-// export const NodeKeySchema = Data.Enum([
-//   Data.Object({ Key: Data.Tuple([Data.Bytes()]) }),
-//   Data.Literal("Empty"),
-// ]);
-//
-export type NodeKeySchema = Data.Static<typeof NodeKeySchema>;
-
 export type NodeKey = Data.Static<typeof NodeKeySchema>;
 export const NodeKey = NodeKeySchema as unknown as NodeKey;
 
@@ -80,6 +73,11 @@ export const StakingNodeActionSchema = Data.Enum([
       coveringNode: SetNodeSchema,
     }),
   }),
+  Data.Object({
+    PClaim: Data.Object({
+      keyToRemove: PubKeyHashSchema
+    }),
+  }),
 ]);
 export type StakingNodeAction = Data.Static<typeof StakingNodeActionSchema>;
 export const StakingNodeAction =
@@ -87,28 +85,21 @@ export const StakingNodeAction =
 
 export const StakingConfigSchema = Data.Object({
   initUTXO: OutputReferenceSchema,
-  maxRaise: Data.Integer(),
-  stakingDeadLine: Data.Integer(),
+  freezeStake: Data.Integer(),
+  endStaking: Data.Integer(),
   penaltyAddress: AddressSchema,
+  stakeCS: Data.Bytes({ minLength: 28, maxLength: 28 }),
+  stakeTN: Data.Bytes(),
+  minimumStake: Data.Integer()
 });
 export type StakingConfig = Data.Static<typeof StakingConfigSchema>;
 export const StakingConfig =
   StakingConfigSchema as unknown as StakingConfig;
 
-// data PNodeValidatorAction (s :: S)
-//   = PLinkedListAct (Term s (PDataRecord '[]))
-//   | PModifyCommitment (Term s (PDataRecord '[]))
-//   | PRewardFoldAct (Term s (PDataRecord '["rewardsIdx" ':= PInteger]))
-
 export const NodeValidatorActionSchema = Data.Enum([
   Data.Literal("LinkedListAct"),
-  Data.Literal("ModifyCommitment"),
+  Data.Literal("ModifyStake"),
   Data.Literal("RewardFoldAct"),
-  // Data.Object({
-  //   RewardFoldAct: Data.Object({
-  //     rewardsIdx: Data.Integer(),
-  //   }),
-  // }),
 ]);
 export type NodeValidatorAction = Data.Static<typeof NodeValidatorActionSchema>;
 export const NodeValidatorAction =
@@ -116,7 +107,7 @@ export const NodeValidatorAction =
 
 export const FoldDatumSchema = Data.Object({
   currNode: SetNodeSchema,
-  committed: Data.Integer(),
+  staked: Data.Integer(),
   owner: AddressSchema,
 });
 export type FoldDatum = Data.Static<typeof FoldDatumSchema>;
@@ -140,10 +131,17 @@ export const FoldMintActSchema = Data.Enum([
 export type FoldMintAct = Data.Static<typeof FoldMintActSchema>;
 export const FoldMintAct = FoldMintActSchema as unknown as FoldMintAct;
 
+export const RewardFoldMintActSchema = Data.Enum([
+  Data.Literal("MintRewardFold"),
+  Data.Literal("BurnRewardFold"),
+]);
+export type RewardFoldMintAct = Data.Static<typeof RewardFoldMintActSchema>;
+export const RewardFoldMintAct = RewardFoldMintActSchema as unknown as RewardFoldMintAct;
+
 export const RewardFoldDatumSchema = Data.Object({
   currNode: SetNodeSchema,
-  totalProjectTokens: Data.Integer(),
-  totalCommitted: Data.Integer(),
+  totalRewardTokens: Data.Integer(),
+  totalStaked: Data.Integer(),
   owner: AddressSchema,
 });
 export type RewardFoldDatum = Data.Static<typeof RewardFoldDatumSchema>;
@@ -163,63 +161,12 @@ export const RewardFoldActSchema = Data.Enum([
 export type RewardFoldAct = Data.Static<typeof RewardFoldActSchema>;
 export const RewardFoldAct = RewardFoldActSchema as unknown as RewardFoldAct;
 
-export const LiquiditySetNodeSchema = Data.Object({
-  key: NodeKeySchema,
-  next: NodeKeySchema,
-  commitment: Data.Integer(),
-});
-export type LiquiditySetNode = Data.Static<typeof LiquiditySetNodeSchema>;
-export const LiquiditySetNode = LiquiditySetNodeSchema as unknown as LiquiditySetNode;
-
-export const LiquidityNodeActionSchema = Data.Enum([
-  Data.Literal("PLInit"),
-  Data.Literal("PLDInit"),
-  Data.Object({
-    PInsert: Data.Object({
-      keyToInsert: PubKeyHashSchema,
-      coveringNode: LiquiditySetNodeSchema,
-    }),
-  }),
-  Data.Object({
-    PRemove: Data.Object({
-      keyToRemove: PubKeyHashSchema,
-      coveringNode: LiquiditySetNodeSchema,
-    }),
-  }),
+export const TokenHolderMintActionSchema = Data.Enum([
+  Data.Literal("PMintHolder"),
+  Data.Literal("PBurnHolder"),
 ]);
-export type LiquidityNodeAction = Data.Static<typeof LiquidityNodeActionSchema>;
-export const LiquidityNodeAction = LiquidityNodeActionSchema as unknown as LiquidityNodeAction;  
-
-export const StakingCredentialSchema =
-  Data.Enum([
-    Data.Object({ Inline: Data.Tuple([CredentialSchema]) }),
-    Data.Object({
-      Pointer: Data.Tuple([
-        Data.Object({
-          slotNumber: Data.Integer(),
-          transactionIndex: Data.Integer(),
-          certificateIndex: Data.Integer(),
-        }),
-      ]),
-    }),
-  ])
-
-
-export const LiquidityValidatorConfigSchema = Data.Object({
-  stakingDeadLine: Data.Integer(),
-  penaltyAddress: AddressSchema,
-  commitCredential: StakingCredentialSchema,
-  rewardCredential: StakingCredentialSchema,
-});
-export type LiquidityValidatorConfig = Data.Static<typeof LiquidityValidatorConfigSchema>;
-export const LBELockConfig =
-LiquidityValidatorConfigSchema as unknown as LiquidityValidatorConfig;
-
-export const LiquidityPolicyConfigSchema = Data.Object({
-  initUTXO: OutputReferenceSchema,
-  stakingDeadLine: Data.Integer(),
-  penaltyAddress: AddressSchema,
-});
-export type LiquidityPolicyConfig = Data.Static<typeof LiquidityPolicyConfigSchema>;
-export const LiquidityPolicyConfig =
-LiquidityPolicyConfigSchema as unknown as LiquidityPolicyConfig;
+export type TokenHolderMintAction = Data.Static<
+  typeof TokenHolderMintActionSchema
+>;
+export const TokenHolderMintAction =
+  TokenHolderMintActionSchema as unknown as TokenHolderMintAction;
