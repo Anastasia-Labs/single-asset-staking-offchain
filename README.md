@@ -81,7 +81,7 @@ The contracts available from Single Asset Staking repository, require paramters 
 title: Build Scripts
 ---
 graph LR
-    P( Parameters
+    P("Parameters
     -----------------------
         stakingInitUTxO
         rewardInitUTxO 
@@ -93,8 +93,8 @@ graph LR
         minimumStake
         rewardCS
         rewardTN 
-    )
-    UV(Unapplied Validators
+    ")
+    UV("Unapplied Validators
     ----------------------------
         stakingPolicy
         stakingValidator
@@ -105,8 +105,8 @@ graph LR
         rewardValidator
         tokenHolderValidator
         tokenHolderPolicy
-    )
-    AV(Applied Validators
+    ")
+    AV("Applied Validators
     ----------------------------
         stakingPolicy
         stakingValidator
@@ -117,7 +117,7 @@ graph LR
         rewardValidator
         tokenHolderValidator
         tokenHolderPolicy
-    )
+    ")
     P --> UV
     UV --> AV
 
@@ -135,12 +135,12 @@ graph LR
     I1(Input UTxO)
     TX[ Transaction ]
     subgraph Always Fail Script
-    O1((Output 1
+    O1(("Output 1
         $deployId.StakingValidator
-        ref_script: stakingValidator ))
-    O2((Output 2
+        ref_script: stakingValidator "))
+    O2(("Output 2
         $deployId.StakingPolicy
-        ref_script: stakingPolicy))
+        ref_script: stakingPolicy"))
     ..
     end
     I1 --> TX
@@ -160,14 +160,14 @@ graph LR
     I1(Reward Init UTxO)
     TX[ Transaction ]
     subgraph Token Holder Validator
-    O1((Output 1
+    O1(("Output 1
         $rewardCS.rewardTN: totalReward
-        $TokenHolderPolicy.RTHolder: 1n ))
+        $TokenHolderPolicy.RTHolder: 1n "))
     end
-    O2((Output 2))
+    O2(("Output 2"))
     I1 --> TX
-    MP{RefOutput
-      $deployId.TokenHolderPolicy}  -.-o|Mint $TokenHolderPolicy.RTHolder| TX
+    MP{"RefOutput
+      $deployId.TokenHolderPolicy"}  -.-o|Mint $TokenHolderPolicy.RTHolder| TX
     TX --> O1
     TX -->|1% Protocol Fees| O2
 ```
@@ -195,14 +195,14 @@ graph LR
     I1(Staking Init UTxO)
     TX[ Transaction ]
     subgraph Staking Validator
-    O1((Head Node
+    O1(("Head Node
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSN: 1n 
-        datum: key = null, next = null))
+        datum: key = null, next = null"))
     end
     I1 --> TX
-    MP{RefInput
-      $deployId.StakingPolicy}  -.-o|Mint $StakingPolicy.FSN| TX
+    MP{"RefInput
+      $deployId.StakingPolicy"}  -.-o|Mint $StakingPolicy.FSN| TX
     TX --> O1
 ```
 
@@ -234,34 +234,34 @@ graph LR
     I1(Input UTxO)
     TX[ Transaction ]
     subgraph Staking Validator
-    N1((Ref Input
+    N1(("Ref Input
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSN: 1n 
         datum: 
-        key = null, next = aa1 ))
-    N2((UTxO
+        key = null, next = aa1 "))
+    N2(("UTxO
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSNaa1 : 1n 
         datum: 
-        key = aa1, next = bb2 ))
-    N3((UTxO
+        key = aa1, next = bb2 "))
+    N3(("UTxO
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSNbb2 : 1n
         datum: 
-        key = bb2, next = null ))
+        key = bb2, next = null "))
     end
     subgraph Fold Validator
-    O1((Output
+    O1(("Output
         $FoldPolicy.CFold: 1n 
         datum:
         key = null, next = aa1
         totalStake = 0n
-        ))
+        "))
     end
     N1 -.-o TX
     I1 --> TX
-    MP{Ref Input
-      $deployId.FoldPolicy}  -.-o|Mint $FoldPolicy.CFold| TX
+    MP{"Ref Input
+      $deployId.FoldPolicy"}  -.-o|Mint $FoldPolicy.CFold| TX
     TX --> O1
 ```
 
@@ -277,35 +277,35 @@ graph LR
     I1(Input UTxO)
     TX[ Transaction ]
     subgraph Staking Validator
-    N1((UTxO
+    N1(("UTxO
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSN: 1n 
         datum: 
-        key = null, next = aa1 ))
-    N2((Ref Input
+        key = null, next = aa1 "))
+    N2(("Ref Input
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSNaa1 : 1n 
         datum: 
-        key = aa1, next = bb2 ))
-    N3((Ref Input
+        key = aa1, next = bb2 "))
+    N3(("Ref Input
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSNbb2 : 1n
         datum: 
-        key = bb2, next = null ))
+        key = bb2, next = null "))
     end
     subgraph Fold Validator
-    F1((Input
+    F1(("Input
         $FoldPolicy.CFold: 1n 
         datum:
         key = null, next = aa1
         totalStake = 0n
-        ))
-    F2((Output
+        "))
+    F2(("Output
         $FoldPolicy.CFold: 1n 
         datum:
         key = null, next = null
         totalStake = 2 * minStake
-        ))
+        "))
     end
     F1 --> TX
     N2 -.-o TX
@@ -328,48 +328,48 @@ graph LR
     I1(Input UTxO)
     TX[ Transaction ]
     subgraph Staking Validator
-    N1((Head Node Input
+    N1(("Head Node Input
         $ADA : 3
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSN: 1n 
         datum: 
-        key = null, next = aa1 ))
-    N2((Head Node Output
+        key = null, next = aa1 "))
+    N2(("Head Node Output
         $ADA : 2
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSN: 1n 
         datum: 
-        key = null, next = aa1 ))
+        key = null, next = aa1 "))
     end
     subgraph Commit Fold Validator
-    F1((Input
+    F1(("Input
         $FoldPolicy.CFold: 1n 
         datum:
         totalStake = 2 * minStake
         key = null, next = null
-        ))
+        "))
     end
     subgraph Reward Fold Validator
-    R1((Output
+    R1(("Output
         $RewardPolicy.RFold: 1n 
         $rewardCS.rewardTN: totalReward
         datum:
         totalRewardTokens = totalReward
         totalStake = 2 * minStake
         key = null, next = aa1        
-        ))
+        "))
     end
     subgraph Token Holder Validator
-    T1((Input
+    T1(("Input
         $rewardCS.rewardTN: totalReward
-        $TokenHolderPolicy.RTHolder: 1n ))
+        $TokenHolderPolicy.RTHolder: 1n "))
     end
-    MP1{Ref Input
-      $deployId.TokenHolderPolicy}  -.-o|Burn $TokenHolderPolicy.RTHolder| TX
-    MP2{Ref Input
-      $deployId.FoldPolicy}  -.-o|Burn $FoldPolicy.CFold| TX
-    MP3{Ref Input
-      $deployId.RewardPolicy}  -.-o|Mint $RewardPolicy.RFold| TX
+    MP1{"Ref Input
+      $deployId.TokenHolderPolicy"}  -.-o|Burn $TokenHolderPolicy.RTHolder| TX
+    MP2{"Ref Input
+      $deployId.FoldPolicy"}  -.-o|Burn $FoldPolicy.CFold| TX
+    MP3{"Ref Input
+      $deployId.RewardPolicy"}  -.-o|Mint $RewardPolicy.RFold| TX
     T1 --> TX
     F1 --> TX
     N1 --> TX
@@ -386,57 +386,57 @@ With Reward Fold UTxO initialized with rewards and other essential information, 
 
 ```mermaid
 ---
-title: Complete Commit Fold
+title: Complete Reward Fold
 ---
 graph LR
     I1(Input UTxO)
     TX[ Transaction ]
     subgraph Staking Validator
-    N1((UTxO
+    N1(("UTxO
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSN: 1n 
         datum: 
-        key = null, next = aa1 ))
-    N2((Input
+        key = null, next = aa1 "))
+    N2(("Input
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSNaa1 : 1n 
         datum: 
-        key = aa1, next = bb2 ))
-    N3((Input
+        key = aa1, next = bb2 "))
+    N3(("Input
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSNbb2 : 1n
         datum: 
-        key = bb2, next = null ))
-    N4((Output
+        key = bb2, next = null "))
+    N4(("Output
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSNaa1 : 1n
         $rewardCS.rewardTN: totalReward/2 
         datum: 
-        key = aa1, next = bb2 ))
-    N5((Output
+        key = aa1, next = bb2 "))
+    N5(("Output
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSNbb2 : 1n
         $rewardCS.rewardTN: totalReward/2
         datum: 
-        key = bb2, next = null ))
+        key = bb2, next = null "))
     end
     subgraph Reward Fold Validator
-    R1((Output
+    R1(("Output
         $RewardPolicy.RFold: 1n 
         $rewardCS.rewardTN: totalReward
         datum:
         totalRewardTokens = totalReward
         totalStake = 2 * minStake
         key = null, next = aa1        
-        ))
-    R2((Output
+        "))
+    R2(("Output
         $RewardPolicy.RFold: 1n 
         $rewardCS.rewardTN: rewardsLeft*
         datum:
         totalRewardTokens = totalReward
         totalStake = 2 * minStake
         key = null, next = null        
-        ))
+        "))
     end
     R1 --> TX
     N2 --> TX
