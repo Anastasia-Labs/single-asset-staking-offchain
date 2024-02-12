@@ -1,30 +1,28 @@
-# single-asset-staking-offchain
+# Single Asset Staking Offchain
 
-# Table of Contents
+## Table of Contents
 
-- [Single Asset Staking](#single-asset-staking)
-  - [Introduction](#introduction)
-  - [Overview](#overview)
-  - [Details](#details)
+- [Introduction](#introduction)
+- [Overview](#overview)
+- [Details](#details)
     - [Deployment](#deployment)
-      - [Build Scripts](#build-scripts)
-      - [Deploy Reference Scripts](#deploy-reference-scripts)
-      - [Lock Rewards](#lock-rewards)
-      - [Initialize Head Node](#initialize-head-node)
+        - [Build Scripts](#build-scripts)
+        - [Deploy Reference Scripts](#deploy-reference-scripts)
+        - [Lock Rewards](#lock-rewards)
+        - [Initialize Head Node](#initialize-head-node)
     - [User Participation](#user-participation)
     - [Active Staking](#active-staking)
     - [Rewards Processing](#rewards-processing)
-      - [Initialize Commit Fold](#initialize-commit-fold)
-      - [Complete Commit Fold](#complete-commit-fold)
-      - [Initialize Reward Fold](#initialize-reward-fold)
-      - [Complete Reward Fold](#complete-reward-fold)
+        - [Initialize Commit Fold](#initialize-commit-fold)
+        - [Complete Commit Fold](#complete-commit-fold)
+        - [Initialize Reward Fold](#initialize-reward-fold)
+        - [Complete Reward Fold](#complete-reward-fold)
     - [Claim](#claim)
-      - [Project Reclaims Reward](#project-reclaims-reward)
-      - [Deinitialized Head Node](#deinitialize-head-node)
+        - [Project Reclaims Reward](#project-reclaims-reward)
+        - [Deinitialized Head Node](#deinitialize-head-node)
 
-# Single Asset Staking
 
-## Introduction
+# Introduction
 
 "Single Asset Staking Offchain" project provides with the necessary SDK to interact with "Single Asset Staking Contracts". These contracts facilitate collective staking of digital assets and distributing rewards among participants in a completely on-chain and trusless manner.
 
@@ -34,7 +32,7 @@ Instead of a fixed percentage based return, the staking reward obtained is not k
 
 The contracts are available at [Single Asset Staking](https://github.com/Anastasia-Labs/single-asset-staking).
 
-## Overview
+# Overview
 
 An interesting technical detail about this protocol is the use of an [on-chain association list](https://github.com/Plutonomicon/plutonomicon/blob/main/assoc.md). It maintains every unique public key's stake in a separate UTxO which points to the next stake UTxO.
 
@@ -68,13 +66,13 @@ timeline
 
 > Note: [*] - Actions which can be performed if user wishes to.
 
-## Details
+# Details
 
-### Deployment
+## Deployment
 
 Everything begins here with the project configuring and setting up the Smart Contracts. Its only after the deployment phase is completed that users can begin staking. It comprises of below four actions that need to be performed.
 
-#### **Build Scripts**
+### **Build Scripts**
 
 The contracts available from Single Asset Staking repository, require paramters configuring details of Staking event. 
 
@@ -82,52 +80,50 @@ The contracts available from Single Asset Staking repository, require paramters 
 ---
 title: Build Scripts
 ---
-classDiagram
-  
-  Parameters --> Unapplied Validators
-  Applied Validators <-- Unapplied Validators
-  
-
-  Parameters {
-    stakingInitUTxO
-    rewardInitUTxO 
-    freezeStake    
-    endStaking     
-    penaltyAddress 
-    stakeCS        
-    stakeTN
-    minimumStake
-    rewardCS
-    rewardTN 
-  }
-
-  class Unapplied Validators {
-    stakingPolicy
-    stakingValidator
-    stakingStakeValidator
-    foldPolicy
-    foldValidator
-    rewardPolicy
-    rewardValidator
-    tokenHolderValidator
-    tokenHolderPolicy
-  }
-
-  class Applied Validators {
-    stakingPolicy
-    stakingValidator
-    stakingStakeValidator
-    foldPolicy
-    foldValidator
-    rewardPolicy
-    rewardValidator
-    tokenHolderValidator
-    tokenHolderPolicy
-  }
+graph LR
+    P( Parameters
+    -----------------------
+        stakingInitUTxO
+        rewardInitUTxO 
+        freezeStake    
+        endStaking     
+        penaltyAddress 
+        stakeCS        
+        stakeTN
+        minimumStake
+        rewardCS
+        rewardTN 
+    )
+    UV(Unapplied Validators
+    ----------------------------
+        stakingPolicy
+        stakingValidator
+        stakingStakeValidator
+        foldPolicy
+        foldValidator
+        rewardPolicy
+        rewardValidator
+        tokenHolderValidator
+        tokenHolderPolicy
+    )
+    AV(Applied Validators
+    ----------------------------
+        stakingPolicy
+        stakingValidator
+        stakingStakeValidator
+        foldPolicy
+        foldValidator
+        rewardPolicy
+        rewardValidator
+        tokenHolderValidator
+        tokenHolderPolicy
+    )
+    P --> UV
+    UV --> AV
 
 ```
 
-#### **Deploy Reference Scripts**
+### **Deploy Reference Scripts**
 
 This step uses the applied validators obtained above to create a [Reference Script UTxO](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0033) for every validator. In order to easily identify a particular validator on-chain, a native minting policy is used in conjuction. It mints an NFT with the validator name and made available inside the RefUTxO. This native minting policy allows minting for a very short duration of *thirty mintues* within which all the RefUTxOs must be created. All the RefUTxOs are sent to an "Always Fail Script" address ensuring they are immutable and locked forever.
 
@@ -152,7 +148,7 @@ graph LR
     TX --> O2
 ```
 
-#### **Lock Rewards**
+### **Lock Rewards**
 
 Here project locks the entire staking reward in `tokenHolderValidator`. The total reward amount will be distributed among participants in proportion to their stake. Locking of rewards beforehand gives high assurance to all the participants before they can begin staking. One percent of total reward amount is paid as protocol fees for facilitating staking.
 
@@ -176,7 +172,7 @@ graph LR
     TX -->|1% Protocol Fees| O2
 ```
 
-#### **Initialize Head Node**
+### **Initialize Head Node**
 
 This marks the beginning of the association list which will contain all the stake by different participants as separate UTxOs. The first node of the list know as head node is created in this step. Every UTxO in the list will have `StakingSetNode` in its datum.
 
@@ -199,7 +195,7 @@ graph LR
     I1(Staking Init UTxO)
     TX[ Transaction ]
     subgraph Staking Validator
-    O1((Output 1
+    O1((Head Node
         $stakeCS.stakeTN: minStake
         $StakingPolicy.FSN: 1n 
         datum: key = null, next = null))
@@ -210,15 +206,15 @@ graph LR
     TX --> O1
 ```
 
-### User Participation
+## User Participation
 
 Now the Staking event is opened and users can participate by locking their stake in `stakingValidator` by updating the linked list. Before the stake is frozen, participants can choose to increase, decrease or remove their stake altogether.
 
-### Active Staking
+## Active Staking
 
 Once stake is frozen (configured by parameter `freezeStake :: POSIXTime`), the active staking phase begins for which the participants will be earning rewards. This phase lasts till `endStaking :: POSIXTime` as decided by the project. During this period, new participants cannot enter nor can the old ones modify their stake. However, existing stakers can still get their stake back if they choose to, by paying 25% of their stake as penalty fee. 
 
-### Rewards Processing
+## Rewards Processing
 
 After the active staking phase has ended (after `endStaking :: POSIXTime`) comes the part where project processes and allocates rewards to its participants who staked till now. 
 
@@ -226,7 +222,7 @@ Its done by first calculating and saving the total amount staked on-chain. Then 
 
 Following sequence of on-chain actions elaborate further on how rewards processing mechanism works.
 
-#### **Initialize Commit Fold**
+### **Initialize Commit Fold**
 
 Commit Fold carries out the computation of total staked amount by going over all the linked list UTxOs one after the other in order. The current state of the computation, i.e. how far along the linked list it has summed and the current sum, is stored in a UTxO at `foldValidator`. This UTxO is uniquely identified with the presence of an NFT ($FoldPolicy.CFold) minted using `foldPolicy`. This initialization of commit UTxO is perfomed in this step.
 
@@ -269,7 +265,7 @@ graph LR
     TX --> O1
 ```
 
-#### **Complete Commit Fold**
+### **Complete Commit Fold**
 
 Here one stake UTxO after another is used as reference input to calculate and update `totalStake` value in Commit Fold UTxO's datum. This is done till the end of list is not reached, at which point `next = null` in fold datum and `totalStake` is finally determined.
 
@@ -320,7 +316,7 @@ graph LR
 
 > Note: Head Node's stake is never taken into account.
 
-#### **Initialize Reward Fold**
+### **Initialize Reward Fold**
 
 Now that we total staked amount available on-chain, we initialize the reward fold wherein a UTxO at `rewardValidator` is sent. This contains total reward amount obtained from UTxO locked at "Token Holder Validator" along with `totalRewardTokens` and `totalStake` in its datum. Additionally, it has `$RewardPolicy.RFold` NFT minted from "Reward Policy" which validates that the initialization is carried out accurately. 
 
@@ -384,7 +380,7 @@ graph LR
 
 > Note: Upon undergoing rewards fold a UTxO has to pay 1 ADA folding fee.
 
-#### **Complete Reward Fold**
+### **Complete Reward Fold**
 
 With Reward Fold UTxO initialized with rewards and other essential information, rewards can be distributed into individual stake UTxO. This is similar to commit fold, with UTxO after head node being processed first and other UTxOs in the order they appear in list. Rewards fold gets concluded when `next = null` on processing the last UTxO of the list. Upon undergoing rewards fold a UTxO has to pay 1 ADA folding fee.
 
@@ -452,14 +448,14 @@ graph LR
 ```
 > Note: [*] - If any reward tokens are left due to remainder from integer division in `(userStake * totalRewards) / totalStake`
 
-### Claim 
+## Claim 
 
 Only after rewards are processed can the participants claim their stake and reward. They can do so by spending their stake UTxO from "Staking Validator" after signing transaction with private key belonging to the PaymentPubKeyHash as `key` in UTxO's datum.
 
-#### **Project Reclaims Reward**
+### **Project Reclaims Reward**
 
 Once the rewards are processed, project is free to claim any remaining project tokens left in "Reward Fold UTxO" along with lovelaces present. They have to burn "$RewardPolicy.RFold" token for this, which is only allowed when `next = null` i.e. all rewards are processed.
 
-#### **Deinitialize Head Node**
+### **Deinitialize Head Node**
 
 The project is also free to reclaim the Head Node with the "minStake" and lovelaces present in it. It can only be done after the reward fold is initiated (Reward Fold Token datum has `next == *head node's next*`).
