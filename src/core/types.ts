@@ -194,7 +194,6 @@ export type RewardFoldNodeConfig = {
 
 export type RewardFoldNodesConfig = {
   nodeInputs: OutRef[];
-  indices: number[];
   scripts: {
     nodeValidator: CborHex;
     stakingStakeValidator: CborHex;
