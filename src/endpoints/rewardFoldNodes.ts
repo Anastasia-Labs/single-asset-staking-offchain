@@ -18,7 +18,10 @@ import { Result, RewardFoldNodesConfig } from "../core/types.js";
 import {
   MIN_ADA,
   TIME_TOLERANCE_MS,
+  getInputUtxoIndices,
   rFold,
+  selectUtxos,
+  sumUtxoAssets,
 } from "../index.js";
 
 export const rewardFoldNodes = async (
@@ -91,6 +94,19 @@ export const rewardFoldNodes = async (
     RewardFoldDatum
   );
   
+  const walletAddress = await lucid.wallet.address();
+  const walletUTxOs = await lucid.wallet.getUtxos();
+  // adding 4 ADA to cover tx fees as we will do the coin selection. 
+  // Using more than sufficient ADA to safeguard against high tx costs
+  const selectedUtxos = selectUtxos(walletUTxOs, {lovelace: 4_000_000n});
+  if(selectedUtxos.type == "error")
+    return selectedUtxos
+  const inputIndices = getInputUtxoIndices(nodeUTxOs, [...selectedUtxos.data, rewardUTxO]);
+
+  // balance the native assets from wallet inputs
+  const walletAssets = sumUtxoAssets(selectedUtxos.data);
+  delete walletAssets["lovelace"]; // we would want lucid to balance ADA for the tx
+  
   const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
   const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
   const nodeOutIdxs: bigint[]= [];
@@ -132,15 +148,14 @@ export const rewardFoldNodes = async (
     const remainingRewardTokenAmount = rewardUTxO.assets[rewardToken] - totalOwedReward;
     const rewardFoldValidatorRedeemer = Data.to({
       RewardsFoldNodes: {
-        nodeIdxs: config.indices.map((index) => {
-          return BigInt(index);
-        }),
+        nodeIdxs: inputIndices,
         nodeOutIdxs: nodeOutIdxs
       }
     }, RewardFoldAct);
 
     tx = tx
       .collectFrom([rewardUTxO], rewardFoldValidatorRedeemer)
+      .collectFrom(selectedUtxos.data)
       .payToContract(
         rewardFoldValidatorAddr,
         { inline: newFoldDatum },
@@ -153,6 +168,12 @@ export const rewardFoldNodes = async (
         lucid.utils.validatorToRewardAddress(stakingStakeValidator),
         0n,
         Data.void()
+      )
+      .compose(
+        // Return and balance native tokens (if any) obtained from spending wallet UTxOs
+        Object.keys(walletAssets).length > 0
+          ? lucid.newTx().payToAddress(walletAddress, walletAssets)
+          : null
       )
       .compose(
         config.refScripts?.rewardFoldValidator

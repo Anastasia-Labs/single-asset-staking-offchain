@@ -1,4 +1,5 @@
 import {
+  addAssets,
   Address,
   applyDoubleCborEncoding,
   Assets,
@@ -8,8 +9,7 @@ import {
   generateSeedPhrase,
   getAddressDetails,
   Lucid,
-  MintingPolicy,
-  SpendingValidator,
+  UTxO,
 } from "@anastasia-labs/lucid-cardano-fork";
 import { SETNODE_PREFIX } from "../constants.js";
 import { AddressD } from "../contract.types.js";
@@ -117,27 +117,117 @@ export const fromAddressToData = (address: Address): Result<Data> => {
   return { type: "ok", data: new Constr(0, [paymentCred, stakingCred]) };
 };
 
-type MintingPolicyDetails = {
-  mintingPolicy: MintingPolicy;
-  mintingPolicyId: string;
-};
-type SpendingValidatorDetails = {
-  spendingValidator: SpendingValidator;
-  spendingValidatorAddress: Address;
-};
+/**
+ * Returns a list of UTxOs whose total assets are equal to or greater than the asset value provided
+ * @param utxos list of available utxos 
+ * @param minAssets minimum total assets required
+ */
+export function selectUtxos(utxos: UTxO[], minAssets: Assets): Result<UTxO[]> {
+  const selectedUtxos: UTxO[] = [];
+  let isSelected = false;
+  const assetsRequired = new Map<string, bigint>(Object.entries(minAssets));
 
+  for (const utxo of utxos) {
+    if (utxo.scriptRef) { // not selecting utxos with scriptRef
+      continue;
+    }
 
+    isSelected = false;
 
-// const tokenHolderValidator: SpendingValidator = {
-//   type: "PlutusV2",
-//   script: config.scripts.tokenHolderValidator,
-// };
-//
-// const tokenHolderValidatorAddr =
-//   lucid.utils.validatorToAddress(tokenHolderValidator);
-//
-// const tokenHolderPolicy: MintingPolicy = {
-//   type: "PlutusV2",
-//   script: config.scripts.tokenHolderPolicy,
-// };
-// const tokenHolderPolicyId = lucid.utils.mintingPolicyToId(tokenHolderPolicy);
+    for (const [unit, value] of assetsRequired) {
+      if (Object.hasOwn(utxo.assets, unit)) {
+        const utxoValue = utxo.assets[unit];
+
+        if (utxoValue >= value) {
+          assetsRequired.delete(unit);
+        } else {
+          assetsRequired.set(unit, value - utxoValue);
+        }
+
+        isSelected = true;
+      }
+    }
+
+    if (isSelected) {
+      selectedUtxos.push(utxo);
+    }
+    if (assetsRequired.size == 0) {
+      break;
+    }
+  }
+
+  if (assetsRequired.size > 0) {
+    return { type : "error", error : new Error(`Insufficient funds`) }
+  }
+
+  return { type: "ok", data : selectedUtxos };
+}
+
+export function getInputUtxoIndices(indexInputs: UTxO[], remainingInputs: UTxO[]) : bigint[] {
+  const allInputs = indexInputs.concat(remainingInputs);
+
+  const sortedInputs = sortUTxOsByOutRefWithIndex(allInputs);
+  const indicesMap = new Map<string, bigint>();
+  
+  sortedInputs.forEach((value, index) =>{
+    indicesMap.set(value.txHash + value.outputIndex, BigInt(index));
+  })
+
+  return indexInputs.flatMap((value) => {
+    const index = indicesMap.get(value.txHash + value.outputIndex);
+    if(index !== undefined)
+      return index
+    else
+      return []
+  });
+}
+
+export function sortUTxOsByOutRefWithIndex(utxos: UTxO[]): UTxO[] {
+
+  return utxos
+    .sort((a, b) => {
+      if (a.txHash < b.txHash) {
+        return -1;
+
+      } else if (a.txHash > b.txHash) {
+        return 1;
+
+      } else if (a.txHash == b.txHash) {
+        if (a.outputIndex < b.outputIndex) {
+          return -1;
+        } 
+        else return 1;
+
+      } else return 0;
+    });
+}
+
+export function sumUtxoAssets(utxos: UTxO[]): Assets {
+  return utxos
+    .map((utxo) => utxo.assets)
+    .reduce((acc, assets) => addAssets(acc, assets), {});
+}
+
+/** Remove the intersection of a & b asset quantities from a
+ * @param a assets to be removed from
+ * @param b assets to remove
+ * For e.g. 
+ * a = {[x] : 5n, [y] : 10n} 
+ * b = {[x] : 3n, [y] : 15n, [z] : 4n}
+ * remove(a, b) = {[x] : 2n}
+ */  
+export function remove(a: Assets, b: Assets): Assets {
+  
+  for(const [key, value] of Object.entries(b)) {
+    if(Object.hasOwn(a, key)){
+      if(a[key] < value)
+        delete a[key]
+      else if(a[key] > value)
+        a[key] -= value;
+      else
+        delete a[key];
+    }
+  }
+
+  return a;
+}
