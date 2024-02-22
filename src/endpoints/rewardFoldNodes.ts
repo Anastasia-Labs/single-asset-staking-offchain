@@ -48,9 +48,9 @@ export const rewardFoldNodes = async (
   };
   const rewardFoldPolicyId = lucid.utils.mintingPolicyToId(rewardFoldPolicy);
 
-  const stakingStakeValidator: WithdrawalValidator = {
+  const nodeStakeValidator: WithdrawalValidator = {
     type: "PlutusV2",
-    script: config.scripts.stakingStakeValidator,
+    script: config.scripts.nodeStakeValidator,
   };
 
   const [rewardUTxO] = await lucid.utxosAtWithUnit(
@@ -165,7 +165,7 @@ export const rewardFoldNodes = async (
         }
       )
       .withdraw(
-        lucid.utils.validatorToRewardAddress(stakingStakeValidator),
+        lucid.utils.validatorToRewardAddress(nodeStakeValidator),
         0n,
         Data.void()
       )
@@ -186,9 +186,9 @@ export const rewardFoldNodes = async (
           : lucid.newTx().attachSpendingValidator(nodeValidator)
       )
       .compose(
-        config.refScripts?.stakingStakeValidator
-          ? lucid.newTx().readFrom([config.refScripts.stakingStakeValidator])
-          : lucid.newTx().attachWithdrawalValidator(stakingStakeValidator)
+        config.refScripts?.nodeStakeValidator
+          ? lucid.newTx().readFrom([config.refScripts.nodeStakeValidator])
+          : lucid.newTx().attachWithdrawalValidator(nodeStakeValidator)
       )
       .validFrom(lowerBound)
       .validTo(upperBound)

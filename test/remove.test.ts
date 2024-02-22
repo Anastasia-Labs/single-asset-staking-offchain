@@ -11,15 +11,15 @@ import {
   TWENTY_FOUR_HOURS_MS,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
-import stakingValidator from "./compiled/stakingValidator.json";
-import stakingPolicy from "./compiled/stakingMint.json";
-import foldPolicy from "./compiled/foldMint.json";
+import nodeValidator from "./compiled/nodeValidator.json";
+import nodePolicy from "./compiled/nodePolicy.json";
+import foldPolicy from "./compiled/foldPolicy.json";
 import foldValidator from "./compiled/foldValidator.json";
-import rewardPolicy from "./compiled/rewardFoldMint.json";
-import rewardValidator from "./compiled/rewardFoldValidator.json";
+import rewardFoldPolicy from "./compiled/rewardFoldPolicy.json";
+import rewardFoldValidator from "./compiled/rewardFoldValidator.json";
 import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json"
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json"
-import stakingStakeValidator from "./compiled/stakingStakeValidator.json";
+import nodeStakeValidator from "./compiled/nodeStakeValidator.json";
 import { deploy, getRefUTxOs, initializeLucidContext, insertThreeNodes, LucidContext } from "./setup.js";
 
 beforeEach<LucidContext>(initializeLucidContext);
@@ -41,7 +41,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   const currentTime = emulator.now();
 
   const newScripts = buildScripts(lucid, {
-    stakingPolicy: {
+    nodePolicy: {
       initUTXO: treasuryUTxO,
       freezeStake: currentTime + ONE_HOUR_MS,
       endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
@@ -50,7 +50,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       stakeTN: "MIN",
       minimumStake : 1_000,
     },
-    rewardValidator: {
+    rewardFoldValidator: {
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       rewardTN: "MIN",
     },
@@ -58,13 +58,13 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       initUTXO: reward1UTxO,
     },
     unapplied: {
-      stakingPolicy: stakingPolicy.cborHex,
-      stakingValidator: stakingValidator.cborHex,
-      stakingStakeValidator: stakingStakeValidator.cborHex,
+      nodePolicy: nodePolicy.cborHex,
+      nodeValidator: nodeValidator.cborHex,
+      nodeStakeValidator: nodeStakeValidator.cborHex,
       foldPolicy: foldPolicy.cborHex,
       foldValidator: foldValidator.cborHex,
-      rewardPolicy: rewardPolicy.cborHex,
-      rewardValidator: rewardValidator.cborHex,
+      rewardFoldPolicy: rewardFoldPolicy.cborHex,
+      rewardFoldValidator: rewardFoldValidator.cborHex,
       tokenHolderPolicy: tokenHolderPolicy.cborHex,
       tokenHolderValidator: tokenHolderValidator.cborHex,
     },
@@ -93,8 +93,8 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     stakeTN: "MIN",
     minimumStake: 1000,
     scripts: {
-      nodePolicy: newScripts.data.stakingPolicy,
-      nodeValidator: newScripts.data.stakingValidator,
+      nodePolicy: newScripts.data.nodePolicy,
+      nodeValidator: newScripts.data.nodeValidator,
     },
     refScripts: {
       nodePolicy: refUTxOs.nodePolicyUTxO,
@@ -115,7 +115,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "initNode result ",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
+          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
           replacer,
           2
         )
@@ -148,8 +148,8 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   // REMOVE NODE 1
   const removeNodeConfig: RemoveNodeConfig = {
     scripts: {
-      nodePolicy: newScripts.data.stakingPolicy,
-      nodeValidator: newScripts.data.stakingValidator,
+      nodePolicy: newScripts.data.nodePolicy,
+      nodeValidator: newScripts.data.nodeValidator,
     },
     refScripts: {
       nodeValidator: refUTxOs.nodeValidatorUTxO,
@@ -179,7 +179,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "removeNode 1 result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
+          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
           replacer,
           2
         )
@@ -197,8 +197,8 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   // REMOVE NODE 2
   const removeNodeConfig2: RemoveNodeConfig = {
     scripts: {
-      nodePolicy: newScripts.data.stakingPolicy,
-      nodeValidator: newScripts.data.stakingValidator,
+      nodePolicy: newScripts.data.nodePolicy,
+      nodeValidator: newScripts.data.nodeValidator,
     },
     refScripts: {
       nodeValidator: refUTxOs.nodeValidatorUTxO,
@@ -227,7 +227,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "removeNode 2 result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
+          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
           replacer,
           2
         )
@@ -242,8 +242,8 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   // FAIL REMOVE NODE 2
   const removeNodeConfig3: RemoveNodeConfig = {
     scripts: {
-      nodePolicy: newScripts.data.stakingPolicy,
-      nodeValidator: newScripts.data.stakingValidator,
+      nodePolicy: newScripts.data.nodePolicy,
+      nodeValidator: newScripts.data.nodeValidator,
     },
     refScripts: {
       nodeValidator: refUTxOs.nodeValidatorUTxO,
@@ -273,7 +273,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "failed removeNode result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
+          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
           replacer,
           2
         )
@@ -286,8 +286,8 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   // FAIL REMOVE NODE 3
   const removeNodeConfig4: RemoveNodeConfig = {
     scripts: {
-      nodePolicy: newScripts.data.stakingPolicy,
-      nodeValidator: newScripts.data.stakingValidator,
+      nodePolicy: newScripts.data.nodePolicy,
+      nodeValidator: newScripts.data.nodeValidator,
     },
     refScripts: {
       nodeValidator: refUTxOs.nodeValidatorUTxO,
@@ -314,7 +314,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "removeNode 3 result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
+          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
           replacer,
           2
         )

@@ -156,18 +156,18 @@ export type InitRewardFoldConfig = {
     rewardFoldValidator: CborHex;
     tokenHolderPolicy: CborHex;
     tokenHolderValidator: CborHex;
-    stakingStakeValidator: CborHex;
+    nodeStakeValidator: CborHex;
   };
   refScripts?: {
     nodeValidator?: UTxO;
     nodePolicy?: UTxO;
-    commitFoldPolicy?: UTxO;
-    commitFoldValidator?: UTxO;
+    foldPolicy?: UTxO;
+    foldValidator?: UTxO;
     rewardFoldPolicy?: UTxO;
     rewardFoldValidator?: UTxO;
     tokenHolderPolicy?: UTxO;
     tokenHolderValidator?: UTxO;
-    stakingStakeValidator: UTxO;
+    nodeStakeValidator: UTxO;
   };
 };
 
@@ -175,13 +175,13 @@ export type RewardFoldNodeConfig = {
   nodeInputs?: UTxO[];
   scripts: {
     nodeValidator: CborHex;
-    stakingStakeValidator: CborHex;
+    nodeStakeValidator: CborHex;
     rewardFoldPolicy: CborHex;
     rewardFoldValidator: CborHex;
   };
   refScripts: {
     nodeValidator: UTxO;
-    stakingStakeValidator: UTxO;
+    nodeStakeValidator: UTxO;
     rewardFoldPolicy: UTxO;
     rewardFoldValidator: UTxO;
   };
@@ -196,13 +196,13 @@ export type RewardFoldNodesConfig = {
   nodeInputs: OutRef[];
   scripts: {
     nodeValidator: CborHex;
-    stakingStakeValidator: CborHex;
+    nodeStakeValidator: CborHex;
     rewardFoldPolicy: CborHex;
     rewardFoldValidator: CborHex;
   };
   refScripts: {
     nodeValidator: UTxO;
-    stakingStakeValidator: UTxO;
+    nodeStakeValidator: UTxO;
     rewardFoldPolicy: UTxO;
     rewardFoldValidator: UTxO;
   };
@@ -214,7 +214,7 @@ export type RewardFoldNodesConfig = {
 };
 
 export type BuildScriptsConfig = {
-  stakingPolicy: {
+  nodePolicy: {
     initUTXO: UTxO;
     freezeStake: POSIXTime;
     endStaking: POSIXTime;
@@ -223,7 +223,7 @@ export type BuildScriptsConfig = {
     stakeTN: string;
     minimumStake : number;
   };
-  rewardValidator: {
+  rewardFoldValidator: {
     rewardCS: PolicyId;
     rewardTN: string;
   };
@@ -231,13 +231,13 @@ export type BuildScriptsConfig = {
     initUTXO: UTxO;
   };
   unapplied: {
-    stakingPolicy: RawHex;
-    stakingValidator: RawHex;
-    stakingStakeValidator: RawHex;
+    nodePolicy: RawHex;
+    nodeValidator: RawHex;
+    nodeStakeValidator: RawHex;
     foldPolicy: RawHex;
     foldValidator: RawHex;
-    rewardPolicy: RawHex;
-    rewardValidator: RawHex;
+    rewardFoldPolicy: RawHex;
+    rewardFoldValidator: RawHex;
     tokenHolderValidator: RawHex;
     tokenHolderPolicy: RawHex;
   };
@@ -250,13 +250,13 @@ export type ReadableUTxO<T> = {
 };
 
 export type AppliedScripts = {
-  stakingPolicy: CborHex;
-  stakingValidator: CborHex;
-  stakingStakeValidator: CborHex;
+  nodePolicy: CborHex;
+  nodeValidator: CborHex;
+  nodeStakeValidator: CborHex;
   foldPolicy: CborHex;
   foldValidator: CborHex;
-  rewardPolicy: CborHex;
-  rewardValidator: CborHex;
+  rewardFoldPolicy: CborHex;
+  rewardFoldValidator: CborHex;
   tokenHolderPolicy: CborHex;
   tokenHolderValidator: CborHex;
 };

@@ -27,13 +27,13 @@ import {
   claimNode
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
-import stakingValidator from "./compiled/stakingValidator.json";
-import stakingPolicy from "./compiled/stakingMint.json";
-import stakingStakeValidator from "./compiled/stakingStakeValidator.json";
-import foldPolicy from "./compiled/foldMint.json";
+import nodeValidator from "./compiled/nodeValidator.json";
+import nodePolicy from "./compiled/nodePolicy.json";
+import nodeStakeValidator from "./compiled/nodeStakeValidator.json";
+import foldPolicy from "./compiled/foldPolicy.json";
 import foldValidator from "./compiled/foldValidator.json";
-import rewardPolicy from "./compiled/rewardFoldMint.json";
-import rewardValidator from "./compiled/rewardFoldValidator.json";
+import rewardFoldPolicy from "./compiled/rewardFoldPolicy.json";
+import rewardFoldValidator from "./compiled/rewardFoldValidator.json";
 import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
 import { deploy, getRefUTxOs, initializeLucidContext, insertThreeNodes, LucidContext } from "./setup.js";
@@ -58,7 +58,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   const currentTime = emulator.now();
 
   const newScripts = buildScripts(lucid, {
-    stakingPolicy: {
+    nodePolicy: {
       initUTXO: treasuryUTxO,
       freezeStake: currentTime + ONE_HOUR_MS,
       endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
@@ -67,7 +67,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
       stakeTN: "MIN",
       minimumStake : 1_000,
     },
-    rewardValidator: {
+    rewardFoldValidator: {
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       rewardTN: "MIN",
     },
@@ -75,13 +75,13 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
       initUTXO: reward1UTxO,
     },
     unapplied: {
-      stakingPolicy: stakingPolicy.cborHex,
-      stakingValidator: stakingValidator.cborHex,
-      stakingStakeValidator: stakingStakeValidator.cborHex,
+      nodePolicy: nodePolicy.cborHex,
+      nodeValidator: nodeValidator.cborHex,
+      nodeStakeValidator: nodeStakeValidator.cborHex,
       foldPolicy: foldPolicy.cborHex,
       foldValidator: foldValidator.cborHex,
-      rewardPolicy: rewardPolicy.cborHex,
-      rewardValidator: rewardValidator.cborHex,
+      rewardFoldPolicy: rewardFoldPolicy.cborHex,
+      rewardFoldValidator: rewardFoldValidator.cborHex,
       tokenHolderPolicy: tokenHolderPolicy.cborHex,
       tokenHolderValidator: tokenHolderValidator.cborHex,
     },
@@ -106,9 +106,9 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   // REGISTER STAKE VALIDATOR
   emulator.distributeRewards(BigInt(100_000_000));
 
-  const stakingStakeRewardAddress = lucid.utils.validatorToRewardAddress({
+  const nodeStakeRewardAddress = lucid.utils.validatorToRewardAddress({
     type: "PlutusV2",
-    script: newScripts.data.stakingStakeValidator,
+    script: newScripts.data.nodeStakeValidator,
   });
 
   await lucid.awaitTx(
@@ -116,7 +116,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
       await (
         await lucid
           .newTx()
-          .registerStake(stakingStakeRewardAddress!)
+          .registerStake(nodeStakeRewardAddress!)
           .complete()
       )
         .sign()
@@ -164,8 +164,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     stakeTN: "MIN",
     minimumStake: 1000,
     scripts: {
-      nodePolicy: newScripts.data.stakingPolicy,
-      nodeValidator: newScripts.data.stakingValidator,
+      nodePolicy: newScripts.data.nodePolicy,
+      nodeValidator: newScripts.data.nodeValidator,
     },
     refScripts: {
       nodePolicy: refUTxOs.nodePolicyUTxO,
@@ -186,7 +186,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     ? console.log(
         "initNode result ",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
+          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
           replacer,
           2
         )
@@ -203,8 +203,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   // INIT FOLD
   const initFoldConfig: InitFoldConfig = {
     scripts: {
-      nodeValidator: newScripts.data.stakingValidator,
-      nodePolicy: newScripts.data.stakingPolicy,
+      nodeValidator: newScripts.data.nodeValidator,
+      nodePolicy: newScripts.data.nodePolicy,
       foldPolicy: newScripts.data.foldPolicy,
       foldValidator: newScripts.data.foldValidator,
     },
@@ -226,12 +226,12 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
 
   const multiFoldConfig: MultiFoldConfig = {
     nodeRefInputs: sortByOutRefWithIndex(
-      await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode)
+      await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode)
     ).map((data) => {
       return data.value.outRef;
     }),
     indices: sortByOutRefWithIndex(
-      await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode)
+      await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode)
     ).map((data) => {
       return data.index;
     }),
@@ -264,26 +264,26 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     rewardTN: "MIN",
     scripts: {
-      nodeValidator: newScripts.data.stakingValidator,
-      nodePolicy: newScripts.data.stakingPolicy,
-      stakingStakeValidator: newScripts.data.stakingStakeValidator,
+      nodeValidator: newScripts.data.nodeValidator,
+      nodePolicy: newScripts.data.nodePolicy,
+      nodeStakeValidator: newScripts.data.nodeStakeValidator,
       foldPolicy: newScripts.data.foldPolicy,
       foldValidator: newScripts.data.foldValidator,
-      rewardFoldPolicy: newScripts.data.rewardPolicy,
-      rewardFoldValidator: newScripts.data.rewardValidator,
+      rewardFoldPolicy: newScripts.data.rewardFoldPolicy,
+      rewardFoldValidator: newScripts.data.rewardFoldValidator,
       tokenHolderPolicy: newScripts.data.tokenHolderPolicy,
       tokenHolderValidator: newScripts.data.tokenHolderValidator,
     },
     refScripts: {
       nodePolicy: refUTxOs.nodePolicyUTxO,
       nodeValidator: refUTxOs.nodeValidatorUTxO,
-      commitFoldPolicy: refUTxOs.foldPolicyUTxO,
-      commitFoldValidator: refUTxOs.foldValidatorUTxO,
+      foldPolicy: refUTxOs.foldPolicyUTxO,
+      foldValidator: refUTxOs.foldValidatorUTxO,
       rewardFoldPolicy: refUTxOs.rewardPolicyUTxO,
       rewardFoldValidator: refUTxOs.rewardValidatorUTxO,
       tokenHolderPolicy: refUTxOs.tokenHolderPolicyUTxO,
       tokenHolderValidator: refUTxOs.tokenHolderValidatorUTxO,
-      stakingStakeValidator: refUTxOs.nodeStakeValidatorUTxO,
+      nodeStakeValidator: refUTxOs.nodeStakeValidatorUTxO,
     },
   };
 
@@ -307,12 +307,12 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
 
   const nodeUTxOs = await utxosAtScript(
     lucid,
-    newScripts.data.stakingValidator
+    newScripts.data.nodeValidator
   );
 
   const refScripts = {
     nodeValidator: refUTxOs.nodeValidatorUTxO,
-    stakingStakeValidator: refUTxOs.nodeStakeValidatorUTxO,
+    nodeStakeValidator: refUTxOs.nodeStakeValidatorUTxO,
     rewardFoldPolicy: refUTxOs.rewardPolicyUTxO,
     rewardFoldValidator: refUTxOs.rewardValidatorUTxO,
   };
@@ -324,10 +324,10 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
     scripts: {
-      nodeValidator: newScripts.data.stakingValidator,
-      stakingStakeValidator: newScripts.data.stakingStakeValidator,
-      rewardFoldPolicy: newScripts.data.rewardPolicy,
-      rewardFoldValidator: newScripts.data.rewardValidator,
+      nodeValidator: newScripts.data.nodeValidator,
+      nodeStakeValidator: newScripts.data.nodeStakeValidator,
+      rewardFoldPolicy: newScripts.data.rewardFoldPolicy,
+      rewardFoldValidator: newScripts.data.rewardFoldValidator,
     },
     refScripts: refScripts,
     currentTime: emulator.now()
@@ -347,8 +347,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   // DEINIT - Deinit should not affect the rewards fold or claims
   const dinitNodeConfig: DInitNodeConfig = {
     scripts: {
-      nodePolicy: newScripts.data.stakingPolicy,
-      nodeValidator: newScripts.data.stakingValidator,
+      nodePolicy: newScripts.data.nodePolicy,
+      nodeValidator: newScripts.data.nodeValidator,
     },
     refScripts: {
       nodePolicy: refUTxOs.nodePolicyUTxO,
@@ -369,14 +369,14 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     ? console.log(
         "dinitNode result ",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
+          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
           replacer,
           2
         )
       )
     : null;
 
-  // console.log("utxos at staking validator", await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode))
+  // console.log("utxos at staking validator", await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode))
 
   // REWARD FOLD 2
 
@@ -431,7 +431,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   logFlag ?
     console.log(
       "Reward Fold & Reclaim Reward Completed. Result:",
-      await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode)
+      await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode)
     ) : null;
   logFlag ?
     console.log(
@@ -442,8 +442,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   // CLAIM REWARD & STAKE
   const removeNodeConfig: RemoveNodeConfig = {
     scripts: {
-      nodePolicy: newScripts.data.stakingPolicy,
-      nodeValidator: newScripts.data.stakingValidator,
+      nodePolicy: newScripts.data.nodePolicy,
+      nodeValidator: newScripts.data.nodeValidator,
     },
     refScripts: {
       nodeValidator: refUTxOs.nodeValidatorUTxO,
@@ -472,7 +472,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     ? console.log(
         "removeNode result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.stakingValidator, SetNode),
+          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
           replacer,
           2
         )

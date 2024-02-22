@@ -50,35 +50,35 @@ export const buildScripts = (
   // )
   
   const initUTxO = new Constr(0, [
-    new Constr(0, [config.stakingPolicy.initUTXO.txHash]),
-    BigInt(config.stakingPolicy.initUTXO.outputIndex),
+    new Constr(0, [config.nodePolicy.initUTXO.txHash]),
+    BigInt(config.nodePolicy.initUTXO.outputIndex),
   ]);
 
   const penaltyAddress = fromAddressToData(
-    config.stakingPolicy.penaltyAddress
+    config.nodePolicy.penaltyAddress
   );
 
   if (penaltyAddress.type == "error")
     return { type: "error", error: penaltyAddress.error };
 
-  const stakingPolicy = applyParamsToScript(
-    config.unapplied.stakingPolicy,
+  const nodePolicy = applyParamsToScript(
+    config.unapplied.nodePolicy,
     [
       new Constr(0, [
         initUTxO,
-        BigInt(config.stakingPolicy.freezeStake),
-        BigInt(config.stakingPolicy.endStaking),
+        BigInt(config.nodePolicy.freezeStake),
+        BigInt(config.nodePolicy.endStaking),
         penaltyAddress.data,
-        config.stakingPolicy.stakeCS,
-        fromText(config.stakingPolicy.stakeTN),
-        BigInt(config.stakingPolicy.minimumStake)
+        config.nodePolicy.stakeCS,
+        fromText(config.nodePolicy.stakeTN),
+        BigInt(config.nodePolicy.minimumStake)
       ]),
     ]
   );
 
   const stakingMintPolicy: MintingPolicy = {
     type: "PlutusV2",
-    script: stakingPolicy,
+    script: nodePolicy,
   };
 
   // Commit Fold Spending Validator
@@ -98,9 +98,9 @@ export const buildScripts = (
   const foldValidator = applyParamsToScript(config.unapplied.foldValidator, [
     new Constr(0, [
       lucid.utils.mintingPolicyToId(stakingMintPolicy),
-      config.stakingPolicy.stakeCS,
-      fromText(config.stakingPolicy.stakeTN),
-      BigInt(config.stakingPolicy.endStaking),
+      config.nodePolicy.stakeCS,
+      fromText(config.nodePolicy.stakeTN),
+      BigInt(config.nodePolicy.endStaking),
     ])
   ]);
   
@@ -133,7 +133,7 @@ export const buildScripts = (
     new Constr(0, [
       lucid.utils.mintingPolicyToId(stakingMintPolicy),
       foldValidatorAddress.data,
-      BigInt(config.stakingPolicy.endStaking),
+      BigInt(config.nodePolicy.endStaking),
     ]),
   ]);
 
@@ -157,22 +157,22 @@ export const buildScripts = (
   //              ]
   //         )
   //     )
-  const rewardValidator = applyParamsToScript(
-    config.unapplied.rewardValidator,
+  const rewardFoldValidator = applyParamsToScript(
+    config.unapplied.rewardFoldValidator,
     [
       new Constr(0, [
         lucid.utils.mintingPolicyToId(stakingMintPolicy), //nodeCS
-        config.rewardValidator.rewardCS, 
-        fromText(config.rewardValidator.rewardTN),
-        config.stakingPolicy.stakeCS,
-        fromText(config.stakingPolicy.stakeTN),
+        config.rewardFoldValidator.rewardCS, 
+        fromText(config.rewardFoldValidator.rewardTN),
+        config.nodePolicy.stakeCS,
+        fromText(config.nodePolicy.stakeTN),
       ]),
     ]
   );
 
   const rewardSpendingValidator: SpendingValidator = {
     type: "PlutusV2",
-    script: rewardValidator,
+    script: rewardFoldValidator,
   };
 
   const rewardValidatorAddress = fromAddressToData(
@@ -198,20 +198,20 @@ export const buildScripts = (
   //                ]
   //           )
   //       )
-  const rewardPolicy = applyParamsToScript(config.unapplied.rewardPolicy, [
+  const rewardFoldPolicy = applyParamsToScript(config.unapplied.rewardFoldPolicy, [
     new Constr(0, [
       lucid.utils.mintingPolicyToId(stakingMintPolicy), // nodeCS
       lucid.utils.mintingPolicyToId(tokenHolderMintingPolicy), //tokenHolderCS
       rewardValidatorAddress.data, // rewardScriptAddr
-      fromText(config.rewardValidator.rewardTN), // rewardTN
-      config.rewardValidator.rewardCS, // rewardCS
+      fromText(config.rewardFoldValidator.rewardTN), // rewardTN
+      config.rewardFoldValidator.rewardCS, // rewardCS
       lucid.utils.mintingPolicyToId(foldMintingPolicy), // commitFoldCS
     ]),
   ]);
 
   const rewardMintingPolicy: MintingPolicy = {
     type: "PlutusV2",
-    script: rewardPolicy,
+    script: rewardFoldPolicy,
   };
 
   // Staking Stake Validator
@@ -219,13 +219,13 @@ export const buildScripts = (
   // pDiscoverGlobalLogicW :: Term s (PAsData PCurrencySymbol :--> PStakeValidator)
   // pDiscoverGlobalLogicW = phoistAcyclic $ plam $ \rewardFoldCS' _redeemer ctx -> P.do
 
-  const stakingStakeValidator = applyParamsToScript(config.unapplied.stakingStakeValidator, [
+  const nodeStakeValidator = applyParamsToScript(config.unapplied.nodeStakeValidator, [
     lucid.utils.mintingPolicyToId(rewardMintingPolicy),
   ]);
 
   const stakingStakeValidatorScript : WithdrawalValidator = {
     type: "PlutusV2",
-    script: stakingStakeValidator,
+    script: nodeStakeValidator,
   };
 
   // Staking Spending Validator
@@ -243,15 +243,15 @@ export const buildScripts = (
   //              ]
   //         )
   //     )
-  const stakingValidator = applyParamsToScript(
-    config.unapplied.stakingValidator,
+  const nodeValidator = applyParamsToScript(
+    config.unapplied.nodeValidator,
     [
       new Constr(0, [
-        BigInt(config.stakingPolicy.freezeStake), // freezeStake PInteger
+        BigInt(config.nodePolicy.freezeStake), // freezeStake PInteger
         new Constr(0, [new Constr(1, [lucid.utils.validatorToScriptHash(stakingStakeValidatorScript)])]), // PStakingCredential
-        config.stakingPolicy.stakeCS,
-        fromText(config.stakingPolicy.stakeTN),
-        BigInt(config.stakingPolicy.minimumStake)
+        config.nodePolicy.stakeCS,
+        fromText(config.nodePolicy.stakeTN),
+        BigInt(config.nodePolicy.minimumStake)
       ]),
     ]
   );
@@ -268,13 +268,13 @@ export const buildScripts = (
   return {
     type: "ok",
     data: {
-      stakingPolicy: stakingPolicy,
-      stakingValidator: stakingValidator,
-      stakingStakeValidator: stakingStakeValidator,
+      nodePolicy: nodePolicy,
+      nodeValidator: nodeValidator,
+      nodeStakeValidator: nodeStakeValidator,
       foldPolicy: foldPolicy,
       foldValidator: foldValidator,
-      rewardPolicy: rewardPolicy,
-      rewardValidator: rewardValidator,
+      rewardFoldPolicy: rewardFoldPolicy,
+      rewardFoldValidator: rewardFoldValidator,
       tokenHolderPolicy: tokenHolderPolicy,
       tokenHolderValidator: tokenHolderValidator,
     },

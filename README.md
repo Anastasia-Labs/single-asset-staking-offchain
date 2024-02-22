@@ -105,25 +105,25 @@ graph LR
     ")
     UV("Unapplied Validators
     ----------------------------
-        stakingPolicy
-        stakingValidator
-        stakingStakeValidator
+        nodePolicy
+        nodeValidator
+        nodeStakeValidator
         foldPolicy
         foldValidator
-        rewardPolicy
-        rewardValidator
+        rewardFoldPolicy
+        rewardFoldValidator
         tokenHolderValidator
         tokenHolderPolicy
     ")
     AV("Applied Validators
     ----------------------------
-        stakingPolicy
-        stakingValidator
-        stakingStakeValidator
+        nodePolicy
+        nodeValidator
+        nodeStakeValidator
         foldPolicy
         foldValidator
-        rewardPolicy
-        rewardValidator
+        rewardFoldPolicy
+        rewardFoldValidator
         tokenHolderValidator
         tokenHolderPolicy
     ")
@@ -146,10 +146,10 @@ graph LR
     subgraph Always Fail Script
     O1(("UTxO
         $deployId.StakingValidator
-        ref_script: stakingValidator "))
+        ref_script: nodeValidator "))
     O2(("UTxO
         $deployId.StakingPolicy
-        ref_script: stakingPolicy"))
+        ref_script: nodePolicy"))
     ..
     end
     I1 --> TX
@@ -185,7 +185,7 @@ graph LR
 
 This marks the beginning of the association list which will contain all the stake by different participants as separate UTxOs. The first node of the list know as head node is created in this step.
 
-Head node differs from all the nodes in that its key is null. Every valid stake UTxO in the list has a unique "Node Token" which is minted by `stakingPolicy` at the time of its insertion. The token name is derived as NODE_PREFIX ("FSN") + PaymentPubKeyHash thereby making every node token unique. Head node just has NODE_PREFIX as the token name.
+Head node differs from all the nodes in that its key is null. Every valid stake UTxO in the list has a unique "Node Token" which is minted by `nodePolicy` at the time of its insertion. The token name is derived as NODE_PREFIX ("FSN") + PaymentPubKeyHash thereby making every node token unique. Head node just has NODE_PREFIX as the token name.
 
 ```mermaid
 ---
@@ -208,7 +208,7 @@ graph LR
 
 ## User Participation
 
-Now the Staking event is opened and users can participate by locking their stake in `stakingValidator` by updating the linked list. Before the stake is frozen, participants can choose to increase, decrease or remove their stake altogether.
+Now the Staking event is opened and users can participate by locking their stake in `nodeValidator` by updating the linked list. Before the stake is frozen, participants can choose to increase, decrease or remove their stake altogether.
 
 ## Active Staking
 
@@ -318,7 +318,7 @@ graph LR
 
 ### **Initialize Reward Fold**
 
-Now that we have total staked amount available on-chain, we initialize the reward fold wherein a UTxO to `rewardValidator` is sent. This contains total reward amount obtained from UTxO locked at "Token Holder Validator" along with `totalRewardTokens` and `totalStake` in its datum. Additionally, it has `$RewardPolicy.RFold` NFT minted from "Reward Policy" which validates that the initialization is carried out accurately. 
+Now that we have total staked amount available on-chain, we initialize the reward fold wherein a UTxO to `rewardFoldValidator` is sent. This contains total reward amount obtained from UTxO locked at "Token Holder Validator" along with `totalRewardTokens` and `totalStake` in its datum. Additionally, it has `$RewardPolicy.RFold` NFT minted from "Reward Policy" which validates that the initialization is carried out accurately. 
 
 ```mermaid
 ---

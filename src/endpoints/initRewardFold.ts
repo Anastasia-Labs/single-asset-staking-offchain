@@ -42,20 +42,20 @@ export const initRewardFold = async (
   };
   const rewardFoldPolicyId = lucid.utils.mintingPolicyToId(rewardFoldPolicy);
 
-  const commitFoldValidator: SpendingValidator = {
+  const foldValidator: SpendingValidator = {
     type: "PlutusV2",
     script: config.scripts.foldValidator,
   };
   const commitFoldValidatorAddr =
-    lucid.utils.validatorToAddress(commitFoldValidator);
+    lucid.utils.validatorToAddress(foldValidator);
 
-  const commitFoldPolicy: MintingPolicy = {
+  const foldPolicy: MintingPolicy = {
     type: "PlutusV2",
     script: config.scripts.foldPolicy,
   };
-  const commitFoldPolicyId = lucid.utils.mintingPolicyToId(commitFoldPolicy);
+  const commitFoldPolicyId = lucid.utils.mintingPolicyToId(foldPolicy);
 
-  const stakingPolicy: MintingPolicy = {
+  const nodePolicy: MintingPolicy = {
     type: "PlutusV2",
     script: config.scripts.nodePolicy,
   };
@@ -67,15 +67,15 @@ export const initRewardFold = async (
 
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
-  const stakingStakeValidator: WithdrawalValidator = {
+  const nodeStakeValidator: WithdrawalValidator = {
     type: "PlutusV2",
-    script: config.scripts.stakingStakeValidator,
+    script: config.scripts.nodeStakeValidator,
   };
 
   const [headNodeUTxO] = await lucid.utxosAtWithUnit(
     nodeValidatorAddr,
     toUnit(
-      lucid.utils.mintingPolicyToId(stakingPolicy),
+      lucid.utils.mintingPolicyToId(nodePolicy),
       originNodeTokenName
     )
   );
@@ -146,7 +146,7 @@ export const initRewardFold = async (
       .mintAssets({ [commitFoldUnit]: -1n }, burnCommitFoldAct)
       .mintAssets({ [rtHolderUnit]: -1n }, burnRTHolderAct)
       .withdraw(
-        lucid.utils.validatorToRewardAddress(stakingStakeValidator),
+        lucid.utils.validatorToRewardAddress(nodeStakeValidator),
         0n,
         Data.void()
       )
@@ -156,9 +156,9 @@ export const initRewardFold = async (
           : lucid.newTx().attachSpendingValidator(tokenHolderValidator)
       )
       .compose(
-        config.refScripts?.commitFoldValidator
-          ? lucid.newTx().readFrom([config.refScripts.commitFoldValidator])
-          : lucid.newTx().attachSpendingValidator(commitFoldValidator)
+        config.refScripts?.foldValidator
+          ? lucid.newTx().readFrom([config.refScripts.foldValidator])
+          : lucid.newTx().attachSpendingValidator(foldValidator)
       )
       .compose(
         config.refScripts?.rewardFoldPolicy
@@ -166,9 +166,9 @@ export const initRewardFold = async (
           : lucid.newTx().attachMintingPolicy(rewardFoldPolicy)
       )
       .compose(
-        config.refScripts?.commitFoldPolicy
-          ? lucid.newTx().readFrom([config.refScripts.commitFoldPolicy])
-          : lucid.newTx().attachMintingPolicy(commitFoldPolicy)
+        config.refScripts?.foldPolicy
+          ? lucid.newTx().readFrom([config.refScripts.foldPolicy])
+          : lucid.newTx().attachMintingPolicy(foldPolicy)
       )
       .compose(
         config.refScripts?.tokenHolderPolicy
@@ -181,9 +181,9 @@ export const initRewardFold = async (
           : lucid.newTx().attachSpendingValidator(nodeValidator)
       )
       .compose(
-        config.refScripts?.stakingStakeValidator
-          ? lucid.newTx().readFrom([config.refScripts.stakingStakeValidator])
-          : lucid.newTx().attachWithdrawalValidator(stakingStakeValidator)
+        config.refScripts?.nodeStakeValidator
+          ? lucid.newTx().readFrom([config.refScripts.nodeStakeValidator])
+          : lucid.newTx().attachWithdrawalValidator(nodeStakeValidator)
       )
       .addSigner(await lucid.wallet.address())
       .complete();

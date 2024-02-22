@@ -37,7 +37,9 @@ export const insertNode = async (
     script: config.scripts.nodeValidator,
   };
 
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  if(!config.refScripts?.nodeValidator?.scriptRef)
+    return { type: "error", error: new Error("Stake has been frozen") };
+  const nodeValidatorAddr = lucid.utils.validatorToAddress(config.refScripts?.nodeValidator?.scriptRef);
 
   const nodePolicy: MintingPolicy = {
     type: "PlutusV2",

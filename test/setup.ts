@@ -26,13 +26,13 @@ import {
   POSIXTime
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
-import stakingValidator from "./compiled/stakingValidator.json";
-import stakingPolicy from "./compiled/stakingMint.json";
-import stakingStakeValidator from "./compiled/stakingStakeValidator.json"
-import foldPolicy from "./compiled/foldMint.json";
+import nodeValidator from "./compiled/nodeValidator.json";
+import nodePolicy from "./compiled/nodePolicy.json";
+import nodeStakeValidator from "./compiled/nodeStakeValidator.json"
+import foldPolicy from "./compiled/foldPolicy.json";
 import foldValidator from "./compiled/foldValidator.json";
-import rewardPolicy from "./compiled/rewardFoldMint.json";
-import rewardValidator from "./compiled/rewardFoldValidator.json";
+import rewardFoldPolicy from "./compiled/rewardFoldPolicy.json";
+import rewardFoldValidator from "./compiled/rewardFoldValidator.json";
 import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json"
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json"
 import alwaysFailValidator from "./compiled/alwaysFails.json";
@@ -101,7 +101,7 @@ export async function deploy(
   deployTime: number
 ): Promise<Result<Deploy>> {
   const deploy1 = await deployRefScripts(lucid, {
-    script: scripts.stakingPolicy,
+    script: scripts.nodePolicy,
     name: "StakingPolicy",
     alwaysFails: alwaysFailValidator.cborHex,
     currentTime: deployTime
@@ -114,7 +114,7 @@ export async function deploy(
   }
 
   const deploy2 = await deployRefScripts(lucid, {
-    script: scripts.stakingValidator,
+    script: scripts.nodeValidator,
     name: "StakingValidator",
     alwaysFails: alwaysFailValidator.cborHex,
     currentTime: deployTime
@@ -127,7 +127,7 @@ export async function deploy(
   }
 
   const deployStake = await deployRefScripts(lucid, {
-    script: scripts.stakingStakeValidator,
+    script: scripts.nodeStakeValidator,
     name: "StakingStakeValidator",
     alwaysFails: alwaysFailValidator.cborHex,
     currentTime: deployTime
@@ -166,7 +166,7 @@ export async function deploy(
   }
 
   const deploy5 = await deployRefScripts(lucid, {
-    script: scripts.rewardPolicy,
+    script: scripts.rewardFoldPolicy,
     name: "RewardFoldPolicy",
     alwaysFails: alwaysFailValidator.cborHex,
     currentTime: deployTime
@@ -179,7 +179,7 @@ export async function deploy(
   }
 
   const deploy6 = await deployRefScripts(lucid, {
-    script: scripts.rewardValidator,
+    script: scripts.rewardFoldValidator,
     name: "RewardFoldValidator",
     alwaysFails: alwaysFailValidator.cborHex,
     currentTime: deployTime
@@ -346,8 +346,8 @@ export async function insertThreeNodes(
 
   const insertNodeConfig: InsertNodeConfig = {
     scripts: {
-      nodePolicy: scripts.stakingPolicy,
-      nodeValidator: scripts.stakingValidator,
+      nodePolicy: scripts.nodePolicy,
+      nodeValidator: scripts.nodeValidator,
     },
     refScripts: {
       nodeValidator: refUTxOs.nodeValidatorUTxO,
@@ -418,7 +418,7 @@ export async function insertThreeNodes(
     ? console.log(
         "insertNode result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, scripts.stakingValidator, SetNode),
+          await parseUTxOsAtScript(lucid, scripts.nodeValidator, SetNode),
           replacer,
           2
         )

@@ -31,20 +31,20 @@ export const initFold = async (
 
   const foldPolicyId = lucid.utils.mintingPolicyToId(foldPolicy);
 
-  const stakingPolicy: MintingPolicy = {
+  const nodePolicy: MintingPolicy = {
     type: "PlutusV2",
     script: config.scripts.nodePolicy,
   };
 
-  const stakingValidator: SpendingValidator = {
+  const nodeValidator: SpendingValidator = {
     type: "PlutusV2",
     script: config.scripts.nodeValidator,
   };
 
   const [headNodeUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress(stakingValidator),
+    lucid.utils.validatorToAddress(nodeValidator),
     toUnit(
-      lucid.utils.mintingPolicyToId(stakingPolicy),
+      lucid.utils.mintingPolicyToId(nodePolicy),
       originNodeTokenName
     )
   );
