@@ -6,7 +6,6 @@ import {
   TxComplete,
   UTxO,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { SetNode } from "./contract.types.js";
 
 export type CborHex = string;
 export type RawHex = string;
@@ -23,6 +22,34 @@ export type Either<L, R> =
 export type AssetClass = {
   policyId: string;
   tokenName: string;
+};
+
+export type CreateConfig = {
+  stakingConfig: {
+    stakingInitUTXO: UTxO;
+    rewardInitUTXO: UTxO;
+    freezeStake: POSIXTime;
+    endStaking: POSIXTime;
+    penaltyAddress: Address;
+    stakeCS: PolicyId;
+    stakeTN: string;
+    minimumStake : number;
+    rewardCS: PolicyId;
+    rewardTN: string;
+  };
+  configInitUTXO: UTxO;
+  refScripts: {
+    configPolicy: UTxO;
+  };
+  alwaysFails: CborHex;
+  currentTime: POSIXTime;
+};
+
+export type FetchConfig = {
+  configTN: string;
+  refScripts: {
+    configPolicy: UTxO;
+  };
 };
 
 export type DeployRefScriptsConfig = {
@@ -42,6 +69,7 @@ export type InitTokenHolderConfig = {
     tokenHolderValidator: CborHex;
   };
   refScripts?: {
+    configPolicy: UTxO;
     tokenHolderPolicy?: UTxO;
   };
 };
@@ -56,6 +84,7 @@ export type InitNodeConfig = {
     nodeValidator: CborHex;
   };
   refScripts?: {
+    configPolicy: UTxO;
     nodePolicy?: UTxO;
   };
 };
@@ -66,6 +95,7 @@ export type DInitNodeConfig = {
     nodeValidator: CborHex;
   };
   refScripts?: {
+    configPolicy: UTxO;
     nodePolicy?: UTxO;
     nodeValidator: UTxO;
   };
@@ -78,6 +108,7 @@ export type InsertNodeConfig = {
     nodeValidator: CborHex;
   };
   refScripts?: {
+    configPolicy: UTxO;
     nodeValidator?: UTxO;
     nodePolicy?: UTxO;
   };
@@ -96,6 +127,7 @@ export type RemoveNodeConfig = {
     nodeValidator: CborHex;
   };
   refScripts?: {
+    configPolicy: UTxO;
     nodeValidator?: UTxO;
     nodePolicy?: UTxO;
   };
@@ -115,6 +147,7 @@ export type InitFoldConfig = {
     foldValidator: CborHex;
   };
   refScripts?: {
+    configPolicy: UTxO;
     foldPolicy?: UTxO 
   }
   currentTime?: POSIXTime;
@@ -128,6 +161,7 @@ export type MultiFoldConfig = {
     foldValidator: CborHex;
   };
   refScripts?: {
+    configPolicy: UTxO;
     foldValidator?: UTxO 
   }
   stakeCS: PolicyId;
@@ -139,6 +173,7 @@ export type FoldNodeConfig = {
   nodeRefInput: OutRef;
   foldOutRef: OutRef;
   scripts: {
+    configPolicy: UTxO;
     foldPolicy: CborHex;
     foldValidator: CborHex;
   };
@@ -159,6 +194,7 @@ export type InitRewardFoldConfig = {
     nodeStakeValidator: CborHex;
   };
   refScripts?: {
+    configPolicy: UTxO;
     nodeValidator?: UTxO;
     nodePolicy?: UTxO;
     foldPolicy?: UTxO;
@@ -180,6 +216,7 @@ export type RewardFoldNodeConfig = {
     rewardFoldValidator: CborHex;
   };
   refScripts: {
+    configPolicy: UTxO;
     nodeValidator: UTxO;
     nodeStakeValidator: UTxO;
     rewardFoldPolicy: UTxO;
@@ -201,6 +238,7 @@ export type RewardFoldNodesConfig = {
     rewardFoldValidator: CborHex;
   };
   refScripts: {
+    configPolicy: UTxO;
     nodeValidator: UTxO;
     nodeStakeValidator: UTxO;
     rewardFoldPolicy: UTxO;
@@ -214,33 +252,17 @@ export type RewardFoldNodesConfig = {
 };
 
 export type BuildScriptsConfig = {
-  nodePolicy: {
-    initUTXO: UTxO;
-    freezeStake: POSIXTime;
-    endStaking: POSIXTime;
-    penaltyAddress: Address;
-    stakeCS: PolicyId;
-    stakeTN: string;
-    minimumStake : number;
-  };
-  rewardFoldValidator: {
-    rewardCS: PolicyId;
-    rewardTN: string;
-  };
-  rewardTokenHolder: {
-    initUTXO: UTxO;
-  };
-  unapplied: {
-    nodePolicy: RawHex;
-    nodeValidator: RawHex;
-    nodeStakeValidator: RawHex;
-    foldPolicy: RawHex;
-    foldValidator: RawHex;
-    rewardFoldPolicy: RawHex;
-    rewardFoldValidator: RawHex;
-    tokenHolderValidator: RawHex;
-    tokenHolderPolicy: RawHex;
-  };
+  alwaysFails: CborHex;
+  configPolicy: RawHex;
+  nodePolicy: RawHex;
+  nodeValidator: RawHex;
+  nodeStakeValidator: RawHex;
+  foldPolicy: RawHex;
+  foldValidator: RawHex;
+  rewardFoldPolicy: RawHex;
+  rewardFoldValidator: RawHex;
+  tokenHolderValidator: RawHex;
+  tokenHolderPolicy: RawHex;
 };
 
 export type ReadableUTxO<T> = {
@@ -250,6 +272,7 @@ export type ReadableUTxO<T> = {
 };
 
 export type AppliedScripts = {
+  configPolicy: CborHex;
   nodePolicy: CborHex;
   nodeValidator: CborHex;
   nodeStakeValidator: CborHex;

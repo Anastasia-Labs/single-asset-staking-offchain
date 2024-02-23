@@ -1,7 +1,6 @@
 import {
   applyParamsToScript,
   Constr,
-  fromText,
   Lucid,
   MintingPolicy,
   SpendingValidator,
@@ -14,16 +13,36 @@ export const buildScripts = (
   lucid: Lucid,
   config: BuildScriptsConfig
 ): Result<AppliedScripts> => {
+
+  const alwaysFails: SpendingValidator = {
+    type: "PlutusV2",
+    script: config.alwaysFails,
+  };
+  const alwaysFailsAddr = lucid.utils.validatorToAddress(alwaysFails);
+  const alwaysFailsAddrD = fromAddressToData(alwaysFailsAddr);
+  if (alwaysFailsAddrD.type == "error")
+    return alwaysFailsAddrD;
+
+  // Config Minting Policy
+  //
+  // pmintConfigToken :: Term s (PAddress :--> PMintingPolicy)
+  const configPolicyCbor = applyParamsToScript(config.configPolicy, 
+    [alwaysFailsAddrD.data]
+  );
+
+  const configPolicy: MintingPolicy = {
+    type: "PlutusV2",
+    script: configPolicyCbor,
+  };
+
+  const configPolicyId = lucid.utils.mintingPolicyToId(configPolicy);
   
   // RewardTokenHolder Minting Policy
-  const initUTxORewardTokenHolder = new Constr(0, [
-    new Constr(0, [config.rewardTokenHolder.initUTXO.txHash]),
-    BigInt(config.rewardTokenHolder.initUTXO.outputIndex),
-  ]);
-
+  //
+  // pmintRewardTokenHolder :: Term s (PCurrencySymbol :--> PMintingPolicy)
   const tokenHolderPolicy = applyParamsToScript(
-    config.unapplied.tokenHolderPolicy,
-    [initUTxORewardTokenHolder]
+    config.tokenHolderPolicy,
+    [configPolicyId]
   );
 
   const tokenHolderMintingPolicy: MintingPolicy = {
@@ -31,77 +50,30 @@ export const buildScripts = (
     script: tokenHolderPolicy,
   };
 
-  // Staking Minting Policy
+  // Node Minting Policy
   //
-  // data PStakingConfig (s :: S)
-  // = PStakingConfig
-  // ( Term
-  //     s
-  //     ( PDataRecord
-  //         '[ "initUTxO" ':= PTxOutRef
-  //         , "freezeStake" ':= PPOSIXTime
-  //         , "endStaking" ':= PPOSIXTime
-  //         , "penaltyAddress" ':= PAddress
-  //         , "stakeCS" ':= PCurrencySymbol
-  //         , "stakeTN" ':= PTokenName
-  //         , "minimumStake" ':= PInteger
-  //         ]
-  //     )
-  // )
-  
-  const initUTxO = new Constr(0, [
-    new Constr(0, [config.nodePolicy.initUTXO.txHash]),
-    BigInt(config.nodePolicy.initUTXO.outputIndex),
-  ]);
-
-  const penaltyAddress = fromAddressToData(
-    config.nodePolicy.penaltyAddress
+  // mkStakingNodeMPW :: ClosedTerm (PCurrencySymbol :--> PMintingPolicy)
+  const nodePolicyCbor = applyParamsToScript(
+    config.nodePolicy,
+    [configPolicyId]
   );
 
-  if (penaltyAddress.type == "error")
-    return { type: "error", error: penaltyAddress.error };
-
-  const nodePolicy = applyParamsToScript(
-    config.unapplied.nodePolicy,
-    [
-      new Constr(0, [
-        initUTxO,
-        BigInt(config.nodePolicy.freezeStake),
-        BigInt(config.nodePolicy.endStaking),
-        penaltyAddress.data,
-        config.nodePolicy.stakeCS,
-        fromText(config.nodePolicy.stakeTN),
-        BigInt(config.nodePolicy.minimumStake)
-      ]),
-    ]
-  );
-
-  const stakingMintPolicy: MintingPolicy = {
+  const nodePolicy: MintingPolicy = {
     type: "PlutusV2",
-    script: nodePolicy,
+    script: nodePolicyCbor,
   };
+
+  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
 
   // Commit Fold Spending Validator
   //
-  // data PFoldConfig (s :: S)
-  // = PFoldConfig
-  //     ( Term
-  //         s
-  //         ( PDataRecord
-  //             '[ "nodeCS" ':= PCurrencySymbol
-  //              , "stakeCS" ':= PCurrencySymbol
-  //              , "stakeTN" ':= PTokenName
-  //              , "endStaking" ':= PPOSIXTime
-  //              ]
-  //         )
-  //     )
-  const foldValidator = applyParamsToScript(config.unapplied.foldValidator, [
-    new Constr(0, [
-      lucid.utils.mintingPolicyToId(stakingMintPolicy),
-      config.nodePolicy.stakeCS,
-      fromText(config.nodePolicy.stakeTN),
-      BigInt(config.nodePolicy.endStaking),
-    ])
+  // pfoldValidatorW :: Term s (PCurrencySymbol :--> PCurrencySymbol :--> PValidator)
+  // pfoldValidatorW = phoistAcyclic $
+  // plam $ \configCS nodeCS datum redeemer ctx -> P.do
+
+  const foldValidator = applyParamsToScript(config.foldValidator, [
+    configPolicyId,
+    nodePolicyId
   ]);
   
   const foldSpendingValidator: SpendingValidator = {
@@ -125,48 +97,35 @@ export const buildScripts = (
   //           ( PDataRecord
   //               '[ "nodeCS" ':= PCurrencySymbol
   //                , "foldAddr" ':= PAddress
-  //                , "endStaking" ':= PPOSIXTime
+  //                , "configCS" ':= PCurrencySymbol
   //                ]
   //           )
   //       )
-  const foldPolicy = applyParamsToScript(config.unapplied.foldPolicy, [
+
+  const foldPolicyCbor = applyParamsToScript(config.foldPolicy, [
     new Constr(0, [
-      lucid.utils.mintingPolicyToId(stakingMintPolicy),
+      nodePolicyId,
       foldValidatorAddress.data,
-      BigInt(config.nodePolicy.endStaking),
+      configPolicyId,
     ]),
   ]);
 
-  const foldMintingPolicy: MintingPolicy = {
+  const foldPolicy: MintingPolicy = {
     type: "PlutusV2",
-    script: foldPolicy,
+    script: foldPolicyCbor,
   };
 
   // Reward Fold Spending Validator
   //
-  // data PRewardFoldConfig (s :: S)
-  // = PRewardFoldConfig
-  //     ( Term
-  //         s
-  //         ( PDataRecord
-  //             '[ "nodeCS" ':= PCurrencySymbol
-  //              , "rewardCS" ':= PCurrencySymbol
-  //              , "rewardTN" ':= PTokenName
-  //              , "stakeCS" ':= PCurrencySymbol
-  //              , "stakeTN" ':= PTokenName
-  //              ]
-  //         )
-  //     )
+  // prewardFoldValidatorW :: Term s (PCurrencySymbol :--> PCurrencySymbol :--> PValidator)
+  // prewardFoldValidatorW = phoistAcyclic $
+  //   plam $ \configCS nodeCS datum redeemer ctx -> P.do
+
   const rewardFoldValidator = applyParamsToScript(
-    config.unapplied.rewardFoldValidator,
+    config.rewardFoldValidator,
     [
-      new Constr(0, [
-        lucid.utils.mintingPolicyToId(stakingMintPolicy), //nodeCS
-        config.rewardFoldValidator.rewardCS, 
-        fromText(config.rewardFoldValidator.rewardTN),
-        config.nodePolicy.stakeCS,
-        fromText(config.nodePolicy.stakeTN),
-      ]),
+      configPolicyId,
+      nodePolicyId
     ]
   );
 
@@ -189,23 +148,21 @@ export const buildScripts = (
   //       ( Term
   //           s
   //           ( PDataRecord
-  //               '[ "nodeCS" ':= PCurrencySymbol,
-  //                  "tokenHolderCS" ':= PCurrencySymbol,
-  //                  "rewardScriptAddr" ':= PAddress,
-  //                  "rewardTN" ':= PTokenName,
-  //                  "rewardCS" ':= PCurrencySymbol,
-  //                  "commitFoldCS" ':= PCurrencySymbol
-  //                ]
+  //               '[ "nodeCS" ':= PCurrencySymbol
+  //               , "tokenHolderCS" ':= PCurrencySymbol
+  //               , "rewardScriptAddr" ':= PAddress
+  //               , "commitFoldCS" ':= PCurrencySymbol
+  //               , "configCS" ':= PCurrencySymbol
+  //               ]
   //           )
   //       )
-  const rewardFoldPolicy = applyParamsToScript(config.unapplied.rewardFoldPolicy, [
+  const rewardFoldPolicy = applyParamsToScript(config.rewardFoldPolicy, [
     new Constr(0, [
-      lucid.utils.mintingPolicyToId(stakingMintPolicy), // nodeCS
+      nodePolicyId, // nodeCS
       lucid.utils.mintingPolicyToId(tokenHolderMintingPolicy), //tokenHolderCS
       rewardValidatorAddress.data, // rewardScriptAddr
-      fromText(config.rewardFoldValidator.rewardTN), // rewardTN
-      config.rewardFoldValidator.rewardCS, // rewardCS
-      lucid.utils.mintingPolicyToId(foldMintingPolicy), // commitFoldCS
+      lucid.utils.mintingPolicyToId(foldPolicy), // commitFoldCS
+      configPolicyId // configCS
     ]),
   ]);
 
@@ -214,64 +171,57 @@ export const buildScripts = (
     script: rewardFoldPolicy,
   };
 
-  // Staking Stake Validator
+  // Node Stake Validator
   // 
   // pDiscoverGlobalLogicW :: Term s (PAsData PCurrencySymbol :--> PStakeValidator)
   // pDiscoverGlobalLogicW = phoistAcyclic $ plam $ \rewardFoldCS' _redeemer ctx -> P.do
 
-  const nodeStakeValidator = applyParamsToScript(config.unapplied.nodeStakeValidator, [
+  const nodeStakeValidator = applyParamsToScript(config.nodeStakeValidator, [
     lucid.utils.mintingPolicyToId(rewardMintingPolicy),
   ]);
 
-  const stakingStakeValidatorScript : WithdrawalValidator = {
+  const nodeStakeValidatorScript : WithdrawalValidator = {
     type: "PlutusV2",
     script: nodeStakeValidator,
   };
 
-  // Staking Spending Validator
+  // Node Spending Validator
   //
-  // data PStakingLaunchConfig (s :: S)
-  // = PStakingLaunchConfig
-  //     ( Term
-  //         s
-  //         ( PDataRecord
-  //             '[ "freezeStake" ':= PPOSIXTime
-  //              , "globalCred" ':= PStakingCredential
-  //              , "stakeCS" ':= PCurrencySymbol
-  //              , "stakeTN" ':= PTokenName
-  //              , "minimumStake" ':= PInteger
-  //              ]
-  //         )
-  //     )
+  // pStakingSetValidator ::
+  //   ByteString ->
+  //   ClosedTerm (PCurrencySymbol :--> PStakingCredential :--> PValidator)
+  // pStakingSetValidator prefix = plam $ \configCS globalCred dat red ctx' ->
   const nodeValidator = applyParamsToScript(
-    config.unapplied.nodeValidator,
+    config.nodeValidator,
     [
-      new Constr(0, [
-        BigInt(config.nodePolicy.freezeStake), // freezeStake PInteger
-        new Constr(0, [new Constr(1, [lucid.utils.validatorToScriptHash(stakingStakeValidatorScript)])]), // PStakingCredential
-        config.nodePolicy.stakeCS,
-        fromText(config.nodePolicy.stakeTN),
-        BigInt(config.nodePolicy.minimumStake)
-      ]),
+      configPolicyId,
+      new Constr(0, 
+        [new Constr(1, [lucid.utils.validatorToScriptHash(nodeStakeValidatorScript)])]
+      ), // PStakingCredential
     ]
   );
 
   // Reward Token Holder Spending Validator
   // 
-  // prewardTokenHolder :: Term s (PAsData PCurrencySymbol :--> PValidator)
-  // prewardTokenHolder = phoistAcyclic $ plam $ \rewardFoldCS _dat _redeemer ctx -> unTermCont $ do
+  // prewardTokenHolder :: Term s (PCurrencySymbol :--> PAsData PCurrencySymbol :--> PValidator)
+  // prewardTokenHolder = phoistAcyclic $
+  //   plam $ \configCS rewardFoldCS dat _red ctx -> unTermCont $ do
   const tokenHolderValidator = applyParamsToScript(
-    config.unapplied.tokenHolderValidator,
-    [lucid.utils.mintingPolicyToId(rewardMintingPolicy)]
+    config.tokenHolderValidator,
+    [
+      configPolicyId, 
+      lucid.utils.mintingPolicyToId(rewardMintingPolicy)
+    ]
   );
 
   return {
     type: "ok",
     data: {
-      nodePolicy: nodePolicy,
+      configPolicy: configPolicyCbor,
+      nodePolicy: nodePolicyCbor,
       nodeValidator: nodeValidator,
       nodeStakeValidator: nodeStakeValidator,
-      foldPolicy: foldPolicy,
+      foldPolicy: foldPolicyCbor,
       foldValidator: foldValidator,
       rewardFoldPolicy: rewardFoldPolicy,
       rewardFoldValidator: rewardFoldValidator,

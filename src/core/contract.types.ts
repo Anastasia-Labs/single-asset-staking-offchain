@@ -84,13 +84,16 @@ export const StakingNodeAction =
   StakingNodeActionSchema as unknown as StakingNodeAction;
 
 export const StakingConfigSchema = Data.Object({
-  initUTXO: OutputReferenceSchema,
+  stakingInitUTxO: OutputReferenceSchema,
+  rewardInitUTxO: OutputReferenceSchema,
   freezeStake: Data.Integer(),
   endStaking: Data.Integer(),
   penaltyAddress: AddressSchema,
   stakeCS: Data.Bytes({ minLength: 28, maxLength: 28 }),
   stakeTN: Data.Bytes(),
-  minimumStake: Data.Integer()
+  minimumStake: Data.Integer(),
+  rewardCS: Data.Bytes({ minLength: 28, maxLength: 28 }),
+  rewardTN: Data.Bytes()
 });
 export type StakingConfig = Data.Static<typeof StakingConfigSchema>;
 export const StakingConfig =
