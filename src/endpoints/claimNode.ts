@@ -13,6 +13,7 @@ import {
 } from "../core/contract.types.js";
 import { RemoveNodeConfig, Result } from "../core/types.js";
 import { NODE_ADA, mkNodeKeyTN, TIME_TOLERANCE_MS } from "../index.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const claimNode = async (
   lucid: Lucid,
@@ -25,10 +26,10 @@ export const claimNode = async (
   if (!walletUtxos.length)
     return { type: "error", error: new Error("No utxos in wallet") };
 
-  const nodeValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.nodeValidator,
-  };
+  if(!config.refScripts.nodeValidator.scriptRef
+    || !config.refScripts.nodePolicy.scriptRef)
+    return { type: "error", error: new Error("Missing Script Reference") }
+  const nodeValidator: SpendingValidator = config.refScripts.nodeValidator.scriptRef;
 
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
@@ -77,9 +78,13 @@ export const claimNode = async (
     PClaim: {
       keyToRemove: userPubKeyHash
     }
-  }, StakingNodeAction);
+  },  StakingNodeAction);
   
   const redeemerNodeValidator = Data.to("LinkedListAct", NodeValidatorAction);
+
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if(configUTxOResponse.type == "error")
+    return configUTxOResponse;
 
   try {
     if(afterEndStaking) {

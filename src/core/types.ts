@@ -60,57 +60,47 @@ export type DeployRefScriptsConfig = {
 };
 
 export type InitTokenHolderConfig = {
-  initUTXO: UTxO;
+  configTN: string;
+  rewardInitUTXO: UTxO;
   rewardCS: string;
   rewardTN: string;
   rewardAmount: number;
-  scripts: {
-    tokenHolderPolicy: CborHex;
-    tokenHolderValidator: CborHex;
-  };
-  refScripts?: {
+  refScripts: {
     configPolicy: UTxO;
-    tokenHolderPolicy?: UTxO;
+    tokenHolderPolicy: UTxO;
+    tokenHolderValidator: UTxO;
   };
 };
 
 export type InitNodeConfig = {
-  initUTXO: UTxO;
+  configTN: string;
+  stakingInitUTXO: UTxO;
   stakeCS: PolicyId;
   stakeTN: string;
   minimumStake : number;
-  scripts: {
-    nodePolicy: CborHex;
-    nodeValidator: CborHex;
-  };
-  refScripts?: {
+  refScripts: {
     configPolicy: UTxO;
-    nodePolicy?: UTxO;
+    nodePolicy: UTxO;
+    nodeValidator: UTxO;
   };
 };
 
 export type DInitNodeConfig = {
-  scripts: {
-    nodePolicy: CborHex;
-    nodeValidator: CborHex;
-  };
-  refScripts?: {
+  configTN: string;
+  refScripts: {
     configPolicy: UTxO;
-    nodePolicy?: UTxO;
+    nodePolicy: UTxO;
     nodeValidator: UTxO;
   };
 };
 
 export type InsertNodeConfig = {
+  configTN: string;
   nodeUTxOs?: UTxO[];
-  scripts: {
-    nodePolicy: CborHex;
-    nodeValidator: CborHex;
-  };
-  refScripts?: {
+  refScripts: {
     configPolicy: UTxO;
-    nodeValidator?: UTxO;
-    nodePolicy?: UTxO;
+    nodeValidator: UTxO;
+    nodePolicy: UTxO;
   };
   stakeCS: PolicyId;
   stakeTN: string;
@@ -121,15 +111,12 @@ export type InsertNodeConfig = {
 };
 
 export type RemoveNodeConfig = {
+  configTN: string;
   nodeUTxOs?: UTxO[];
-  scripts: {
-    nodePolicy: CborHex;
-    nodeValidator: CborHex;
-  };
-  refScripts?: {
+  refScripts: {
     configPolicy: UTxO;
-    nodeValidator?: UTxO;
-    nodePolicy?: UTxO;
+    nodeValidator: UTxO;
+    nodePolicy: UTxO;
   };
   freezeStake: POSIXTime;
   endStaking: POSIXTime;
@@ -140,29 +127,25 @@ export type RemoveNodeConfig = {
 };
 
 export type InitFoldConfig = {
-  scripts: {
-    nodeValidator: CborHex;
-    nodePolicy: CborHex;
-    foldPolicy: CborHex;
-    foldValidator: CborHex;
-  };
-  refScripts?: {
+  configTN: string;
+  refScripts: {
+    nodeValidator: UTxO;
+    nodePolicy: UTxO;
     configPolicy: UTxO;
-    foldPolicy?: UTxO 
+    foldPolicy: UTxO;
+    foldValidator: UTxO;
   }
   currentTime?: POSIXTime;
 };
 
 export type MultiFoldConfig = {
+  configTN: string;
   nodeRefInputs: OutRef[];
   indices: number[];
-  scripts: {
-    foldPolicy: CborHex;
-    foldValidator: CborHex;
-  };
-  refScripts?: {
+  refScripts: {
     configPolicy: UTxO;
-    foldValidator?: UTxO 
+    foldValidator: UTxO;
+    foldPolicy: UTxO;
   }
   stakeCS: PolicyId;
   stakeTN: string;
@@ -170,51 +153,37 @@ export type MultiFoldConfig = {
 };
 
 export type FoldNodeConfig = {
+  configTN: string;
   nodeRefInput: OutRef;
   foldOutRef: OutRef;
-  scripts: {
+  refScripts: {
     configPolicy: UTxO;
-    foldPolicy: CborHex;
-    foldValidator: CborHex;
+    foldPolicy: UTxO;
+    foldValidator: UTxO;
   };
 };
 
 export type InitRewardFoldConfig = {
+  configTN: string;
   rewardCS: string;
   rewardTN: string;
-  scripts: {
-    nodeValidator: CborHex;
-    nodePolicy: CborHex;
-    foldPolicy: CborHex;
-    foldValidator: CborHex;
-    rewardFoldPolicy: CborHex;
-    rewardFoldValidator: CborHex;
-    tokenHolderPolicy: CborHex;
-    tokenHolderValidator: CborHex;
-    nodeStakeValidator: CborHex;
-  };
-  refScripts?: {
+  refScripts: {
     configPolicy: UTxO;
-    nodeValidator?: UTxO;
-    nodePolicy?: UTxO;
-    foldPolicy?: UTxO;
-    foldValidator?: UTxO;
-    rewardFoldPolicy?: UTxO;
-    rewardFoldValidator?: UTxO;
-    tokenHolderPolicy?: UTxO;
-    tokenHolderValidator?: UTxO;
+    nodeValidator: UTxO;
+    nodePolicy: UTxO;
     nodeStakeValidator: UTxO;
+    foldPolicy: UTxO;
+    foldValidator: UTxO;
+    rewardFoldPolicy: UTxO;
+    rewardFoldValidator: UTxO;
+    tokenHolderPolicy: UTxO;
+    tokenHolderValidator: UTxO;
   };
 };
 
 export type RewardFoldNodeConfig = {
+  configTN: string;
   nodeInputs?: UTxO[];
-  scripts: {
-    nodeValidator: CborHex;
-    nodeStakeValidator: CborHex;
-    rewardFoldPolicy: CborHex;
-    rewardFoldValidator: CborHex;
-  };
   refScripts: {
     configPolicy: UTxO;
     nodeValidator: UTxO;
@@ -230,13 +199,8 @@ export type RewardFoldNodeConfig = {
 };
 
 export type RewardFoldNodesConfig = {
+  configTN: string;
   nodeInputs: OutRef[];
-  scripts: {
-    nodeValidator: CborHex;
-    nodeStakeValidator: CborHex;
-    rewardFoldPolicy: CborHex;
-    rewardFoldValidator: CborHex;
-  };
   refScripts: {
     configPolicy: UTxO;
     nodeValidator: UTxO;

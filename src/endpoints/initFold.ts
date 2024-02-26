@@ -10,6 +10,7 @@ import { cFold, originNodeTokenName, TIME_TOLERANCE_MS } from "../core/constants
 import { FoldDatum, FoldMintAct, SetNode } from "../core/contract.types.js";
 import { InitFoldConfig, Result } from "../core/types.js";
 import { fromAddress } from "../index.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const initFold = async (
   lucid: Lucid,
@@ -36,10 +37,10 @@ export const initFold = async (
     script: config.scripts.nodePolicy,
   };
 
-  const nodeValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.nodeValidator,
-  };
+  if(!config.refScripts.nodeValidator.scriptRef
+    || !config.refScripts.nodePolicy.scriptRef)
+    return { type: "error", error: new Error("Missing Script Reference") }
+  const nodeValidator: SpendingValidator = config.refScripts.nodeValidator.scriptRef;
 
   const [headNodeUTxO] = await lucid.utxosAtWithUnit(
     lucid.utils.validatorToAddress(nodeValidator),
@@ -71,6 +72,10 @@ export const initFold = async (
 
   const upperBound = config.currentTime + TIME_TOLERANCE_MS;
   const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
+
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if(configUTxOResponse.type == "error")
+    return configUTxOResponse;
 
   try {
     const tx = await lucid

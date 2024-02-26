@@ -23,16 +23,16 @@ import {
   selectUtxos,
   sumUtxoAssets,
 } from "../index.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const rewardFoldNodes = async (
   lucid: Lucid,
   config: RewardFoldNodesConfig
 ): Promise<Result<TxComplete>> => {
 
-  const nodeValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.nodeValidator,
-  };
+  if(!config.refScripts.nodeValidator.scriptRef)
+    return { type: "error", error: new Error("Missing Script Reference") }
+  const nodeValidator: SpendingValidator = config.refScripts.nodeValidator.scriptRef;
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
   const rewardFoldValidator: SpendingValidator = {
@@ -115,6 +115,10 @@ export const rewardFoldNodes = async (
   config.currentTime ??= Date.now();
   const upperBound = config.currentTime + TIME_TOLERANCE_MS;
   const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
+
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if(configUTxOResponse.type == "error")
+    return configUTxOResponse;
 
   try {
     let tx = lucid

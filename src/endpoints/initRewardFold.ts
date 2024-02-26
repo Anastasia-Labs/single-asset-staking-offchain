@@ -60,10 +60,10 @@ export const initRewardFold = async (
     script: config.scripts.nodePolicy,
   };
 
-  const nodeValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.nodeValidator,
-  };
+  if(!config.refScripts.nodeValidator.scriptRef
+    || !config.refScripts.nodePolicy.scriptRef)
+    return { type: "error", error: new Error("Missing Script Reference") }
+  const nodeValidator: SpendingValidator = config.refScripts.nodeValidator.scriptRef;
 
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 

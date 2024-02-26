@@ -54,6 +54,7 @@ export const NodeKey = NodeKeySchema as unknown as NodeKey;
 export const SetNodeSchema = Data.Object({
   key: NodeKeySchema,
   next: NodeKeySchema,
+  configTN: Data.Bytes({ maxLength: 32 })
 });
 export type SetNode = Data.Static<typeof SetNodeSchema>;
 export const SetNode = SetNodeSchema as unknown as SetNode;

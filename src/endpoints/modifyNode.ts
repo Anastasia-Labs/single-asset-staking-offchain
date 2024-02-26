@@ -6,10 +6,12 @@ import {
   toUnit,
   TxComplete,
   fromText,
+  MintingPolicy,
 } from "@anastasia-labs/lucid-cardano-fork";
 import { NodeValidatorAction } from "../core/contract.types.js";
 import { InsertNodeConfig, Result } from "../core/types.js";
 import { TIME_TOLERANCE_MS, findOwnNode } from "../index.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const modifyNode = async (
   lucid: Lucid,
@@ -35,20 +37,19 @@ export const modifyNode = async (
   if(config.currentTime > config.freezeStake)
     return { type: "error", error: new Error("Stake has been frozen") }
 
-  const nodeValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.nodeValidator,
-  };
-
+  if(!config.refScripts.nodeValidator.scriptRef
+    || !config.refScripts.nodePolicy.scriptRef)
+    return { type: "error", error: new Error("Missing Script Reference") }
+  const nodeValidator: SpendingValidator = config.refScripts.nodeValidator.scriptRef;
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
-  const nodeUTXOs = config.nodeUTxOs
-    ? config.nodeUTxOs
-    : await lucid.utxosAt(nodeValidatorAddr);
+  const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
+  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
 
-  const ownNode = findOwnNode(nodeUTXOs, userKey);
+  const ownNode = await findOwnNode(lucid, config.configTN, 
+    nodeValidatorAddr, nodePolicyId, userKey, config.nodeUTxOs);
 
-  if (ownNode.type == "error" || !ownNode.data.datum)
+  if(ownNode.type == "error" || !ownNode.data.datum)
     return { type: "error", error: new Error("missing ownNode") };
 
   const redeemerNodeValidator = Data.to("ModifyStake", NodeValidatorAction)
@@ -64,15 +65,18 @@ export const modifyNode = async (
   const upperBound = (config.currentTime + TIME_TOLERANCE_MS);
   const lowerBound = (config.currentTime - TIME_TOLERANCE_MS);
 
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if(configUTxOResponse.type == "error")
+    return configUTxOResponse;
+
   try {
     const tx = await lucid
       .newTx()
       .collectFrom([ownNode.data], redeemerNodeValidator)
-      .compose(
-        config.refScripts?.nodeValidator
-          ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-          : lucid.newTx().attachSpendingValidator(nodeValidator)
-      )
+      .readFrom([
+        config.refScripts.nodeValidator,
+        configUTxOResponse.data
+      ])
       .payToContract(
         nodeValidatorAddr,
         { inline: ownNode.data.datum },
