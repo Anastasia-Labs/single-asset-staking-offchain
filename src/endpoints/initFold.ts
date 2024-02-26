@@ -6,7 +6,11 @@ import {
   toUnit,
   TxComplete,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { cFold, originNodeTokenName, TIME_TOLERANCE_MS } from "../core/constants.js";
+import {
+  cFold,
+  originNodeTokenName,
+  TIME_TOLERANCE_MS,
+} from "../core/constants.js";
 import { FoldDatum, FoldMintAct, SetNode } from "../core/contract.types.js";
 import { InitFoldConfig, Result } from "../core/types.js";
 import { fromAddress } from "../index.js";
@@ -14,7 +18,7 @@ import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const initFold = async (
   lucid: Lucid,
-  config: InitFoldConfig
+  config: InitFoldConfig,
 ): Promise<Result<TxComplete>> => {
   config.currentTime ??= Date.now();
 
@@ -37,17 +41,17 @@ export const initFold = async (
     script: config.scripts.nodePolicy,
   };
 
-  if(!config.refScripts.nodeValidator.scriptRef
-    || !config.refScripts.nodePolicy.scriptRef)
-    return { type: "error", error: new Error("Missing Script Reference") }
-  const nodeValidator: SpendingValidator = config.refScripts.nodeValidator.scriptRef;
+  if (
+    !config.refScripts.nodeValidator.scriptRef ||
+    !config.refScripts.nodePolicy.scriptRef
+  )
+    return { type: "error", error: new Error("Missing Script Reference") };
+  const nodeValidator: SpendingValidator =
+    config.refScripts.nodeValidator.scriptRef;
 
   const [headNodeUTxO] = await lucid.utxosAtWithUnit(
     lucid.utils.validatorToAddress(nodeValidator),
-    toUnit(
-      lucid.utils.mintingPolicyToId(nodePolicy),
-      originNodeTokenName
-    )
+    toUnit(lucid.utils.mintingPolicyToId(nodePolicy), originNodeTokenName),
   );
 
   if (!headNodeUTxO || !headNodeUTxO.datum)
@@ -61,7 +65,7 @@ export const initFold = async (
       staked: 0n,
       owner: fromAddress(await lucid.wallet.address()), //NOTE: owner is not being used in fold minting or validator
     },
-    FoldDatum
+    FoldDatum,
   );
 
   const redeemerFoldPolicy = Data.to("MintFold", FoldMintAct);
@@ -74,8 +78,7 @@ export const initFold = async (
   const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
   const configUTxOResponse = await fetchConfigUTxO(lucid, config);
-  if(configUTxOResponse.type == "error")
-    return configUTxOResponse;
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
 
   try {
     const tx = await lucid
@@ -86,7 +89,7 @@ export const initFold = async (
       .compose(
         config.refScripts?.foldPolicy
           ? lucid.newTx().readFrom([config.refScripts.foldPolicy])
-          : lucid.newTx().attachMintingPolicy(foldPolicy)
+          : lucid.newTx().attachMintingPolicy(foldPolicy),
       )
       .validFrom(lowerBound)
       .validTo(upperBound)

@@ -28,7 +28,13 @@ import rewardFoldPolicy from "./compiled/rewardFoldPolicy.json";
 import rewardFoldValidator from "./compiled/rewardFoldValidator.json";
 import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
-import { deploy, getRefUTxOs, initializeLucidContext, insertThreeNodes, LucidContext } from "./setup.js";
+import {
+  deploy,
+  getRefUTxOs,
+  initializeLucidContext,
+  insertThreeNodes,
+  LucidContext,
+} from "./setup.js";
 
 beforeEach<LucidContext>(initializeLucidContext);
 
@@ -53,10 +59,10 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
       initUTXO: treasuryUTxO,
       freezeStake: currentTime + ONE_HOUR_MS,
       endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
-      penaltyAddress: users.treasury1.address,    
+      penaltyAddress: users.treasury1.address,
       stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       stakeTN: "MIN",
-      minimumStake : 1_000,
+      minimumStake: 1_000,
     },
     rewardFoldValidator: {
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
@@ -85,8 +91,13 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
 
   const deployTime = emulator.now();
-  const deployRefScripts = await deploy(lucid, emulator, newScripts.data, deployTime);
-  
+  const deployRefScripts = await deploy(
+    lucid,
+    emulator,
+    newScripts.data,
+    deployTime,
+  );
+
   expect(deployRefScripts.type).toBe("ok");
   if (deployRefScripts.type == "error") return;
   // Find node refs script
@@ -105,14 +116,11 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   await lucid.awaitTx(
     await (
       await (
-        await lucid
-          .newTx()
-          .registerStake(nodeStakeRewardAddress!)
-          .complete()
+        await lucid.newTx().registerStake(nodeStakeRewardAddress!).complete()
       )
         .sign()
         .complete()
-    ).submit()
+    ).submit(),
   );
 
   // INIT PROJECT TOKEN HOLDER
@@ -130,7 +138,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   lucid.selectWalletFromSeed(users.reward1.seedPhrase);
   const initTokenHolderUnsigned = await initTokenHolder(
     lucid,
-    initTokenHolderConfig
+    initTokenHolderConfig,
   );
   // console.log(initTokenHolderUnsigned)
 
@@ -179,20 +187,32 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     ? console.log(
         "initNode result ",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
+          await parseUTxOsAtScript(
+            lucid,
+            newScripts.data.nodeValidator,
+            SetNode,
+          ),
           replacer,
-          2
-        )
+          2,
+        ),
       )
     : null;
 
   // INSERT NODES, ACCOUNT 1 -> ACCOUNT 2 -> ACCOUNT 3
   const freezeStake = currentTime + ONE_HOUR_MS;
-  await insertThreeNodes(lucid, emulator, users, newScripts.data, refUTxOs, freezeStake, logFlag);
-  
+  await insertThreeNodes(
+    lucid,
+    emulator,
+    users,
+    newScripts.data,
+    refUTxOs,
+    freezeStake,
+    logFlag,
+  );
+
   // Wait for endStaking to pass
   emulator.awaitBlock(6000);
-  
+
   // INIT FOLD
   const initFoldConfig: InitFoldConfig = {
     scripts: {
@@ -219,12 +239,12 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
 
   const multiFoldConfig: MultiFoldConfig = {
     nodeRefInputs: sortByOutRefWithIndex(
-      await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode)
+      await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
     ).map((data) => {
       return data.value.outRef;
     }),
     indices: sortByOutRefWithIndex(
-      await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode)
+      await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
     ).map((data) => {
       return data.index;
     }),
@@ -282,13 +302,12 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
   const initRewardFoldUnsigned = await initRewardFold(
     lucid,
-    initRewardFoldConfig
+    initRewardFoldConfig,
   );
   // console.log(initRewardFoldUnsigned);
 
   expect(initRewardFoldUnsigned.type).toBe("ok");
   if (initRewardFoldUnsigned.type == "error") return;
-  
 
   const initRewardFoldSigned = await initRewardFoldUnsigned.data
     .sign()
@@ -296,15 +315,19 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   const initRewardFoldHash = await initRewardFoldSigned.submit();
 
   emulator.awaitBlock(4);
-  
+
   logFlag
-  ? console.log(
-      "Init Reward Fold Result",
-      JSON.stringify(
-        await parseUTxOsAtScript(lucid, newScripts.data.rewardFoldValidator, RewardFoldDatum),
-        replacer,
-        2
+    ? console.log(
+        "Init Reward Fold Result",
+        JSON.stringify(
+          await parseUTxOsAtScript(
+            lucid,
+            newScripts.data.rewardFoldValidator,
+            RewardFoldDatum,
+          ),
+          replacer,
+          2,
+        ),
       )
-    )
-  : null;
+    : null;
 });

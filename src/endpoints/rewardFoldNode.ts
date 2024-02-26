@@ -12,23 +12,20 @@ import {
   NodeValidatorAction,
   SetNode,
   RewardFoldDatum,
-  RewardFoldAct
+  RewardFoldAct,
 } from "../core/contract.types.js";
 import { Result, RewardFoldNodeConfig } from "../core/types.js";
-import {
-  MIN_ADA,
-  TIME_TOLERANCE_MS,
-  rFold,
-} from "../index.js";
+import { MIN_ADA, TIME_TOLERANCE_MS, rFold } from "../index.js";
 import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const rewardFoldNode = async (
   lucid: Lucid,
-  config: RewardFoldNodeConfig
+  config: RewardFoldNodeConfig,
 ): Promise<Result<TxComplete>> => {
-  if(!config.refScripts.nodeValidator.scriptRef)
-    return { type: "error", error: new Error("Missing Script Reference") }
-  const nodeValidator: SpendingValidator = config.refScripts.nodeValidator.scriptRef;
+  if (!config.refScripts.nodeValidator.scriptRef)
+    return { type: "error", error: new Error("Missing Script Reference") };
+  const nodeValidator: SpendingValidator =
+    config.refScripts.nodeValidator.scriptRef;
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
   const nodeInputs = config.nodeInputs
@@ -55,15 +52,18 @@ export const rewardFoldNode = async (
 
   const [rewardUTxO] = await lucid.utxosAtWithUnit(
     lucid.utils.validatorToAddress(rewardFoldValidator),
-    toUnit(rewardFoldPolicyId, rFold)
+    toUnit(rewardFoldPolicyId, rFold),
   );
   if (!rewardUTxO.datum)
     return { type: "error", error: new Error("missing RewardFoldDatum") };
 
   const oldRewardFoldDatum = Data.from(rewardUTxO.datum, RewardFoldDatum);
 
-  if(oldRewardFoldDatum.currNode.next == null)
-    return { type: "error", error: new Error("Rewards fold already completed")}
+  if (oldRewardFoldDatum.currNode.next == null)
+    return {
+      type: "error",
+      error: new Error("Rewards fold already completed"),
+    };
 
   const nodeInput = nodeInputs.find((utxo) => {
     if (utxo.datum) {
@@ -86,9 +86,9 @@ export const rewardFoldNode = async (
       totalStaked: oldRewardFoldDatum.totalStaked,
       owner: oldRewardFoldDatum.owner,
     },
-    RewardFoldDatum
+    RewardFoldDatum,
   );
-  
+
   const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
   const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
   const nodeStake = nodeInput.assets[stakeToken];
@@ -97,21 +97,22 @@ export const rewardFoldNode = async (
     (nodeStake * oldRewardFoldDatum.totalRewardTokens) /
     oldRewardFoldDatum.totalStaked;
 
-  const nodeOutputAssets = {...nodeInput.assets};
+  const nodeOutputAssets = { ...nodeInput.assets };
   nodeOutputAssets["lovelace"] = MIN_ADA; // NODE_ADA - FOLDING_FEE
-  
-  // nodeOutputAssets[rewardToken] may not be undefined in case stake and reward tokens are one and the same
-  nodeOutputAssets[rewardToken] = (nodeOutputAssets[rewardToken] || 0n) + owedRewardTokenAmount;
 
-  const remainingRewardTokenAmount = rewardUTxO.assets[rewardToken] - owedRewardTokenAmount;
+  // nodeOutputAssets[rewardToken] may not be undefined in case stake and reward tokens are one and the same
+  nodeOutputAssets[rewardToken] =
+    (nodeOutputAssets[rewardToken] || 0n) + owedRewardTokenAmount;
+
+  const remainingRewardTokenAmount =
+    rewardUTxO.assets[rewardToken] - owedRewardTokenAmount;
 
   config.currentTime ??= Date.now();
   const upperBound = config.currentTime + TIME_TOLERANCE_MS;
   const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
   const configUTxOResponse = await fetchConfigUTxO(lucid, config);
-  if(configUTxOResponse.type == "error")
-    return configUTxOResponse;
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
 
   try {
     const tx = lucid
@@ -121,49 +122,45 @@ export const rewardFoldNode = async (
       .withdraw(
         lucid.utils.validatorToRewardAddress(nodeStakeValidator),
         0n,
-        Data.void()
+        Data.void(),
       )
       .payToContract(
         rewardFoldValidatorAddr,
         { inline: newFoldDatum },
         {
           ...rewardUTxO.assets,
-          [stakeToken]: remainingRewardTokenAmount
-        }
+          [stakeToken]: remainingRewardTokenAmount,
+        },
       )
       .payToContract(
         nodeValidatorAddr,
         { inline: nodeInput.datum },
-        nodeOutputAssets
+        nodeOutputAssets,
       )
       .compose(
         config.refScripts?.rewardFoldValidator
           ? lucid.newTx().readFrom([config.refScripts.rewardFoldValidator])
-          : lucid.newTx().attachSpendingValidator(rewardFoldValidator)
+          : lucid.newTx().attachSpendingValidator(rewardFoldValidator),
       )
       .compose(
         config.refScripts?.nodeValidator
           ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-          : lucid.newTx().attachSpendingValidator(nodeValidator)
+          : lucid.newTx().attachSpendingValidator(nodeValidator),
       )
       .compose(
         config.refScripts?.nodeStakeValidator
           ? lucid.newTx().readFrom([config.refScripts.nodeStakeValidator])
-          : lucid.newTx().attachWithdrawalValidator(nodeStakeValidator)
+          : lucid.newTx().attachWithdrawalValidator(nodeStakeValidator),
       )
       .validFrom(lowerBound)
-      .validTo(upperBound)
+      .validTo(upperBound);
 
-    return { 
-      type: "ok", 
-      data: await 
-            (
-              process.env.NODE_ENV == "emulator" 
-                ? tx.complete() 
-                : tx.complete({nativeUplc : false})
-            )
-      };
-
+    return {
+      type: "ok",
+      data: await (process.env.NODE_ENV == "emulator"
+        ? tx.complete()
+        : tx.complete({ nativeUplc: false })),
+    };
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };
 

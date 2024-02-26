@@ -41,7 +41,7 @@ export const AddressSchema = Data.Object({
           }),
         ]),
       }),
-    ])
+    ]),
   ),
 });
 export type AddressD = Data.Static<typeof AddressSchema>;
@@ -54,7 +54,7 @@ export const NodeKey = NodeKeySchema as unknown as NodeKey;
 export const SetNodeSchema = Data.Object({
   key: NodeKeySchema,
   next: NodeKeySchema,
-  configTN: Data.Bytes({ maxLength: 32 })
+  configTN: Data.Bytes({ maxLength: 32 }),
 });
 export type SetNode = Data.Static<typeof SetNodeSchema>;
 export const SetNode = SetNodeSchema as unknown as SetNode;
@@ -76,7 +76,7 @@ export const StakingNodeActionSchema = Data.Enum([
   }),
   Data.Object({
     PClaim: Data.Object({
-      keyToRemove: PubKeyHashSchema
+      keyToRemove: PubKeyHashSchema,
     }),
   }),
 ]);
@@ -94,11 +94,10 @@ export const StakingConfigSchema = Data.Object({
   stakeTN: Data.Bytes(),
   minimumStake: Data.Integer(),
   rewardCS: Data.Bytes({ minLength: 28, maxLength: 28 }),
-  rewardTN: Data.Bytes()
+  rewardTN: Data.Bytes(),
 });
 export type StakingConfig = Data.Static<typeof StakingConfigSchema>;
-export const StakingConfig =
-  StakingConfigSchema as unknown as StakingConfig;
+export const StakingConfig = StakingConfigSchema as unknown as StakingConfig;
 
 export const NodeValidatorActionSchema = Data.Enum([
   Data.Literal("LinkedListAct"),
@@ -140,7 +139,8 @@ export const RewardFoldMintActSchema = Data.Enum([
   Data.Literal("BurnRewardFold"),
 ]);
 export type RewardFoldMintAct = Data.Static<typeof RewardFoldMintActSchema>;
-export const RewardFoldMintAct = RewardFoldMintActSchema as unknown as RewardFoldMintAct;
+export const RewardFoldMintAct =
+  RewardFoldMintActSchema as unknown as RewardFoldMintAct;
 
 export const RewardFoldDatumSchema = Data.Object({
   currNode: SetNodeSchema,
@@ -151,7 +151,7 @@ export const RewardFoldDatumSchema = Data.Object({
 export type RewardFoldDatum = Data.Static<typeof RewardFoldDatumSchema>;
 export const RewardFoldDatum =
   RewardFoldDatumSchema as unknown as RewardFoldDatum;
-  
+
 export const RewardFoldActSchema = Data.Enum([
   Data.Object({
     RewardsFoldNodes: Data.Object({

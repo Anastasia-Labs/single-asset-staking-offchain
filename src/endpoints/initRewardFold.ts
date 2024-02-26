@@ -9,14 +9,26 @@ import {
   fromText,
   WithdrawalValidator,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { cFold, MIN_ADA, originNodeTokenName, rFold, RTHOLDER } from "../core/constants.js";
-import { SetNode, FoldDatum, RewardFoldDatum, NodeValidatorAction, RewardFoldMintAct } from "../core/contract.types.js";
+import {
+  cFold,
+  MIN_ADA,
+  originNodeTokenName,
+  rFold,
+  RTHOLDER,
+} from "../core/constants.js";
+import {
+  SetNode,
+  FoldDatum,
+  RewardFoldDatum,
+  NodeValidatorAction,
+  RewardFoldMintAct,
+} from "../core/contract.types.js";
 import { InitRewardFoldConfig, Result } from "../core/types.js";
 import { fromAddress } from "../index.js";
 
 export const initRewardFold = async (
   lucid: Lucid,
-  config: InitRewardFoldConfig
+  config: InitRewardFoldConfig,
 ): Promise<Result<TxComplete>> => {
   const tokenHolderValidator: SpendingValidator = {
     type: "PlutusV2",
@@ -46,8 +58,7 @@ export const initRewardFold = async (
     type: "PlutusV2",
     script: config.scripts.foldValidator,
   };
-  const commitFoldValidatorAddr =
-    lucid.utils.validatorToAddress(foldValidator);
+  const commitFoldValidatorAddr = lucid.utils.validatorToAddress(foldValidator);
 
   const foldPolicy: MintingPolicy = {
     type: "PlutusV2",
@@ -60,10 +71,13 @@ export const initRewardFold = async (
     script: config.scripts.nodePolicy,
   };
 
-  if(!config.refScripts.nodeValidator.scriptRef
-    || !config.refScripts.nodePolicy.scriptRef)
-    return { type: "error", error: new Error("Missing Script Reference") }
-  const nodeValidator: SpendingValidator = config.refScripts.nodeValidator.scriptRef;
+  if (
+    !config.refScripts.nodeValidator.scriptRef ||
+    !config.refScripts.nodePolicy.scriptRef
+  )
+    return { type: "error", error: new Error("Missing Script Reference") };
+  const nodeValidator: SpendingValidator =
+    config.refScripts.nodeValidator.scriptRef;
 
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
@@ -74,10 +88,7 @@ export const initRewardFold = async (
 
   const [headNodeUTxO] = await lucid.utxosAtWithUnit(
     nodeValidatorAddr,
-    toUnit(
-      lucid.utils.mintingPolicyToId(nodePolicy),
-      originNodeTokenName
-    )
+    toUnit(lucid.utils.mintingPolicyToId(nodePolicy), originNodeTokenName),
   );
 
   if (!headNodeUTxO || !headNodeUTxO.datum)
@@ -113,7 +124,7 @@ export const initRewardFold = async (
       totalStaked: commitFoldDatum.staked,
       owner: fromAddress(await lucid.wallet.address()),
     },
-    RewardFoldDatum
+    RewardFoldDatum,
   );
 
   const burnRTHolderAct = Data.to(new Constr(1, []));
@@ -123,7 +134,10 @@ export const initRewardFold = async (
   try {
     const tx = await lucid
       .newTx()
-      .collectFrom([headNodeUTxO], Data.to("RewardFoldAct", NodeValidatorAction))
+      .collectFrom(
+        [headNodeUTxO],
+        Data.to("RewardFoldAct", NodeValidatorAction),
+      )
       .collectFrom([tokenHolderUTxO], Data.void())
       .collectFrom([commitFoldUTxO], reclaimCommitFoldAct)
       .payToContract(
@@ -132,58 +146,58 @@ export const initRewardFold = async (
         {
           [toUnit(rewardFoldPolicyId, rFold)]: 1n,
           [rewardUnit]: tokenHolderUTxO.assets[rewardUnit],
-        }
+        },
       )
       .payToContract(
         nodeValidatorAddr,
         { inline: headNodeUTxO.datum },
-        { ...headNodeUTxO.assets, lovelace: MIN_ADA } // Taking FOLDING_FEE to indicate rewards fold init. NODE_ADA - FOLDING_FEE == MIN_ADA
+        { ...headNodeUTxO.assets, lovelace: MIN_ADA }, // Taking FOLDING_FEE to indicate rewards fold init. NODE_ADA - FOLDING_FEE == MIN_ADA
       )
       .mintAssets(
         { [toUnit(rewardFoldPolicyId, rFold)]: 1n },
-        Data.to("MintRewardFold", RewardFoldMintAct)
+        Data.to("MintRewardFold", RewardFoldMintAct),
       )
       .mintAssets({ [commitFoldUnit]: -1n }, burnCommitFoldAct)
       .mintAssets({ [rtHolderUnit]: -1n }, burnRTHolderAct)
       .withdraw(
         lucid.utils.validatorToRewardAddress(nodeStakeValidator),
         0n,
-        Data.void()
+        Data.void(),
       )
       .compose(
         config.refScripts?.tokenHolderValidator
           ? lucid.newTx().readFrom([config.refScripts.tokenHolderValidator])
-          : lucid.newTx().attachSpendingValidator(tokenHolderValidator)
+          : lucid.newTx().attachSpendingValidator(tokenHolderValidator),
       )
       .compose(
         config.refScripts?.foldValidator
           ? lucid.newTx().readFrom([config.refScripts.foldValidator])
-          : lucid.newTx().attachSpendingValidator(foldValidator)
+          : lucid.newTx().attachSpendingValidator(foldValidator),
       )
       .compose(
         config.refScripts?.rewardFoldPolicy
           ? lucid.newTx().readFrom([config.refScripts.rewardFoldPolicy])
-          : lucid.newTx().attachMintingPolicy(rewardFoldPolicy)
+          : lucid.newTx().attachMintingPolicy(rewardFoldPolicy),
       )
       .compose(
         config.refScripts?.foldPolicy
           ? lucid.newTx().readFrom([config.refScripts.foldPolicy])
-          : lucid.newTx().attachMintingPolicy(foldPolicy)
+          : lucid.newTx().attachMintingPolicy(foldPolicy),
       )
       .compose(
         config.refScripts?.tokenHolderPolicy
           ? lucid.newTx().readFrom([config.refScripts.tokenHolderPolicy])
-          : lucid.newTx().attachMintingPolicy(tokenHolderPolicy)
+          : lucid.newTx().attachMintingPolicy(tokenHolderPolicy),
       )
       .compose(
         config.refScripts?.nodeValidator
           ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-          : lucid.newTx().attachSpendingValidator(nodeValidator)
+          : lucid.newTx().attachSpendingValidator(nodeValidator),
       )
       .compose(
         config.refScripts?.nodeStakeValidator
           ? lucid.newTx().readFrom([config.refScripts.nodeStakeValidator])
-          : lucid.newTx().attachWithdrawalValidator(nodeStakeValidator)
+          : lucid.newTx().attachWithdrawalValidator(nodeStakeValidator),
       )
       .addSigner(await lucid.wallet.address())
       .complete();

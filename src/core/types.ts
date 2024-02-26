@@ -33,7 +33,7 @@ export type CreateConfig = {
     penaltyAddress: Address;
     stakeCS: PolicyId;
     stakeTN: string;
-    minimumStake : number;
+    minimumStake: number;
     rewardCS: PolicyId;
     rewardTN: string;
   };
@@ -77,7 +77,7 @@ export type InitNodeConfig = {
   stakingInitUTXO: UTxO;
   stakeCS: PolicyId;
   stakeTN: string;
-  minimumStake : number;
+  minimumStake: number;
   refScripts: {
     configPolicy: UTxO;
     nodePolicy: UTxO;
@@ -104,7 +104,7 @@ export type InsertNodeConfig = {
   };
   stakeCS: PolicyId;
   stakeTN: string;
-  minimumStake : number;
+  minimumStake: number;
   toStake: number;
   freezeStake: POSIXTime;
   currentTime?: POSIXTime;
@@ -134,7 +134,7 @@ export type InitFoldConfig = {
     configPolicy: UTxO;
     foldPolicy: UTxO;
     foldValidator: UTxO;
-  }
+  };
   currentTime?: POSIXTime;
 };
 
@@ -146,7 +146,7 @@ export type MultiFoldConfig = {
     configPolicy: UTxO;
     foldValidator: UTxO;
     foldPolicy: UTxO;
-  }
+  };
   stakeCS: PolicyId;
   stakeTN: string;
   currentTime?: POSIXTime;

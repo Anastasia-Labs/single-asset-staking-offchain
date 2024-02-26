@@ -10,56 +10,59 @@ import { parseSafeDatum } from "../index.js";
 
 export const fetchConfigReadableUTxO = async (
   lucid: Lucid,
-  config: FetchConfig
+  config: FetchConfig,
 ): Promise<Result<ReadableUTxO<StakingConfig>>> => {
-
   try {
     const configUTxOResponse = await fetchConfigUTxO(lucid, config);
 
-    if(configUTxOResponse.type == "error")
-      return configUTxOResponse;
+    if (configUTxOResponse.type == "error") return configUTxOResponse;
 
     const configUTxO = configUTxOResponse.data;
-    const readableConfigUTxO = parseSafeDatum(lucid, configUTxO.datum, StakingConfig);
+    const readableConfigUTxO = parseSafeDatum(
+      lucid,
+      configUTxO.datum,
+      StakingConfig,
+    );
 
-    if(readableConfigUTxO.type == "right")
-      return { type: "ok", data: 
-        {
+    if (readableConfigUTxO.type == "right")
+      return {
+        type: "ok",
+        data: {
           outRef: {
             txHash: configUTxO.txHash,
             outputIndex: configUTxO.outputIndex,
           },
           datum: readableConfigUTxO.value,
           assets: configUTxO.assets,
-        } 
-      }
-    else
-      return { type: "error", error: new Error(readableConfigUTxO.value) };
+        },
+      };
+    else return { type: "error", error: new Error(readableConfigUTxO.value) };
   } catch (error) {
-      if (error instanceof Error) return { type: "error", error: error };
-  
-      return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
-    }
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
 };
 
 export const fetchConfigUTxO = async (
   lucid: Lucid,
-  config: FetchConfig
+  config: FetchConfig,
 ): Promise<Result<UTxO>> => {
-
-  if(!config.refScripts.configPolicy.scriptRef)
-    return { type: "error", error: new Error("Missing Script Reference") }
+  if (!config.refScripts.configPolicy.scriptRef)
+    return { type: "error", error: new Error("Missing Script Reference") };
 
   const configPolicy: MintingPolicy = config.refScripts.configPolicy.scriptRef;
   const configPolicyId = lucid.utils.mintingPolicyToId(configPolicy);
 
   try {
-    const configUTxO = await lucid.utxoByUnit(toUnit(configPolicyId, config.configTN));
+    const configUTxO = await lucid.utxoByUnit(
+      toUnit(configPolicyId, config.configTN),
+    );
 
     return { type: "ok", data: configUTxO };
   } catch (error) {
-      if (error instanceof Error) return { type: "error", error: error };
-  
-      return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
-    }
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
 };

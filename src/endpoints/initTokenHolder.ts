@@ -7,13 +7,18 @@ import {
   TxComplete,
   fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { PROTOCOL_FEE, PROTOCOL_PAYMENT_KEY, PROTOCOL_STAKE_KEY, RTHOLDER } from "../core/constants.js";
+import {
+  PROTOCOL_FEE,
+  PROTOCOL_PAYMENT_KEY,
+  PROTOCOL_STAKE_KEY,
+  RTHOLDER,
+} from "../core/constants.js";
 import { InitTokenHolderConfig, Result } from "../core/types.js";
 import { TokenHolderMintAction } from "../index.js";
 
 export const initTokenHolder = async (
   lucid: Lucid,
-  config: InitTokenHolderConfig
+  config: InitTokenHolderConfig,
 ): Promise<Result<TxComplete>> => {
   const tokenHolderValidator: SpendingValidator = {
     type: "PlutusV2",
@@ -30,7 +35,7 @@ export const initTokenHolder = async (
 
   const tokenHolderPolicyId = lucid.utils.mintingPolicyToId(tokenHolderPolicy);
 
-  const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN))
+  const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
   const rtHolderAsset = toUnit(tokenHolderPolicyId, fromText(RTHOLDER));
   const mintRTHolderAct = Data.to("PMintHolder", TokenHolderMintAction);
 
@@ -44,22 +49,22 @@ export const initTokenHolder = async (
         {
           [rtHolderAsset]: BigInt(1),
           [rewardToken]: BigInt(config.rewardAmount),
-        }
+        },
       )
       .mintAssets({ [rtHolderAsset]: BigInt(1) }, mintRTHolderAct)
       .payToAddress(
         lucid.utils.credentialToAddress(
           lucid.utils.keyHashToCredential(PROTOCOL_PAYMENT_KEY),
-          lucid.utils.keyHashToCredential(PROTOCOL_STAKE_KEY)
+          lucid.utils.keyHashToCredential(PROTOCOL_STAKE_KEY),
         ),
         {
           [rewardToken]: BigInt(config.rewardAmount * PROTOCOL_FEE),
-        }
+        },
       )
       .compose(
         config.refScripts?.tokenHolderPolicy
           ? lucid.newTx().readFrom([config.refScripts.tokenHolderPolicy])
-          : lucid.newTx().attachMintingPolicy(tokenHolderPolicy)
+          : lucid.newTx().attachMintingPolicy(tokenHolderPolicy),
       )
       .complete();
 

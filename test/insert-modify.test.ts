@@ -19,9 +19,14 @@ import foldPolicy from "./compiled/foldPolicy.json";
 import foldValidator from "./compiled/foldValidator.json";
 import rewardFoldPolicy from "./compiled/rewardFoldPolicy.json";
 import rewardFoldValidator from "./compiled/rewardFoldValidator.json";
-import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json"
-import tokenHolderValidator from "./compiled/tokenHolderValidator.json"
-import { deploy, getRefUTxOs, initializeLucidContext, LucidContext } from "./setup.js";
+import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
+import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
+import {
+  deploy,
+  getRefUTxOs,
+  initializeLucidContext,
+  LucidContext,
+} from "./setup.js";
 
 beforeEach<LucidContext>(initializeLucidContext);
 
@@ -47,10 +52,10 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       initUTXO: treasuryUTxO,
       freezeStake: currentTime + ONE_HOUR_MS,
       endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
-      penaltyAddress: users.treasury1.address,    
+      penaltyAddress: users.treasury1.address,
       stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       stakeTN: "MIN",
-      minimumStake : 1_000,
+      minimumStake: 1_000,
     },
     rewardFoldValidator: {
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
@@ -79,8 +84,13 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
 
   const deployTime = emulator.now();
-  const deployRefScripts = await deploy(lucid, emulator, newScripts.data, deployTime);
-  
+  const deployRefScripts = await deploy(
+    lucid,
+    emulator,
+    newScripts.data,
+    deployTime,
+  );
+
   expect(deployRefScripts.type).toBe("ok");
   if (deployRefScripts.type == "error") return;
   // Find node refs script
@@ -90,7 +100,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
 
   // INIT NODE
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  
+
   const initNodeConfig: InitNodeConfig = {
     initUTXO: treasuryUTxO,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
@@ -105,7 +115,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     },
   };
   const initNodeUnsigned = await initNode(lucid, initNodeConfig);
-  
+
   expect(initNodeUnsigned.type).toBe("ok");
   if (initNodeUnsigned.type == "error") return;
 
@@ -119,10 +129,14 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "initNode result ",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
+          await parseUTxOsAtScript(
+            lucid,
+            newScripts.data.nodeValidator,
+            SetNode,
+          ),
           replacer,
-          2
-        )
+          2,
+        ),
       )
     : null;
 
@@ -161,10 +175,14 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "insertNode result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
+          await parseUTxOsAtScript(
+            lucid,
+            newScripts.data.nodeValidator,
+            SetNode,
+          ),
           replacer,
-          2
-        )
+          2,
+        ),
       )
     : null;
 
@@ -198,10 +216,14 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "insertNode result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
+          await parseUTxOsAtScript(
+            lucid,
+            newScripts.data.nodeValidator,
+            SetNode,
+          ),
           replacer,
-          2
-        )
+          2,
+        ),
       )
     : null;
 

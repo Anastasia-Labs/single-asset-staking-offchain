@@ -17,10 +17,16 @@ import foldPolicy from "./compiled/foldPolicy.json";
 import foldValidator from "./compiled/foldValidator.json";
 import rewardFoldPolicy from "./compiled/rewardFoldPolicy.json";
 import rewardFoldValidator from "./compiled/rewardFoldValidator.json";
-import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json"
-import tokenHolderValidator from "./compiled/tokenHolderValidator.json"
+import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
+import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
 import nodeStakeValidator from "./compiled/nodeStakeValidator.json";
-import { deploy, getRefUTxOs, initializeLucidContext, insertThreeNodes, LucidContext } from "./setup.js";
+import {
+  deploy,
+  getRefUTxOs,
+  initializeLucidContext,
+  insertThreeNodes,
+  LucidContext,
+} from "./setup.js";
 
 beforeEach<LucidContext>(initializeLucidContext);
 
@@ -45,10 +51,10 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       initUTXO: treasuryUTxO,
       freezeStake: currentTime + ONE_HOUR_MS,
       endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
-      penaltyAddress: users.treasury1.address,    
+      penaltyAddress: users.treasury1.address,
       stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       stakeTN: "MIN",
-      minimumStake : 1_000,
+      minimumStake: 1_000,
     },
     rewardFoldValidator: {
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
@@ -77,8 +83,13 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
 
   const deployTime = emulator.now();
-  const deployRefScripts = await deploy(lucid, emulator, newScripts.data, deployTime);
-  
+  const deployRefScripts = await deploy(
+    lucid,
+    emulator,
+    newScripts.data,
+    deployTime,
+  );
+
   expect(deployRefScripts.type).toBe("ok");
   if (deployRefScripts.type == "error") return;
   // Find node refs script
@@ -115,22 +126,34 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "initNode result ",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
+          await parseUTxOsAtScript(
+            lucid,
+            newScripts.data.nodeValidator,
+            SetNode,
+          ),
           replacer,
-          2
-        )
+          2,
+        ),
       )
     : null;
 
   // INSERT NODES, ACCOUNT 1 -> ACCOUNT 2 -> ACCOUNT 3
   // Total blocks elapsed in step - 12
   const freezeStake = currentTime + ONE_HOUR_MS;
-  await insertThreeNodes(lucid, emulator, users, newScripts.data, refUTxOs, freezeStake, logFlag);
+  await insertThreeNodes(
+    lucid,
+    emulator,
+    users,
+    newScripts.data,
+    refUTxOs,
+    freezeStake,
+    logFlag,
+  );
 
   // 1 block = 20 secs
   // 1 hour = 180 blocks
   // 24 hours = 4320 blocks
-  
+
   // Total blocks eplased till now = 36 + 12 = 48
 
   // before freezeStake or within 1 hour - up to 148 blocks
@@ -169,7 +192,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
 
   expect(removeNodeUnsigned.type).toBe("ok");
   if (removeNodeUnsigned.type == "error") return;
-  
+
   const removeNodeSigned = await removeNodeUnsigned.data.sign().complete();
   const removeNodeHash = await removeNodeSigned.submit();
 
@@ -179,17 +202,22 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "removeNode 1 result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
+          await parseUTxOsAtScript(
+            lucid,
+            newScripts.data.nodeValidator,
+            SetNode,
+          ),
           replacer,
-          2
-        )
+          2,
+        ),
       )
     : null;
   logFlag
     ? console.log(
-    "account1 address with stake",
-    await lucid.utxosAt(users.account1.address)
-  ): null;
+        "account1 address with stake",
+        await lucid.utxosAt(users.account1.address),
+      )
+    : null;
 
   // after freezeStake before endStaking
   emulator.awaitBlock(100); // Remove with penalty
@@ -227,17 +255,22 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "removeNode 2 result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
+          await parseUTxOsAtScript(
+            lucid,
+            newScripts.data.nodeValidator,
+            SetNode,
+          ),
           replacer,
-          2
-        )
+          2,
+        ),
       )
     : null;
   logFlag
     ? console.log(
-    "treasury address with penalty",
-    await lucid.utxosAt(users.treasury1.address)
-  ): null;
+        "treasury address with penalty",
+        await lucid.utxosAt(users.treasury1.address),
+      )
+    : null;
 
   // FAIL REMOVE NODE 2
   const removeNodeConfig3: RemoveNodeConfig = {
@@ -273,10 +306,14 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "failed removeNode result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
+          await parseUTxOsAtScript(
+            lucid,
+            newScripts.data.nodeValidator,
+            SetNode,
+          ),
           replacer,
-          2
-        )
+          2,
+        ),
       )
     : null;
 
@@ -303,7 +340,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
 
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
   const removeNodeUnsigned4 = await removeNode(lucid, removeNodeConfig4);
-  
+
   // console.log(removeNodeUnsigned4);
   expect(removeNodeUnsigned4.type).toBe("error");
   if (removeNodeUnsigned4.type == "ok") return;
@@ -314,10 +351,14 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     ? console.log(
         "removeNode 3 result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, newScripts.data.nodeValidator, SetNode),
+          await parseUTxOsAtScript(
+            lucid,
+            newScripts.data.nodeValidator,
+            SetNode,
+          ),
           replacer,
-          2
-        )
+          2,
+        ),
       )
     : null;
 });

@@ -14,7 +14,7 @@ import { CFOLD, TIME_TOLERANCE_MS } from "../index.js";
 
 export const multiFold = async (
   lucid: Lucid,
-  config: MultiFoldConfig
+  config: MultiFoldConfig,
 ): Promise<Result<TxComplete>> => {
   config.currentTime ??= Date.now();
 
@@ -37,7 +37,7 @@ export const multiFold = async (
 
   const [foldUTxO] = await lucid.utxosAtWithUnit(
     lucid.utils.validatorToAddress(foldValidator),
-    toUnit(lucid.utils.mintingPolicyToId(foldPolicy), fromText(CFOLD))
+    toUnit(lucid.utils.mintingPolicyToId(foldPolicy), fromText(CFOLD)),
   );
 
   if (!foldUTxO || !foldUTxO.datum)
@@ -52,9 +52,11 @@ export const multiFold = async (
   if (!lastNodeRef) return { type: "error", error: new Error("missing datum") };
 
   const lastNodeRefDatum = Data.from(lastNodeRef, SetNode);
-  
+
   const staked = nodeRefUTxOs.reduce((result: bigint, utxo: UTxO) => {
-    return result + utxo.assets[toUnit(config.stakeCS, fromText(config.stakeTN))];
+    return (
+      result + utxo.assets[toUnit(config.stakeCS, fromText(config.stakeTN))]
+    );
   }, 0n);
 
   const newFoldDatum = Data.to(
@@ -66,7 +68,7 @@ export const multiFold = async (
       staked: oldFoldDatum.staked + staked,
       owner: oldFoldDatum.owner,
     },
-    FoldDatum
+    FoldDatum,
   );
 
   const redeemerValidator = Data.to(
@@ -77,7 +79,7 @@ export const multiFold = async (
         }),
       },
     },
-    FoldAct
+    FoldAct,
   );
 
   const upperBound = config.currentTime + TIME_TOLERANCE_MS;
@@ -90,13 +92,13 @@ export const multiFold = async (
       .compose(
         config.refScripts?.foldValidator
           ? lucid.newTx().readFrom([config.refScripts.foldValidator])
-          : lucid.newTx().attachSpendingValidator(foldValidator)
+          : lucid.newTx().attachSpendingValidator(foldValidator),
       )
       .readFrom(nodeRefUTxOs)
       .payToContract(
         foldValidatorAddr,
         { inline: newFoldDatum },
-        foldUTxO.assets
+        foldUTxO.assets,
       )
       .validFrom(lowerBound)
       .validTo(upperBound)

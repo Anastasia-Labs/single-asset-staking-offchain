@@ -13,12 +13,17 @@ import {
   SetNode,
 } from "../core/contract.types.js";
 import { InsertNodeConfig, Result } from "../core/types.js";
-import { NODE_ADA, mkNodeKeyTN, TIME_TOLERANCE_MS, findCoveringNode } from "../index.js";
+import {
+  NODE_ADA,
+  mkNodeKeyTN,
+  TIME_TOLERANCE_MS,
+  findCoveringNode,
+} from "../index.js";
 import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const insertNode = async (
   lucid: Lucid,
-  config: InsertNodeConfig
+  config: InsertNodeConfig,
 ): Promise<Result<TxComplete>> => {
   config.currentTime ??= Date.now();
 
@@ -27,20 +32,26 @@ export const insertNode = async (
   if (!walletUtxos.length)
     return { type: "error", error: new Error("No utxos in wallet") };
 
-  if(config.toStake < config.minimumStake)
-    return { type: "error", error: new Error("toStake cannot be less than minimumStake") };
+  if (config.toStake < config.minimumStake)
+    return {
+      type: "error",
+      error: new Error("toStake cannot be less than minimumStake"),
+    };
 
-  if(config.currentTime > config.freezeStake)
-    return { type: "error", error: new Error("Stake has been frozen") }
+  if (config.currentTime > config.freezeStake)
+    return { type: "error", error: new Error("Stake has been frozen") };
 
-  if(!config.refScripts.nodeValidator.scriptRef
-    || !config.refScripts.nodePolicy.scriptRef)
-    return { type: "error", error: new Error("Missing Script Reference") }
+  if (
+    !config.refScripts.nodeValidator.scriptRef ||
+    !config.refScripts.nodePolicy.scriptRef
+  )
+    return { type: "error", error: new Error("Missing Script Reference") };
 
-  const nodeValidator: SpendingValidator = config.refScripts.nodeValidator.scriptRef;
+  const nodeValidator: SpendingValidator =
+    config.refScripts.nodeValidator.scriptRef;
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
-  const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef
+  const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
   const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
 
   const userKey = lucid.utils.getAddressDetails(await lucid.wallet.address())
@@ -53,11 +64,16 @@ export const insertNode = async (
     ? config.nodeUTxOs
     : await lucid.utxosAt(nodeValidatorAddr);
 
-  const coveringNode = await findCoveringNode(lucid, config.configTN, 
-    nodeValidatorAddr, nodePolicyId, userKey, nodeUTXOs);
+  const coveringNode = await findCoveringNode(
+    lucid,
+    config.configTN,
+    nodeValidatorAddr,
+    nodePolicyId,
+    userKey,
+    nodeUTXOs,
+  );
 
-  if(coveringNode.type == "error")
-    return coveringNode;
+  if (coveringNode.type == "error") return coveringNode;
 
   // datum is already checked in fn findCoveringNode
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -67,18 +83,18 @@ export const insertNode = async (
     {
       key: coveringNodeDatum.key,
       next: userKey,
-      configTN: config.configTN
+      configTN: config.configTN,
     },
-    SetNode
+    SetNode,
   );
 
   const nodeDatum = Data.to(
     {
       key: userKey,
       next: coveringNodeDatum.next,
-      configTN: config.configTN
+      configTN: config.configTN,
     },
-    SetNode
+    SetNode,
   );
 
   const redeemerNodePolicy = Data.to(
@@ -88,7 +104,7 @@ export const insertNode = async (
         coveringNode: coveringNodeDatum,
       },
     },
-    StakingNodeAction
+    StakingNodeAction,
   );
 
   const redeemerNodeValidator = Data.to("LinkedListAct", NodeValidatorAction);
@@ -101,8 +117,7 @@ export const insertNode = async (
   const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
   const configUTxOResponse = await fetchConfigUTxO(lucid, config);
-  if(configUTxOResponse.type == "error")
-    return configUTxOResponse;
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
 
   try {
     const tx = await lucid
@@ -111,22 +126,25 @@ export const insertNode = async (
       .payToContract(
         nodeValidatorAddr,
         { inline: prevNodeDatum },
-        coveringNode.data.assets
+        coveringNode.data.assets,
       )
       .payToContract(
         nodeValidatorAddr,
         { inline: nodeDatum },
-        { ...assets, 
-          [toUnit(config.stakeCS, fromText(config.stakeTN))]: BigInt(config.toStake),
-          lovelace: NODE_ADA 
-        }
+        {
+          ...assets,
+          [toUnit(config.stakeCS, fromText(config.stakeTN))]: BigInt(
+            config.toStake,
+          ),
+          lovelace: NODE_ADA,
+        },
       )
       .addSignerKey(userKey)
       .mintAssets(assets, redeemerNodePolicy)
       .readFrom([
-        config.refScripts.nodeValidator, 
+        config.refScripts.nodeValidator,
         config.refScripts.nodePolicy,
-        configUTxOResponse.data
+        configUTxOResponse.data,
       ])
       .validFrom(lowerBound)
       .validTo(upperBound)
