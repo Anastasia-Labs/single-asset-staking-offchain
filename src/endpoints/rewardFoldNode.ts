@@ -15,49 +15,59 @@ import {
   RewardFoldAct,
 } from "../core/contract.types.js";
 import { Result, RewardFoldNodeConfig } from "../core/types.js";
-import { MIN_ADA, TIME_TOLERANCE_MS, rFold } from "../index.js";
+import {
+  MIN_ADA,
+  TIME_TOLERANCE_MS,
+  findOwnNode,
+  findRewardFoldUTxO,
+} from "../index.js";
 import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const rewardFoldNode = async (
   lucid: Lucid,
   config: RewardFoldNodeConfig,
 ): Promise<Result<TxComplete>> => {
-  if (!config.refScripts.nodeValidator.scriptRef)
+  if (
+    !config.refScripts.nodeValidator.scriptRef ||
+    !config.refScripts.nodePolicy.scriptRef ||
+    !config.refScripts.nodeStakeValidator.scriptRef ||
+    !config.refScripts.rewardFoldPolicy.scriptRef ||
+    !config.refScripts.rewardFoldValidator.scriptRef
+  )
     return { type: "error", error: new Error("Missing Script Reference") };
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
-  const nodeInputs = config.nodeInputs
-    ? config.nodeInputs
+  const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
+  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+
+  const nodeUTxOs = config.nodeUTxOs
+    ? config.nodeUTxOs
     : await lucid.utxosAt(nodeValidatorAddr);
 
-  const rewardFoldValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.rewardFoldValidator,
-  };
+  const rewardFoldValidator: SpendingValidator =
+    config.refScripts.rewardFoldValidator.scriptRef;
   const rewardFoldValidatorAddr =
     lucid.utils.validatorToAddress(rewardFoldValidator);
 
-  const rewardFoldPolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.rewardFoldPolicy,
-  };
+  const rewardFoldPolicy: MintingPolicy =
+    config.refScripts.rewardFoldPolicy.scriptRef;
   const rewardFoldPolicyId = lucid.utils.mintingPolicyToId(rewardFoldPolicy);
 
-  const nodeStakeValidator: WithdrawalValidator = {
-    type: "PlutusV2",
-    script: config.scripts.nodeStakeValidator,
-  };
+  const nodeStakeValidator: WithdrawalValidator =
+    config.refScripts.nodeStakeValidator.scriptRef;
 
-  const [rewardUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress(rewardFoldValidator),
-    toUnit(rewardFoldPolicyId, rFold),
+  const rewardUTxO = await findRewardFoldUTxO(
+    lucid,
+    config.configTN,
+    rewardFoldValidatorAddr,
+    rewardFoldPolicyId,
   );
-  if (!rewardUTxO.datum)
-    return { type: "error", error: new Error("missing RewardFoldDatum") };
+  if (rewardUTxO.type == "error") return rewardUTxO;
 
-  const oldRewardFoldDatum = Data.from(rewardUTxO.datum, RewardFoldDatum);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const oldRewardFoldDatum = Data.from(rewardUTxO.data.datum!, RewardFoldDatum);
 
   if (oldRewardFoldDatum.currNode.next == null)
     return {
@@ -65,22 +75,26 @@ export const rewardFoldNode = async (
       error: new Error("Rewards fold already completed"),
     };
 
-  const nodeInput = nodeInputs.find((utxo) => {
-    if (utxo.datum) {
-      const nodeDatum = Data.from(utxo.datum, SetNode);
-      return nodeDatum.key == oldRewardFoldDatum.currNode.next;
-    }
-  });
+  const ownNodeRes = await findOwnNode(
+    lucid,
+    config.configTN,
+    nodeValidatorAddr,
+    nodePolicyId,
+    oldRewardFoldDatum.currNode.next,
+    nodeUTxOs,
+  );
 
-  if (!nodeInput?.datum)
-    return { type: "error", error: new Error("missing SetNodeDatum") };
+  if (ownNodeRes.type == "error") return ownNodeRes;
+  const nodeInput = ownNodeRes.data;
 
-  const nodeDatum = Data.from(nodeInput.datum, SetNode);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const nodeDatum = Data.from(nodeInput.datum!, SetNode);
   const newFoldDatum = Data.to(
     {
       currNode: {
         key: oldRewardFoldDatum.currNode.key,
         next: nodeDatum.next,
+        configTN: config.configTN,
       },
       totalRewardTokens: oldRewardFoldDatum.totalRewardTokens,
       totalStaked: oldRewardFoldDatum.totalStaked,
@@ -105,7 +119,7 @@ export const rewardFoldNode = async (
     (nodeOutputAssets[rewardToken] || 0n) + owedRewardTokenAmount;
 
   const remainingRewardTokenAmount =
-    rewardUTxO.assets[rewardToken] - owedRewardTokenAmount;
+    rewardUTxO.data.assets[rewardToken] - owedRewardTokenAmount;
 
   config.currentTime ??= Date.now();
   const upperBound = config.currentTime + TIME_TOLERANCE_MS;
@@ -118,7 +132,7 @@ export const rewardFoldNode = async (
     const tx = lucid
       .newTx()
       .collectFrom([nodeInput], Data.to("RewardFoldAct", NodeValidatorAction))
-      .collectFrom([rewardUTxO], Data.to("RewardsFoldNode", RewardFoldAct))
+      .collectFrom([rewardUTxO.data], Data.to("RewardsFoldNode", RewardFoldAct))
       .withdraw(
         lucid.utils.validatorToRewardAddress(nodeStakeValidator),
         0n,
@@ -128,30 +142,22 @@ export const rewardFoldNode = async (
         rewardFoldValidatorAddr,
         { inline: newFoldDatum },
         {
-          ...rewardUTxO.assets,
+          ...rewardUTxO.data.assets,
           [stakeToken]: remainingRewardTokenAmount,
         },
       )
       .payToContract(
         nodeValidatorAddr,
-        { inline: nodeInput.datum },
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        { inline: nodeInput.datum! },
         nodeOutputAssets,
       )
-      .compose(
-        config.refScripts?.rewardFoldValidator
-          ? lucid.newTx().readFrom([config.refScripts.rewardFoldValidator])
-          : lucid.newTx().attachSpendingValidator(rewardFoldValidator),
-      )
-      .compose(
-        config.refScripts?.nodeValidator
-          ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-          : lucid.newTx().attachSpendingValidator(nodeValidator),
-      )
-      .compose(
-        config.refScripts?.nodeStakeValidator
-          ? lucid.newTx().readFrom([config.refScripts.nodeStakeValidator])
-          : lucid.newTx().attachWithdrawalValidator(nodeStakeValidator),
-      )
+      .readFrom([
+        config.refScripts.rewardFoldValidator,
+        config.refScripts.nodeValidator,
+        config.refScripts.nodeStakeValidator,
+        configUTxOResponse.data,
+      ])
       .validFrom(lowerBound)
       .validTo(upperBound);
 

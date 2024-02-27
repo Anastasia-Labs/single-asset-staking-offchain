@@ -15,37 +15,41 @@ import {
 } from "../core/constants.js";
 import { InitTokenHolderConfig, Result } from "../core/types.js";
 import { TokenHolderMintAction } from "../index.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const initTokenHolder = async (
   lucid: Lucid,
   config: InitTokenHolderConfig,
 ): Promise<Result<TxComplete>> => {
-  const tokenHolderValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.tokenHolderValidator,
-  };
+  if (
+    !config.refScripts.tokenHolderValidator.scriptRef ||
+    !config.refScripts.tokenHolderPolicy.scriptRef
+  )
+    return { type: "error", error: new Error("Missing Script Reference") };
 
+  const tokenHolderValidator: SpendingValidator =
+    config.refScripts.tokenHolderValidator.scriptRef;
   const tokenHolderValidatorAddr =
     lucid.utils.validatorToAddress(tokenHolderValidator);
 
-  const tokenHolderPolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.tokenHolderPolicy,
-  };
-
+  const tokenHolderPolicy: MintingPolicy =
+    config.refScripts.tokenHolderPolicy.scriptRef;
   const tokenHolderPolicyId = lucid.utils.mintingPolicyToId(tokenHolderPolicy);
 
   const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
   const rtHolderAsset = toUnit(tokenHolderPolicyId, fromText(RTHOLDER));
   const mintRTHolderAct = Data.to("PMintHolder", TokenHolderMintAction);
 
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
+
   try {
     const tx = await lucid
       .newTx()
-      .collectFrom([config.initUTXO])
+      .collectFrom([config.rewardInitUTXO])
       .payToContract(
         tokenHolderValidatorAddr,
-        { inline: Data.void() },
+        { inline: config.configTN },
         {
           [rtHolderAsset]: BigInt(1),
           [rewardToken]: BigInt(config.rewardAmount),
@@ -61,11 +65,7 @@ export const initTokenHolder = async (
           [rewardToken]: BigInt(config.rewardAmount * PROTOCOL_FEE),
         },
       )
-      .compose(
-        config.refScripts?.tokenHolderPolicy
-          ? lucid.newTx().readFrom([config.refScripts.tokenHolderPolicy])
-          : lucid.newTx().attachMintingPolicy(tokenHolderPolicy),
-      )
+      .readFrom([config.refScripts.tokenHolderPolicy])
       .complete();
 
     return { type: "ok", data: tx };

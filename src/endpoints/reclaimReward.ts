@@ -12,32 +12,39 @@ import {
   RewardFoldMintAct,
 } from "../core/contract.types.js";
 import { InitRewardFoldConfig, Result } from "../core/types.js";
-import { rFold } from "../index.js";
+import { findRewardFoldUTxO, rFold } from "../index.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const reclaimReward = async (
   lucid: Lucid,
   config: InitRewardFoldConfig,
 ): Promise<Result<TxComplete>> => {
-  const rewardFoldValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.rewardFoldValidator,
-  };
+  if (
+    !config.refScripts.rewardFoldValidator.scriptRef ||
+    !config.refScripts.rewardFoldPolicy.scriptRef
+  )
+    return { type: "error", error: new Error("Missing Script Reference") };
 
-  const rewardFoldPolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.rewardFoldPolicy,
-  };
+  const rewardFoldValidator: SpendingValidator =
+    config.refScripts.rewardFoldValidator.scriptRef;
+  const rewardFoldValidatorAddr =
+    lucid.utils.validatorToAddress(rewardFoldValidator);
+
+  const rewardFoldPolicy: MintingPolicy =
+    config.refScripts.rewardFoldPolicy.scriptRef;
   const rewardFoldPolicyId = lucid.utils.mintingPolicyToId(rewardFoldPolicy);
 
-  const [rewardUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress(rewardFoldValidator),
-    toUnit(rewardFoldPolicyId, rFold),
+  const rewardUTxO = await findRewardFoldUTxO(
+    lucid,
+    config.configTN,
+    rewardFoldValidatorAddr,
+    rewardFoldPolicyId,
   );
 
-  if (!rewardUTxO.datum)
-    return { type: "error", error: new Error("missing RewardFoldDatum") };
+  if (rewardUTxO.type == "error") return rewardUTxO;
 
-  const oldRewardFoldDatum = Data.from(rewardUTxO.datum, RewardFoldDatum);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const oldRewardFoldDatum = Data.from(rewardUTxO.data.datum!, RewardFoldDatum);
 
   if (oldRewardFoldDatum.currNode.next != null)
     return {
@@ -61,26 +68,23 @@ export const reclaimReward = async (
       type: "error",
       error: new Error("User not authorized to reclaim reward"),
     };
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
 
   try {
     const tx = await lucid
       .newTx()
-      .collectFrom([rewardUTxO], Data.to("RewardsReclaim", RewardFoldAct))
+      .collectFrom([rewardUTxO.data], Data.to("RewardsReclaim", RewardFoldAct))
       .mintAssets(
         { [toUnit(rewardFoldPolicyId, rFold)]: -1n },
         Data.to("BurnRewardFold", RewardFoldMintAct),
       )
       .addSigner(userAddr)
-      .compose(
-        config.refScripts?.rewardFoldValidator
-          ? lucid.newTx().readFrom([config.refScripts.rewardFoldValidator])
-          : lucid.newTx().attachSpendingValidator(rewardFoldValidator),
-      )
-      .compose(
-        config.refScripts?.rewardFoldPolicy
-          ? lucid.newTx().readFrom([config.refScripts.rewardFoldPolicy])
-          : lucid.newTx().attachMintingPolicy(rewardFoldPolicy),
-      )
+      .readFrom([
+        config.refScripts.rewardFoldValidator,
+        config.refScripts.rewardFoldPolicy,
+        configUTxOResponse.data,
+      ])
       .complete();
 
     return { type: "ok", data: tx };

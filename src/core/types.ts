@@ -140,10 +140,11 @@ export type InitFoldConfig = {
 
 export type MultiFoldConfig = {
   configTN: string;
-  nodeRefInputs: OutRef[];
-  indices: number[];
+  nodeUTxOs?: UTxO[];
   refScripts: {
     configPolicy: UTxO;
+    nodeValidator: UTxO;
+    nodePolicy: UTxO;
     foldValidator: UTxO;
     foldPolicy: UTxO;
   };
@@ -183,10 +184,11 @@ export type InitRewardFoldConfig = {
 
 export type RewardFoldNodeConfig = {
   configTN: string;
-  nodeInputs?: UTxO[];
+  nodeUTxOs?: UTxO[];
   refScripts: {
     configPolicy: UTxO;
     nodeValidator: UTxO;
+    nodePolicy: UTxO;
     nodeStakeValidator: UTxO;
     rewardFoldPolicy: UTxO;
     rewardFoldValidator: UTxO;
@@ -200,10 +202,11 @@ export type RewardFoldNodeConfig = {
 
 export type RewardFoldNodesConfig = {
   configTN: string;
-  nodeInputs: OutRef[];
+  nodeUTxOs?: UTxO[];
   refScripts: {
     configPolicy: UTxO;
     nodeValidator: UTxO;
+    nodePolicy: UTxO;
     nodeStakeValidator: UTxO;
     rewardFoldPolicy: UTxO;
     rewardFoldValidator: UTxO;

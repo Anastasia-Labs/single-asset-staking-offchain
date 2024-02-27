@@ -2,15 +2,15 @@ import {
   Address,
   Data,
   Lucid,
-  MintingPolicy,
   SpendingValidator,
   UTxO,
+  fromText,
   toUnit,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { SetNode } from "../contract.types.js";
+import { FoldDatum, RewardFoldDatum, SetNode } from "../contract.types.js";
 import { Either, ReadableUTxO, Result } from "../types.js";
 import { mkNodeKeyTN } from "./utils.js";
-import { originNodeTokenName } from "../constants.js";
+import { CFOLD, RFOLD, originNodeTokenName } from "../constants.js";
 
 export const utxosAtScript = async (
   lucid: Lucid,
@@ -166,6 +166,88 @@ export const findHeadNode = async (
   else return { type: "ok", data: headNode };
 };
 
+/**
+ * Provides a map of pubKey hash to UTxO for all the nodes with
+ * the given @configTN. All nodes except the head node.
+ * @param configTN
+ * @param nodePolicyId
+ * @param nodeUTxOs
+ * @returns
+ */
+export const getKeyToNodeMap = (
+  configTN: string,
+  nodePolicyId: string,
+  nodeUTxOs: UTxO[],
+): Map<string, UTxO> => {
+  const keyNodeMap: Map<string, UTxO> = new Map();
+
+  nodeUTxOs.forEach((utxo) => {
+    if (utxo.datum) {
+      const datum = Data.from(utxo.datum, SetNode);
+      if (
+        datum.key &&
+        datum.configTN == configTN &&
+        utxo.assets[toUnit(nodePolicyId, mkNodeKeyTN(datum.key))] == BigInt(1)
+      )
+        keyNodeMap.set(datum.key, utxo);
+    }
+  });
+
+  return keyNodeMap;
+};
+
+/**
+ * Provides the next consecutive nodes ("nodeCount" or till end is reached)
+ * in order, starting from "userKey"
+ *
+ * @param lucid
+ * @param configTN Nodes belonging to a particular staking campaign
+ * @param nodeValidatorAddr
+ * @param nodePolicyId
+ * @param userKey The pubKeyHash value of the node from where the list needs to
+ * start.
+ * @param nodeCount Number of consecutive nodes to be returned.
+ * @param nodeUTxOs
+ * @returns
+ */
+export const findConsecutiveNodes = async (
+  lucid: Lucid,
+  configTN: string,
+  nodeValidatorAddr: Address,
+  nodePolicyId: string,
+  userKey: string,
+  nodeCount: number,
+  nodeUTxOs?: UTxO[],
+): Promise<Result<UTxO[]>> => {
+  if (nodeCount <= 0) return { type: "ok", data: [] };
+  if (!userKey) return { type: "error", error: new Error("Missing userKey") };
+
+  const utxos = nodeUTxOs ? nodeUTxOs : await lucid.utxosAt(nodeValidatorAddr);
+  const keyNodeMap = getKeyToNodeMap(configTN, nodePolicyId, utxos);
+  const consecutiveNodes: UTxO[] = [];
+  let nextKey = userKey;
+
+  for (let i = 0; i < nodeCount; i++) {
+    const nextNode = keyNodeMap.get(nextKey);
+
+    if (nextNode && nextNode.datum) {
+      consecutiveNodes.push(nextNode);
+
+      const datum = Data.from(nextNode.datum, SetNode);
+      if (datum.next == null) break;
+
+      nextKey = datum.next;
+    } else {
+      return {
+        type: "error",
+        error: new Error("Missing Consecutive Node/ Node Datum"),
+      };
+    }
+  }
+
+  return { type: "ok", data: consecutiveNodes };
+};
+
 export const findCoveringNode = async (
   lucid: Lucid,
   configTN: string,
@@ -261,6 +343,54 @@ export const findPreviousNode = async (
   if (!previousNode || !previousNode.datum)
     return { type: "error", error: new Error("missing previousNode") };
   else return { type: "ok", data: previousNode };
+};
+
+export const findFoldUTxO = async (
+  lucid: Lucid,
+  configTN: string,
+  foldValidatorAddr: Address,
+  foldPolicyId: string,
+): Promise<Result<UTxO>> => {
+  const utxos = await lucid.utxosAtWithUnit(
+    foldValidatorAddr,
+    toUnit(foldPolicyId, fromText(CFOLD)),
+  );
+
+  const foldUTxO = utxos.find((value) => {
+    if (value.datum) {
+      const datum = Data.from(value.datum, FoldDatum);
+
+      return datum.currNode.configTN == configTN;
+    }
+  });
+
+  if (!foldUTxO || !foldUTxO.datum)
+    return { type: "error", error: new Error("missing foldUTxO") };
+  else return { type: "ok", data: foldUTxO };
+};
+
+export const findRewardFoldUTxO = async (
+  lucid: Lucid,
+  configTN: string,
+  rfoldValidatorAddr: Address,
+  rfoldPolicyId: string,
+): Promise<Result<UTxO>> => {
+  const utxos = await lucid.utxosAtWithUnit(
+    rfoldValidatorAddr,
+    toUnit(rfoldPolicyId, fromText(RFOLD)),
+  );
+
+  const rfoldUTxO = utxos.find((value) => {
+    if (value.datum) {
+      const datum = Data.from(value.datum, RewardFoldDatum);
+
+      return datum.currNode.configTN == configTN;
+    }
+  });
+
+  if (!rfoldUTxO || !rfoldUTxO.datum)
+    return { type: "error", error: new Error("missing rfoldUTxO") };
+  else return { type: "ok", data: rfoldUTxO };
 };
 
 export const chunkArray = <T>(array: T[], chunkSize: number) => {
