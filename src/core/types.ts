@@ -251,6 +251,19 @@ export type AppliedScripts = {
   tokenHolderValidator: CborHex;
 };
 
+export type RefScripts = {
+  configPolicy: UTxO;
+  nodeValidator: UTxO;
+  nodePolicy: UTxO;
+  nodeStakeValidator: UTxO;
+  foldPolicy: UTxO;
+  foldValidator: UTxO;
+  rewardFoldPolicy: UTxO;
+  rewardFoldValidator: UTxO;
+  tokenHolderPolicy: UTxO;
+  tokenHolderValidator: UTxO;
+};
+
 export type Deploy = {
   tx: TxComplete;
   deployPolicyId: string;

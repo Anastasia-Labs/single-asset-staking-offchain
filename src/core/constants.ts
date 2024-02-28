@@ -25,4 +25,15 @@ export const PROTOCOL_STAKE_KEY =
 
 export const PROTOCOL_FEE = 0.01;
 
-// todo create a validator to deploy token name map
+export const REF_SCRIPT_TNs = {
+  configPolicy: "ConfigPolicy",
+  nodePolicy: "NodePolicy",
+  nodeValidator: "NodeValidator",
+  nodeStakeValidator: "NodeStakeValidator",
+  foldPolicy: "FoldPolicy",
+  foldValidator: "FoldValidator",
+  rewardFoldPolicy: "RewardFoldPolicy",
+  rewardFoldValidator: "RewardFoldValidator",
+  tokenHolderPolicy: "TokenHolderPolicy",
+  tokenHolderValidator: "TokenHolderValidator",
+};
