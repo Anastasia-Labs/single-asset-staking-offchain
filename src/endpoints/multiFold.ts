@@ -57,7 +57,6 @@ export const multiFold = async (
     foldValidatorAddr,
     foldPolicyId,
   );
-
   if (foldUTxO.type == "error") return foldUTxO;
 
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

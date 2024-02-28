@@ -9,10 +9,14 @@ import {
 import {
   StakingNodeAction,
   NodeValidatorAction,
-  SetNode,
 } from "../core/contract.types.js";
 import { RemoveNodeConfig, Result } from "../core/types.js";
-import { NODE_ADA, mkNodeKeyTN, TIME_TOLERANCE_MS } from "../index.js";
+import {
+  NODE_ADA,
+  mkNodeKeyTN,
+  TIME_TOLERANCE_MS,
+  findOwnNode,
+} from "../index.js";
 import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const claimNode = async (
@@ -33,14 +37,9 @@ export const claimNode = async (
     return { type: "error", error: new Error("Missing Script Reference") };
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
-  const nodePolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.nodePolicy,
-  };
-
+  const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
   const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
 
   const userAddress = await lucid.wallet.address();
@@ -50,24 +49,20 @@ export const claimNode = async (
   if (!userPubKeyHash)
     return { type: "error", error: new Error("missing PubKeyHash") };
 
-  const nodeUTXOs = config.nodeUTxOs
-    ? config.nodeUTxOs
-    : await lucid.utxosAt(nodeValidatorAddr);
+  const node = await findOwnNode(
+    lucid,
+    config.configTN,
+    nodeValidatorAddr,
+    nodePolicyId,
+    userPubKeyHash,
+  );
 
-  const node = nodeUTXOs.find((value) => {
-    if (value.datum) {
-      const datum = Data.from(value.datum, SetNode);
-      return datum.key !== null && datum.key == userPubKeyHash;
-    }
-  });
-
-  if (!node || !node.datum)
-    return { type: "error", error: new Error("missing node") };
+  if (node.type == "error") return node;
 
   // After rewards fold is completed for a node, its lovelace value is MIN_ADA (NODE_ADA - FOLDING_FEE)
   if (
     config.currentTime <= config.endStaking ||
-    node.assets["lovelace"] == NODE_ADA
+    node.data.assets["lovelace"] == NODE_ADA
   )
     return {
       type: "error",
@@ -101,19 +96,14 @@ export const claimNode = async (
     if (afterEndStaking) {
       const tx = await lucid
         .newTx()
-        .collectFrom([node], redeemerNodeValidator)
-        .compose(
-          config.refScripts?.nodeValidator
-            ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-            : lucid.newTx().attachSpendingValidator(nodeValidator),
-        )
+        .collectFrom([node.data], redeemerNodeValidator)
         .addSignerKey(userPubKeyHash)
         .mintAssets(assets, redeemerNodePolicy)
-        .compose(
-          config.refScripts?.nodePolicy
-            ? lucid.newTx().readFrom([config.refScripts.nodePolicy])
-            : lucid.newTx().attachMintingPolicy(nodePolicy),
-        )
+        .readFrom([
+          config.refScripts.nodePolicy,
+          config.refScripts.nodeValidator,
+          configUTxOResponse.data,
+        ])
         .validFrom(lowerBound)
         .validTo(upperBound)
         .complete();

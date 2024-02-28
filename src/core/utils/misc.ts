@@ -10,7 +10,7 @@ import {
 import { FoldDatum, RewardFoldDatum, SetNode } from "../contract.types.js";
 import { Either, ReadableUTxO, Result } from "../types.js";
 import { mkNodeKeyTN } from "./utils.js";
-import { CFOLD, RFOLD, originNodeTokenName } from "../constants.js";
+import { CFOLD, RFOLD, RTHOLDER, originNodeTokenName } from "../constants.js";
 
 export const utxosAtScript = async (
   lucid: Lucid,
@@ -343,6 +343,29 @@ export const findPreviousNode = async (
   if (!previousNode || !previousNode.datum)
     return { type: "error", error: new Error("missing previousNode") };
   else return { type: "ok", data: previousNode };
+};
+
+// TODO make these findUTxO functions use same helper function
+export const findTokenHolderUTxO = async (
+  lucid: Lucid,
+  configTN: string,
+  tokenHolderValidatorAddr: Address,
+  tokenHolderPolicyId: string,
+): Promise<Result<UTxO>> => {
+  const utxos = await lucid.utxosAtWithUnit(
+    tokenHolderValidatorAddr,
+    toUnit(tokenHolderPolicyId, fromText(RTHOLDER)),
+  );
+
+  const tokenHolderUTxO = utxos.find((value) => {
+    if (value.datum) {
+      return value.datum == configTN;
+    }
+  });
+
+  if (!tokenHolderUTxO || !tokenHolderUTxO.datum)
+    return { type: "error", error: new Error("missing tokenHolderUTxO") };
+  else return { type: "ok", data: tokenHolderUTxO };
 };
 
 export const findFoldUTxO = async (

@@ -10,7 +10,7 @@ import {
 import { NODE_ADA, originNodeTokenName } from "../core/constants.js";
 import { StakingNodeAction, SetNode } from "../core/contract.types.js";
 import { InitNodeConfig, Result } from "../core/types.js";
-import { fetchConfigUTxO, fetchConfigReadableUTxO } from "./fetchConfig.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const initNode = async (
   lucid: Lucid,
@@ -27,7 +27,6 @@ export const initNode = async (
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-
   const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
 
   const assets = {
