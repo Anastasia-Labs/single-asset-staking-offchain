@@ -1,21 +1,13 @@
 import {
-  buildScripts,
-  CborHex,
   deployRefScripts,
-  DeployRefScriptsConfig,
   Emulator,
   fromText,
   generateAccountSeedPhrase,
-  initNode,
-  InitNodeConfig,
-  initTokenHolder,
-  InitTokenHolderConfig,
   Lucid,
   parseUTxOsAtScript,
   replacer,
-  Script,
   toUnit,
-  utxosAtScript,
+  RefScripts,
   AppliedScripts,
   Deploy,
   Result,
@@ -24,17 +16,9 @@ import {
   insertNode,
   SetNode,
   POSIXTime,
+  REF_SCRIPT_TNs,
 } from "../src/index.js";
-import { test, expect, beforeEach } from "vitest";
-import nodeValidator from "./compiled/nodeValidator.json";
-import nodePolicy from "./compiled/nodePolicy.json";
-import nodeStakeValidator from "./compiled/nodeStakeValidator.json";
-import foldPolicy from "./compiled/foldPolicy.json";
-import foldValidator from "./compiled/foldValidator.json";
-import rewardFoldPolicy from "./compiled/rewardFoldPolicy.json";
-import rewardFoldValidator from "./compiled/rewardFoldValidator.json";
-import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
-import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
+import { expect } from "vitest";
 import alwaysFailValidator from "./compiled/alwaysFails.json";
 
 export type LucidContext = {
@@ -100,226 +84,49 @@ export async function deploy(
   scripts: AppliedScripts,
   deployTime: number,
 ): Promise<Result<Deploy>> {
-  const deploy1 = await deployRefScripts(lucid, {
-    script: scripts.nodePolicy,
-    name: "StakingPolicy",
-    alwaysFails: alwaysFailValidator.cborHex,
-    currentTime: deployTime,
-  });
+  let deploy: Result<Deploy> = {
+    type: "error",
+    error: new Error("Deploy Failed"),
+  };
 
-  expect(deploy1.type).toBe("ok");
-  if (deploy1.type == "ok") {
-    (await deploy1.data.tx.sign().complete()).submit();
-    emulator.awaitBlock(4);
+  for (const [key, value] of Object.entries(REF_SCRIPT_TNs)) {
+    deploy = await deployRefScripts(lucid, {
+      script: scripts[key],
+      name: value,
+      alwaysFails: alwaysFailValidator.cborHex,
+      currentTime: deployTime,
+    });
+
+    expect(deploy.type).toBe("ok");
+    if (deploy.type == "ok") {
+      (await deploy.data.tx.sign().complete()).submit();
+      emulator.awaitBlock(4);
+    }
   }
 
-  const deploy2 = await deployRefScripts(lucid, {
-    script: scripts.nodeValidator,
-    name: "StakingValidator",
-    alwaysFails: alwaysFailValidator.cborHex,
-    currentTime: deployTime,
-  });
-
-  expect(deploy2.type).toBe("ok");
-  if (deploy2.type == "ok") {
-    (await deploy2.data.tx.sign().complete()).submit();
-    emulator.awaitBlock(4);
-  }
-
-  const deployStake = await deployRefScripts(lucid, {
-    script: scripts.nodeStakeValidator,
-    name: "StakingStakeValidator",
-    alwaysFails: alwaysFailValidator.cborHex,
-    currentTime: deployTime,
-  });
-
-  expect(deployStake.type).toBe("ok");
-  if (deployStake.type == "ok") {
-    (await deployStake.data.tx.sign().complete()).submit();
-    emulator.awaitBlock(4);
-  }
-
-  const deploy3 = await deployRefScripts(lucid, {
-    script: scripts.foldPolicy,
-    name: "FoldPolicy",
-    alwaysFails: alwaysFailValidator.cborHex,
-    currentTime: deployTime,
-  });
-
-  expect(deploy3.type).toBe("ok");
-  if (deploy3.type == "ok") {
-    (await deploy3.data.tx.sign().complete()).submit();
-    emulator.awaitBlock(4);
-  }
-
-  const deploy4 = await deployRefScripts(lucid, {
-    script: scripts.foldValidator,
-    name: "FoldValidator",
-    alwaysFails: alwaysFailValidator.cborHex,
-    currentTime: deployTime,
-  });
-
-  expect(deploy4.type).toBe("ok");
-  if (deploy4.type == "ok") {
-    (await deploy4.data.tx.sign().complete()).submit();
-    emulator.awaitBlock(4);
-  }
-
-  const deploy5 = await deployRefScripts(lucid, {
-    script: scripts.rewardFoldPolicy,
-    name: "RewardFoldPolicy",
-    alwaysFails: alwaysFailValidator.cborHex,
-    currentTime: deployTime,
-  });
-
-  expect(deploy5.type).toBe("ok");
-  if (deploy5.type == "ok") {
-    (await deploy5.data.tx.sign().complete()).submit();
-    emulator.awaitBlock(4);
-  }
-
-  const deploy6 = await deployRefScripts(lucid, {
-    script: scripts.rewardFoldValidator,
-    name: "RewardFoldValidator",
-    alwaysFails: alwaysFailValidator.cborHex,
-    currentTime: deployTime,
-  });
-
-  if (deploy6.type == "error") {
-    console.log(deploy6.error);
-  }
-  expect(deploy6.type).toBe("ok");
-  if (deploy6.type == "ok") {
-    (await deploy6.data.tx.sign().complete()).submit();
-    emulator.awaitBlock(4);
-  }
-
-  const deploy7 = await deployRefScripts(lucid, {
-    script: scripts.tokenHolderPolicy,
-    name: "TokenHolderPolicy",
-    alwaysFails: alwaysFailValidator.cborHex,
-    currentTime: deployTime,
-  });
-
-  expect(deploy7.type).toBe("ok");
-  if (deploy7.type == "ok") {
-    (await deploy7.data.tx.sign().complete()).submit();
-    emulator.awaitBlock(4);
-  }
-
-  const deploy8 = await deployRefScripts(lucid, {
-    script: scripts.tokenHolderValidator,
-    name: "TokenHolderValidator",
-    alwaysFails: alwaysFailValidator.cborHex,
-    currentTime: deployTime,
-  });
-
-  expect(deploy8.type).toBe("ok");
-  if (deploy8.type == "ok") {
-    (await deploy8.data.tx.sign().complete()).submit();
-    emulator.awaitBlock(4);
-  }
-
-  return deploy1;
+  return deploy;
 }
 
 export async function getRefUTxOs(
   lucid: Lucid,
   deployPolicyId: string,
-): Promise<{
-  nodeValidatorUTxO: UTxO;
-  nodePolicyUTxO: UTxO;
-  nodeStakeValidatorUTxO: UTxO;
-  foldPolicyUTxO: UTxO;
-  foldValidatorUTxO: UTxO;
-  rewardPolicyUTxO: UTxO;
-  rewardValidatorUTxO: UTxO;
-  tokenHolderPolicyUTxO: UTxO;
-  tokenHolderValidatorUTxO: UTxO;
-}> {
-  const [nodeValidatorUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress({
-      type: "PlutusV2",
-      script: alwaysFailValidator.cborHex,
-    }),
-    toUnit(deployPolicyId, fromText("StakingValidator")),
-  );
+): Promise<RefScripts> {
+  const alwaysFailsAddr = lucid.utils.validatorToAddress({
+    type: "PlutusV2",
+    script: alwaysFailValidator.cborHex,
+  });
 
-  const [nodeStakeValidatorUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress({
-      type: "PlutusV2",
-      script: alwaysFailValidator.cborHex,
-    }),
-    toUnit(deployPolicyId, fromText("StakingStakeValidator")),
-  );
+  const refScripts = {};
+  for (const [key, value] of Object.entries(REF_SCRIPT_TNs)) {
+    const utxo = await lucid.utxosAtWithUnit(
+      alwaysFailsAddr,
+      toUnit(deployPolicyId, fromText(value)),
+    );
 
-  const [nodePolicyUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress({
-      type: "PlutusV2",
-      script: alwaysFailValidator.cborHex,
-    }),
-    toUnit(deployPolicyId, fromText("StakingPolicy")),
-  );
+    refScripts[key] = utxo;
+  }
 
-  const [foldPolicyUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress({
-      type: "PlutusV2",
-      script: alwaysFailValidator.cborHex,
-    }),
-    toUnit(deployPolicyId, fromText("FoldPolicy")),
-  );
-
-  const [foldValidatorUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress({
-      type: "PlutusV2",
-      script: alwaysFailValidator.cborHex,
-    }),
-    toUnit(deployPolicyId, fromText("FoldValidator")),
-  );
-
-  const [rewardPolicyUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress({
-      type: "PlutusV2",
-      script: alwaysFailValidator.cborHex,
-    }),
-    toUnit(deployPolicyId, fromText("RewardFoldPolicy")),
-  );
-
-  const [rewardValidatorUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress({
-      type: "PlutusV2",
-      script: alwaysFailValidator.cborHex,
-    }),
-    toUnit(deployPolicyId, fromText("RewardFoldValidator")),
-  );
-
-  const [tokenHolderPolicyUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress({
-      type: "PlutusV2",
-      script: alwaysFailValidator.cborHex,
-    }),
-    toUnit(deployPolicyId, fromText("TokenHolderPolicy")),
-  );
-
-  const [tokenHolderValidatorUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress({
-      type: "PlutusV2",
-      script: alwaysFailValidator.cborHex,
-    }),
-    toUnit(deployPolicyId, fromText("TokenHolderValidator")),
-  );
-
-  return {
-    nodeValidatorUTxO: nodeValidatorUTxO,
-    nodePolicyUTxO: nodePolicyUTxO,
-    nodeStakeValidatorUTxO: nodeStakeValidatorUTxO,
-    foldPolicyUTxO: foldPolicyUTxO,
-    foldValidatorUTxO: foldValidatorUTxO,
-    rewardPolicyUTxO: rewardPolicyUTxO,
-    rewardValidatorUTxO: rewardValidatorUTxO,
-    tokenHolderPolicyUTxO: tokenHolderPolicyUTxO,
-    tokenHolderValidatorUTxO: tokenHolderValidatorUTxO,
-  };
+  return refScripts;
 }
 
 // Inserts three nodes belonging to account 1, 2 & 3 in the same order
@@ -340,7 +147,7 @@ export async function insertThreeNodes(
     tokenHolderValidatorUTxO: UTxO;
   },
   freezeStake: POSIXTime,
-  logFlag: Boolean,
+  logFlag: boolean,
 ): Promise<void> {
   // INSERT NODE ACCOUNT 1
 
