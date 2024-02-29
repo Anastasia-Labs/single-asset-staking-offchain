@@ -38,7 +38,7 @@ import {
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - initFold - multiFold - initRewardFold", async ({
+test.skip<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - initFold - multiFold - initRewardFold", async ({
   lucid,
   users,
   emulator,

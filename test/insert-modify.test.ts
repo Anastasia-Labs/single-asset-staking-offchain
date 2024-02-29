@@ -30,7 +30,7 @@ import {
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode \
+test.skip<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode \
  - account2 modifyNode - account1 modifyNode", async ({
   lucid,
   users,

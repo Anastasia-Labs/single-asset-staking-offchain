@@ -118,15 +118,16 @@ export async function getRefUTxOs(
 
   const refScripts = {};
   for (const [key, value] of Object.entries(REF_SCRIPT_TNs)) {
-    const utxo = await lucid.utxosAtWithUnit(
+    const [utxo] = await lucid.utxosAtWithUnit(
       alwaysFailsAddr,
       toUnit(deployPolicyId, fromText(value)),
     );
 
     refScripts[key] = utxo;
   }
-
-  return refScripts;
+  // "as unknown as RefScripts" used as a hack to avoid incorrect linting error of missing
+  // fields for RefScripts object
+  return refScripts as unknown as RefScripts;
 }
 
 // Inserts three nodes belonging to account 1, 2 & 3 in the same order
