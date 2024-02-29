@@ -37,3 +37,14 @@ export const REF_SCRIPT_TNs = {
   tokenHolderPolicy: "TokenHolderPolicy",
   tokenHolderValidator: "TokenHolderValidator",
 };
+
+export enum CampaignStatus {
+  StakingNotStarted,
+  StakingOpen,
+  StakeFrozen,
+  StakingEnded,
+  StakeCalculationStarted,
+  StakeCalculationEnded,
+  RewardsProcessingStarted,
+  UserClaimsAllowed,
+}

@@ -6,6 +6,7 @@ import {
   TxComplete,
   UTxO,
 } from "@anastasia-labs/lucid-cardano-fork";
+import { CampaignStatus } from "./constants.js";
 
 export type CborHex = string;
 export type RawHex = string;
@@ -59,6 +60,11 @@ export type DeployRefScriptsConfig = {
   currentTime: POSIXTime;
 };
 
+export type FetchRefScriptsConfig = {
+  deployPolicyId: string;
+  alwaysFails: CborHex;
+};
+
 export type InitTokenHolderConfig = {
   configTN: string;
   rewardInitUTXO: UTxO;
@@ -89,6 +95,50 @@ export type DInitNodeConfig = {
   configTN: string;
   refScripts: {
     configPolicy: UTxO;
+    nodePolicy: UTxO;
+    nodeValidator: UTxO;
+  };
+};
+
+export type FetchCampaignStateConfig = {
+  configTN: string;
+  freezeStake: POSIXTime;
+  endStaking: POSIXTime;
+  stakeCS: PolicyId;
+  stakeTN: string;
+  rewardCS: PolicyId;
+  rewardTN: string;
+  refScripts: {
+    configPolicy: UTxO;
+    nodeValidator: UTxO;
+    nodePolicy: UTxO;
+    foldPolicy: UTxO;
+    foldValidator: UTxO;
+    rewardFoldPolicy: UTxO;
+    rewardFoldValidator: UTxO;
+    tokenHolderPolicy: UTxO;
+    tokenHolderValidator: UTxO;
+  };
+};
+
+export type CampaignState = {
+  campaignStatus: CampaignStatus;
+  totalStake?: number;
+  totalReward?: number;
+};
+
+export type FetchNodesConfig = {
+  configTN: string;
+  refScripts: {
+    nodePolicy: UTxO;
+    nodeValidator: UTxO;
+  };
+};
+
+export type FetchUserNodeConfig = {
+  configTN: string;
+  userAddress: Address;
+  refScripts: {
     nodePolicy: UTxO;
     nodeValidator: UTxO;
   };

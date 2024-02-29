@@ -66,7 +66,6 @@ export const initNode = async (
       .payToContract(
         nodeValidatorAddr,
         { inline: datum },
-
         {
           ...assets,
           lovelace: NODE_ADA,

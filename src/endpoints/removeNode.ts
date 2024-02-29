@@ -16,6 +16,7 @@ import { RemoveNodeConfig, Result } from "../core/types.js";
 import {
   divCeil,
   findOwnNode,
+  findPreviousNode,
   mkNodeKeyTN,
   TIME_TOLERANCE_MS,
 } from "../index.js";
@@ -79,7 +80,7 @@ export const removeNode = async (
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const nodeDatum = Data.from(node.datum!, SetNode);
 
-  const prevNodeResponse = await findOwnNode(
+  const prevNodeResponse = await findPreviousNode(
     lucid,
     config.configTN,
     nodeValidatorAddr,

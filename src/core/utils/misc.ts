@@ -4,6 +4,7 @@ import {
   Lucid,
   SpendingValidator,
   UTxO,
+  Unit,
   fromText,
   toUnit,
 } from "@anastasia-labs/lucid-cardano-fork";
@@ -33,7 +34,6 @@ export const utxosAtScript = async (
 };
 
 export const parseSafeDatum = <T>(
-  lucid: Lucid,
   datum: string | null | undefined,
   datumType: T,
 ): Either<string, T> => {
@@ -61,7 +61,7 @@ export const parseUTxOsAtScript = async <T>(
   //FIX: this can throw an error if script is empty or not initialized
   const utxos = await utxosAtScript(lucid, script, stakeCredentialHash);
   return utxos.flatMap((utxo) => {
-    const result = parseSafeDatum<T>(lucid, utxo.datum, datumType);
+    const result = parseSafeDatum<T>(utxo.datum, datumType);
     if (result.type == "right") {
       return {
         outRef: {
@@ -148,22 +148,28 @@ export const findHeadNode = async (
   nodeValidatorAddr: Address,
   nodePolicyId: string,
 ): Promise<Result<UTxO>> => {
-  const utxos = await lucid.utxosAtWithUnit(
-    nodeValidatorAddr,
-    toUnit(nodePolicyId, originNodeTokenName),
-  );
+  try {
+    const utxos = await lucid.utxosAtWithUnit(
+      nodeValidatorAddr,
+      toUnit(nodePolicyId, originNodeTokenName),
+    );
 
-  const headNode = utxos.find((value) => {
-    if (value.datum) {
-      const datum = Data.from(value.datum, SetNode);
+    const headNode = utxos.find((value) => {
+      if (value.datum) {
+        const datum = Data.from(value.datum, SetNode);
 
-      return datum.configTN == configTN;
-    }
-  });
+        return datum.configTN == configTN;
+      }
+    });
 
-  if (!headNode || !headNode.datum)
-    return { type: "error", error: new Error("missing headNode") };
-  else return { type: "ok", data: headNode };
+    if (!headNode || !headNode.datum)
+      return { type: "error", error: new Error("missing headNode") };
+    else return { type: "ok", data: headNode };
+  } catch (error) {
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
 };
 
 /**
@@ -221,31 +227,38 @@ export const findConsecutiveNodes = async (
 ): Promise<Result<UTxO[]>> => {
   if (nodeCount <= 0) return { type: "ok", data: [] };
   if (!userKey) return { type: "error", error: new Error("Missing userKey") };
+  try {
+    const utxos = nodeUTxOs
+      ? nodeUTxOs
+      : await lucid.utxosAt(nodeValidatorAddr);
+    const keyNodeMap = getKeyToNodeMap(configTN, nodePolicyId, utxos);
+    const consecutiveNodes: UTxO[] = [];
+    let nextKey = userKey;
 
-  const utxos = nodeUTxOs ? nodeUTxOs : await lucid.utxosAt(nodeValidatorAddr);
-  const keyNodeMap = getKeyToNodeMap(configTN, nodePolicyId, utxos);
-  const consecutiveNodes: UTxO[] = [];
-  let nextKey = userKey;
+    for (let i = 0; i < nodeCount; i++) {
+      const nextNode = keyNodeMap.get(nextKey);
 
-  for (let i = 0; i < nodeCount; i++) {
-    const nextNode = keyNodeMap.get(nextKey);
+      if (nextNode && nextNode.datum) {
+        consecutiveNodes.push(nextNode);
 
-    if (nextNode && nextNode.datum) {
-      consecutiveNodes.push(nextNode);
+        const datum = Data.from(nextNode.datum, SetNode);
+        if (datum.next == null) break;
 
-      const datum = Data.from(nextNode.datum, SetNode);
-      if (datum.next == null) break;
-
-      nextKey = datum.next;
-    } else {
-      return {
-        type: "error",
-        error: new Error("Missing Consecutive Node/ Node Datum"),
-      };
+        nextKey = datum.next;
+      } else {
+        return {
+          type: "error",
+          error: new Error("Missing Consecutive Node/ Node Datum"),
+        };
+      }
     }
-  }
 
-  return { type: "ok", data: consecutiveNodes };
+    return { type: "ok", data: consecutiveNodes };
+  } catch (error) {
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
 };
 
 export const findCoveringNode = async (
@@ -256,29 +269,37 @@ export const findCoveringNode = async (
   userKey: string,
   nodeUTxOs?: UTxO[],
 ): Promise<Result<UTxO>> => {
-  const utxos = nodeUTxOs ? nodeUTxOs : await lucid.utxosAt(nodeValidatorAddr);
+  try {
+    const utxos = nodeUTxOs
+      ? nodeUTxOs
+      : await lucid.utxosAt(nodeValidatorAddr);
 
-  const coveringNode = utxos.find((value) => {
-    if (value.datum) {
-      const datum = Data.from(value.datum, SetNode);
+    const coveringNode = utxos.find((value) => {
+      if (value.datum) {
+        const datum = Data.from(value.datum, SetNode);
 
-      return (
-        datum.configTN == configTN &&
-        (datum.key == null || datum.key < userKey) &&
-        (datum.next == null || userKey < datum.next) &&
-        value.assets[
-          toUnit(
-            nodePolicyId,
-            datum.key ? mkNodeKeyTN(datum.key) : originNodeTokenName,
-          )
-        ] == BigInt(1)
-      );
-    }
-  });
+        return (
+          datum.configTN == configTN &&
+          (datum.key == null || datum.key < userKey) &&
+          (datum.next == null || userKey < datum.next) &&
+          value.assets[
+            toUnit(
+              nodePolicyId,
+              datum.key ? mkNodeKeyTN(datum.key) : originNodeTokenName,
+            )
+          ] == BigInt(1)
+        );
+      }
+    });
 
-  if (!coveringNode || !coveringNode.datum)
-    return { type: "error", error: new Error("missing coveringNode") };
-  else return { type: "ok", data: coveringNode };
+    if (!coveringNode || !coveringNode.datum)
+      return { type: "error", error: new Error("missing coveringNode") };
+    else return { type: "ok", data: coveringNode };
+  } catch (error) {
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
 };
 
 export const findOwnNode = async (
@@ -292,25 +313,30 @@ export const findOwnNode = async (
   let utxos: UTxO[] = [];
   let containsNodeToken = false;
   const nodeToken = toUnit(nodePolicyId, mkNodeKeyTN(userKey));
-
-  if (nodeUTxOs) utxos = nodeUTxOs;
-  else {
-    utxos = await lucid.utxosAtWithUnit(nodeValidatorAddr, nodeToken);
-    containsNodeToken = true;
-  }
-
-  const node = utxos.find((utxo) => {
-    if (containsNodeToken || utxo.assets[nodeToken] == BigInt(1)) {
-      if (utxo.datum) {
-        const datum = Data.from(utxo.datum, SetNode);
-        return datum.configTN == configTN;
-      }
+  try {
+    if (nodeUTxOs) utxos = nodeUTxOs;
+    else {
+      utxos = await lucid.utxosAtWithUnit(nodeValidatorAddr, nodeToken);
+      containsNodeToken = true;
     }
-  });
 
-  if (!node || !node.datum)
-    return { type: "error", error: new Error("missing node") };
-  else return { type: "ok", data: node };
+    const node = utxos.find((utxo) => {
+      if (containsNodeToken || utxo.assets[nodeToken] == BigInt(1)) {
+        if (utxo.datum) {
+          const datum = Data.from(utxo.datum, SetNode);
+          return datum.configTN == configTN;
+        }
+      }
+    });
+
+    if (!node || !node.datum)
+      return { type: "error", error: new Error("missing node") };
+    else return { type: "ok", data: node };
+  } catch (error) {
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
 };
 
 export const findPreviousNode = async (
@@ -321,28 +347,36 @@ export const findPreviousNode = async (
   userKey: string,
   nodeUTxOs?: UTxO[],
 ): Promise<Result<UTxO>> => {
-  const utxos = nodeUTxOs ? nodeUTxOs : await lucid.utxosAt(nodeValidatorAddr);
+  try {
+    const utxos = nodeUTxOs
+      ? nodeUTxOs
+      : await lucid.utxosAt(nodeValidatorAddr);
 
-  const previousNode = utxos.find((value) => {
-    if (value.datum) {
-      const datum = Data.from(value.datum, SetNode);
+    const previousNode = utxos.find((value) => {
+      if (value.datum) {
+        const datum = Data.from(value.datum, SetNode);
 
-      return (
-        datum.configTN == configTN &&
-        userKey == datum.next &&
-        value.assets[
-          toUnit(
-            nodePolicyId,
-            datum.key ? mkNodeKeyTN(datum.key) : originNodeTokenName,
-          )
-        ] == BigInt(1)
-      );
-    }
-  });
+        return (
+          datum.configTN == configTN &&
+          userKey == datum.next &&
+          value.assets[
+            toUnit(
+              nodePolicyId,
+              datum.key ? mkNodeKeyTN(datum.key) : originNodeTokenName,
+            )
+          ] == BigInt(1)
+        );
+      }
+    });
 
-  if (!previousNode || !previousNode.datum)
-    return { type: "error", error: new Error("missing previousNode") };
-  else return { type: "ok", data: previousNode };
+    if (!previousNode || !previousNode.datum)
+      return { type: "error", error: new Error("missing previousNode") };
+    else return { type: "ok", data: previousNode };
+  } catch (error) {
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
 };
 
 // TODO make these findUTxO functions use same helper function
@@ -352,20 +386,26 @@ export const findTokenHolderUTxO = async (
   tokenHolderValidatorAddr: Address,
   tokenHolderPolicyId: string,
 ): Promise<Result<UTxO>> => {
-  const utxos = await lucid.utxosAtWithUnit(
-    tokenHolderValidatorAddr,
-    toUnit(tokenHolderPolicyId, fromText(RTHOLDER)),
-  );
+  try {
+    const utxos = await lucid.utxosAtWithUnit(
+      tokenHolderValidatorAddr,
+      toUnit(tokenHolderPolicyId, fromText(RTHOLDER)),
+    );
 
-  const tokenHolderUTxO = utxos.find((value) => {
-    if (value.datum) {
-      return value.datum == configTN;
-    }
-  });
+    const tokenHolderUTxO = utxos.find((value) => {
+      if (value.datum) {
+        return value.datum == configTN;
+      }
+    });
 
-  if (!tokenHolderUTxO || !tokenHolderUTxO.datum)
-    return { type: "error", error: new Error("missing tokenHolderUTxO") };
-  else return { type: "ok", data: tokenHolderUTxO };
+    if (!tokenHolderUTxO || !tokenHolderUTxO.datum)
+      return { type: "error", error: new Error("missing tokenHolderUTxO") };
+    else return { type: "ok", data: tokenHolderUTxO };
+  } catch (error) {
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
 };
 
 export const findFoldUTxO = async (
@@ -374,22 +414,28 @@ export const findFoldUTxO = async (
   foldValidatorAddr: Address,
   foldPolicyId: string,
 ): Promise<Result<UTxO>> => {
-  const utxos = await lucid.utxosAtWithUnit(
-    foldValidatorAddr,
-    toUnit(foldPolicyId, fromText(CFOLD)),
-  );
+  try {
+    const utxos = await lucid.utxosAtWithUnit(
+      foldValidatorAddr,
+      toUnit(foldPolicyId, fromText(CFOLD)),
+    );
 
-  const foldUTxO = utxos.find((value) => {
-    if (value.datum) {
-      const datum = Data.from(value.datum, FoldDatum);
+    const foldUTxO = utxos.find((value) => {
+      if (value.datum) {
+        const datum = Data.from(value.datum, FoldDatum);
 
-      return datum.currNode.configTN == configTN;
-    }
-  });
+        return datum.currNode.configTN == configTN;
+      }
+    });
 
-  if (!foldUTxO || !foldUTxO.datum)
-    return { type: "error", error: new Error("missing foldUTxO") };
-  else return { type: "ok", data: foldUTxO };
+    if (!foldUTxO || !foldUTxO.datum)
+      return { type: "error", error: new Error("missing foldUTxO") };
+    else return { type: "ok", data: foldUTxO };
+  } catch (error) {
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
 };
 
 export const findRewardFoldUTxO = async (
@@ -398,22 +444,66 @@ export const findRewardFoldUTxO = async (
   rfoldValidatorAddr: Address,
   rfoldPolicyId: string,
 ): Promise<Result<UTxO>> => {
-  const utxos = await lucid.utxosAtWithUnit(
-    rfoldValidatorAddr,
-    toUnit(rfoldPolicyId, fromText(RFOLD)),
-  );
+  try {
+    const utxos = await lucid.utxosAtWithUnit(
+      rfoldValidatorAddr,
+      toUnit(rfoldPolicyId, fromText(RFOLD)),
+    );
 
-  const rfoldUTxO = utxos.find((value) => {
-    if (value.datum) {
-      const datum = Data.from(value.datum, RewardFoldDatum);
+    const rfoldUTxO = utxos.find((value) => {
+      if (value.datum) {
+        const datum = Data.from(value.datum, RewardFoldDatum);
 
-      return datum.currNode.configTN == configTN;
-    }
-  });
+        return datum.currNode.configTN == configTN;
+      }
+    });
 
-  if (!rfoldUTxO || !rfoldUTxO.datum)
-    return { type: "error", error: new Error("missing rfoldUTxO") };
-  else return { type: "ok", data: rfoldUTxO };
+    if (!rfoldUTxO || !rfoldUTxO.datum)
+      return { type: "error", error: new Error("missing rfoldUTxO") };
+    else return { type: "ok", data: rfoldUTxO };
+  } catch (error) {
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
+};
+
+export const calculateTotalStake = async (
+  lucid: Lucid,
+  configTN: string,
+  stakeToken: Unit,
+  nodeValidatorAddr: Address,
+  nodePolicyId: string,
+  nodeUTxOs?: UTxO[],
+): Promise<Result<number>> => {
+  try {
+    const utxos = nodeUTxOs
+      ? nodeUTxOs
+      : await lucid.utxosAt(nodeValidatorAddr);
+
+    let totalStake = 0;
+    utxos.forEach((value) => {
+      const datumRes = parseSafeDatum(value.datum, SetNode);
+
+      if (datumRes.type == "right") {
+        const datum = datumRes.value;
+
+        if (
+          datum.configTN == configTN &&
+          datum.key &&
+          value.assets[toUnit(nodePolicyId, mkNodeKeyTN(datum.key))] ==
+            BigInt(1)
+        )
+          totalStake += Number(value.assets[stakeToken]);
+      }
+    });
+
+    return { type: "ok", data: totalStake };
+  } catch (error) {
+    if (error instanceof Error) return { type: "error", error: error };
+
+    return { type: "error", error: new Error(`${JSON.stringify(error)}`) };
+  }
 };
 
 export const chunkArray = <T>(array: T[], chunkSize: number) => {

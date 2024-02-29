@@ -37,19 +37,19 @@ export const buildScripts = (
 
   // RewardTokenHolder Minting Policy
   //
-  // pmintRewardTokenHolder :: Term s (PCurrencySymbol :--> PMintingPolicy)
-  const tokenHolderPolicy = applyParamsToScript(config.tokenHolderPolicy, [
+  // pmintRewardTokenHolder :: Term s (PAsData PCurrencySymbol :--> PMintingPolicy)
+  const tokenHolderPolicyCbor = applyParamsToScript(config.tokenHolderPolicy, [
     configPolicyId,
   ]);
 
-  const tokenHolderMintingPolicy: MintingPolicy = {
+  const tokenHolderPolicy: MintingPolicy = {
     type: "PlutusV2",
-    script: tokenHolderPolicy,
+    script: tokenHolderPolicyCbor,
   };
 
   // Node Minting Policy
   //
-  // mkStakingNodeMPW :: ClosedTerm (PCurrencySymbol :--> PMintingPolicy)
+  // mkStakingNodeMPW :: ClosedTerm (PAsData PCurrencySymbol :--> PMintingPolicy)
   const nodePolicyCbor = applyParamsToScript(config.nodePolicy, [
     configPolicyId,
   ]);
@@ -67,18 +67,18 @@ export const buildScripts = (
   // pfoldValidatorW = phoistAcyclic $
   // plam $ \configCS nodeCS datum redeemer ctx -> P.do
 
-  const foldValidator = applyParamsToScript(config.foldValidator, [
+  const foldValidatorCbor = applyParamsToScript(config.foldValidator, [
     configPolicyId,
     nodePolicyId,
   ]);
 
-  const foldSpendingValidator: SpendingValidator = {
+  const foldValidator: SpendingValidator = {
     type: "PlutusV2",
-    script: foldValidator,
+    script: foldValidatorCbor,
   };
 
   const foldValidatorAddress = fromAddressToData(
-    lucid.utils.validatorToAddress(foldSpendingValidator),
+    lucid.utils.validatorToAddress(foldValidator),
   );
 
   if (foldValidatorAddress.type == "error")
@@ -113,18 +113,18 @@ export const buildScripts = (
   // prewardFoldValidatorW = phoistAcyclic $
   //   plam $ \configCS nodeCS datum redeemer ctx -> P.do
 
-  const rewardFoldValidator = applyParamsToScript(config.rewardFoldValidator, [
-    configPolicyId,
-    nodePolicyId,
-  ]);
+  const rewardFoldValidatorCbor = applyParamsToScript(
+    config.rewardFoldValidator,
+    [configPolicyId, nodePolicyId],
+  );
 
-  const rewardSpendingValidator: SpendingValidator = {
+  const rewardFoldValidator: SpendingValidator = {
     type: "PlutusV2",
-    script: rewardFoldValidator,
+    script: rewardFoldValidatorCbor,
   };
 
   const rewardValidatorAddress = fromAddressToData(
-    lucid.utils.validatorToAddress(rewardSpendingValidator),
+    lucid.utils.validatorToAddress(rewardFoldValidator),
   );
 
   if (rewardValidatorAddress.type == "error")
@@ -145,19 +145,19 @@ export const buildScripts = (
   //               ]
   //           )
   //       )
-  const rewardFoldPolicy = applyParamsToScript(config.rewardFoldPolicy, [
+  const rewardFoldPolicyCbor = applyParamsToScript(config.rewardFoldPolicy, [
     new Constr(0, [
       nodePolicyId, // nodeCS
-      lucid.utils.mintingPolicyToId(tokenHolderMintingPolicy), //tokenHolderCS
+      lucid.utils.mintingPolicyToId(tokenHolderPolicy), //tokenHolderCS
       rewardValidatorAddress.data, // rewardScriptAddr
       lucid.utils.mintingPolicyToId(foldPolicy), // commitFoldCS
       configPolicyId, // configCS
     ]),
   ]);
 
-  const rewardMintingPolicy: MintingPolicy = {
+  const rewardFoldPolicy: MintingPolicy = {
     type: "PlutusV2",
-    script: rewardFoldPolicy,
+    script: rewardFoldPolicyCbor,
   };
 
   // Node Stake Validator
@@ -165,13 +165,14 @@ export const buildScripts = (
   // pDiscoverGlobalLogicW :: Term s (PAsData PCurrencySymbol :--> PStakeValidator)
   // pDiscoverGlobalLogicW = phoistAcyclic $ plam $ \rewardFoldCS' _redeemer ctx -> P.do
 
-  const nodeStakeValidator = applyParamsToScript(config.nodeStakeValidator, [
-    lucid.utils.mintingPolicyToId(rewardMintingPolicy),
-  ]);
+  const nodeStakeValidatorCbor = applyParamsToScript(
+    config.nodeStakeValidator,
+    [lucid.utils.mintingPolicyToId(rewardFoldPolicy)],
+  );
 
-  const nodeStakeValidatorScript: WithdrawalValidator = {
+  const nodeStakeValidator: WithdrawalValidator = {
     type: "PlutusV2",
-    script: nodeStakeValidator,
+    script: nodeStakeValidatorCbor,
   };
 
   // Node Spending Validator
@@ -180,12 +181,10 @@ export const buildScripts = (
   //   ByteString ->
   //   ClosedTerm (PCurrencySymbol :--> PStakingCredential :--> PValidator)
   // pStakingSetValidator prefix = plam $ \configCS globalCred dat red ctx' ->
-  const nodeValidator = applyParamsToScript(config.nodeValidator, [
+  const nodeValidatorCbor = applyParamsToScript(config.nodeValidator, [
     configPolicyId,
     new Constr(0, [
-      new Constr(1, [
-        lucid.utils.validatorToScriptHash(nodeStakeValidatorScript),
-      ]),
+      new Constr(1, [lucid.utils.validatorToScriptHash(nodeStakeValidator)]),
     ]), // PStakingCredential
   ]);
 
@@ -194,9 +193,9 @@ export const buildScripts = (
   // prewardTokenHolder :: Term s (PCurrencySymbol :--> PAsData PCurrencySymbol :--> PValidator)
   // prewardTokenHolder = phoistAcyclic $
   //   plam $ \configCS rewardFoldCS dat _red ctx -> unTermCont $ do
-  const tokenHolderValidator = applyParamsToScript(
+  const tokenHolderValidatorCbor = applyParamsToScript(
     config.tokenHolderValidator,
-    [configPolicyId, lucid.utils.mintingPolicyToId(rewardMintingPolicy)],
+    [configPolicyId, lucid.utils.mintingPolicyToId(rewardFoldPolicy)],
   );
 
   return {
@@ -204,14 +203,14 @@ export const buildScripts = (
     data: {
       configPolicy: configPolicyCbor,
       nodePolicy: nodePolicyCbor,
-      nodeValidator: nodeValidator,
-      nodeStakeValidator: nodeStakeValidator,
+      nodeValidator: nodeValidatorCbor,
+      nodeStakeValidator: nodeStakeValidatorCbor,
       foldPolicy: foldPolicyCbor,
-      foldValidator: foldValidator,
-      rewardFoldPolicy: rewardFoldPolicy,
-      rewardFoldValidator: rewardFoldValidator,
-      tokenHolderPolicy: tokenHolderPolicy,
-      tokenHolderValidator: tokenHolderValidator,
+      foldValidator: foldValidatorCbor,
+      rewardFoldPolicy: rewardFoldPolicyCbor,
+      rewardFoldValidator: rewardFoldValidatorCbor,
+      tokenHolderPolicy: tokenHolderPolicyCbor,
+      tokenHolderValidator: tokenHolderValidatorCbor,
     },
   };
 };

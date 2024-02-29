@@ -2,6 +2,7 @@ import {
   Lucid,
   MintingPolicy,
   UTxO,
+  toText,
   toUnit,
 } from "@anastasia-labs/lucid-cardano-fork";
 import { StakingConfig } from "../core/contract.types.js";
@@ -18,13 +19,13 @@ export const fetchConfigReadableUTxO = async (
     if (configUTxOResponse.type == "error") return configUTxOResponse;
 
     const configUTxO = configUTxOResponse.data;
-    const readableConfigUTxO = parseSafeDatum(
-      lucid,
-      configUTxO.datum,
-      StakingConfig,
-    );
+    const readableConfigUTxO = parseSafeDatum(configUTxO.datum, StakingConfig);
 
-    if (readableConfigUTxO.type == "right")
+    if (readableConfigUTxO.type == "right") {
+      const stakingConfig = readableConfigUTxO.value;
+      stakingConfig.stakeTN = toText(stakingConfig.stakeTN);
+      stakingConfig.rewardTN = toText(stakingConfig.rewardTN);
+
       return {
         type: "ok",
         data: {
@@ -32,11 +33,11 @@ export const fetchConfigReadableUTxO = async (
             txHash: configUTxO.txHash,
             outputIndex: configUTxO.outputIndex,
           },
-          datum: readableConfigUTxO.value,
+          datum: stakingConfig,
           assets: configUTxO.assets,
         },
       };
-    else return { type: "error", error: new Error(readableConfigUTxO.value) };
+    } else return { type: "error", error: new Error(readableConfigUTxO.value) };
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };
 
