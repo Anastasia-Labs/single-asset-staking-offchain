@@ -49,7 +49,7 @@ export const initTokenHolder = async (
       .collectFrom([config.rewardInitUTXO])
       .payToContract(
         tokenHolderValidatorAddr,
-        { inline: config.configTN },
+        { inline: Data.to(config.configTN) },
         {
           [rtHolderAsset]: BigInt(1),
           [rewardToken]: BigInt(config.rewardAmount),
@@ -65,7 +65,7 @@ export const initTokenHolder = async (
           [rewardToken]: BigInt(config.rewardAmount * PROTOCOL_FEE),
         },
       )
-      .readFrom([config.refScripts.tokenHolderPolicy])
+      .readFrom([config.refScripts.tokenHolderPolicy, configUTxOResponse.data])
       .complete();
 
     return { type: "ok", data: tx };

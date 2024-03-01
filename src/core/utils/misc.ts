@@ -394,7 +394,7 @@ export const findTokenHolderUTxO = async (
 
     const tokenHolderUTxO = utxos.find((value) => {
       if (value.datum) {
-        return value.datum == configTN;
+        return Data.from(value.datum) == configTN;
       }
     });
 

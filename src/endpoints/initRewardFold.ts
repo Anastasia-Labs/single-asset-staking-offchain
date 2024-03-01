@@ -113,7 +113,7 @@ export const initRewardFold = async (
 
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const commitFoldDatum = Data.from(commitFoldUTxORes.data.datum!, FoldDatum);
-  if (!commitFoldDatum.currNode.next)
+  if (commitFoldDatum.currNode.next)
     return {
       type: "error",
       error: new Error(

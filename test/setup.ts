@@ -17,9 +17,20 @@ import {
   SetNode,
   POSIXTime,
   REF_SCRIPT_TNs,
+  buildScripts,
 } from "../src/index.js";
 import { expect } from "vitest";
-import alwaysFailValidator from "./compiled/alwaysFails.json";
+import alwaysFails from "./compiled/alwaysFails.json";
+import configPolicy from "./compiled/configPolicy.json";
+import nodeValidator from "./compiled/nodeValidator.json";
+import nodePolicy from "./compiled/nodePolicy.json";
+import nodeStakeValidator from "./compiled/nodeStakeValidator.json";
+import foldPolicy from "./compiled/foldPolicy.json";
+import foldValidator from "./compiled/foldValidator.json";
+import rewardFoldPolicy from "./compiled/rewardFoldPolicy.json";
+import rewardFoldValidator from "./compiled/rewardFoldValidator.json";
+import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
+import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
 
 export type LucidContext = {
   lucid: Lucid;
@@ -78,6 +89,43 @@ export async function initializeLucidContext(context: LucidContext) {
   context.lucid = await Lucid.new(context.emulator);
 }
 
+export async function buildDeployFetchRefScripts(
+  lucid: Lucid,
+  emulator: Emulator,
+): Promise<Result<RefScripts>> {
+  const newScripts = buildScripts(lucid, {
+    alwaysFails: alwaysFails.cborHex,
+    configPolicy: configPolicy.cborHex,
+    nodePolicy: nodePolicy.cborHex,
+    nodeValidator: nodeValidator.cborHex,
+    nodeStakeValidator: nodeStakeValidator.cborHex,
+    foldPolicy: foldPolicy.cborHex,
+    foldValidator: foldValidator.cborHex,
+    rewardFoldPolicy: rewardFoldPolicy.cborHex,
+    rewardFoldValidator: rewardFoldValidator.cborHex,
+    tokenHolderPolicy: tokenHolderPolicy.cborHex,
+    tokenHolderValidator: tokenHolderValidator.cborHex,
+  });
+
+  expect(newScripts.type).toBe("ok");
+  if (newScripts.type == "error") return newScripts;
+
+  const deployTime = emulator.now();
+  const deployRefScripts = await deploy(
+    lucid,
+    emulator,
+    newScripts.data,
+    deployTime,
+  );
+
+  expect(deployRefScripts.type).toBe("ok");
+  if (deployRefScripts.type == "error") return deployRefScripts;
+  // Find node refs script
+  const deployPolicyId = deployRefScripts.data.deployPolicyId;
+
+  return { type: "ok", data: await getRefUTxOs(lucid, deployPolicyId) };
+}
+
 export async function deploy(
   lucid: Lucid,
   emulator: Emulator,
@@ -93,7 +141,7 @@ export async function deploy(
     deploy = await deployRefScripts(lucid, {
       script: scripts[key],
       name: value,
-      alwaysFails: alwaysFailValidator.cborHex,
+      alwaysFails: alwaysFails.cborHex,
       currentTime: deployTime,
     });
 
@@ -113,7 +161,7 @@ export async function getRefUTxOs(
 ): Promise<RefScripts> {
   const alwaysFailsAddr = lucid.utils.validatorToAddress({
     type: "PlutusV2",
-    script: alwaysFailValidator.cborHex,
+    script: alwaysFails.cborHex,
   });
 
   const refScripts = {};
@@ -135,32 +183,16 @@ export async function insertThreeNodes(
   lucid: Lucid,
   emulator: Emulator,
   users: any,
-  scripts: AppliedScripts,
-  refUTxOs: {
-    nodeValidatorUTxO: UTxO;
-    nodePolicyUTxO: UTxO;
-    nodeStakeValidatorUTxO: UTxO;
-    foldPolicyUTxO: UTxO;
-    foldValidatorUTxO: UTxO;
-    rewardPolicyUTxO: UTxO;
-    rewardValidatorUTxO: UTxO;
-    tokenHolderPolicyUTxO: UTxO;
-    tokenHolderValidatorUTxO: UTxO;
-  },
+  configTN: string,
+  refUTxOs: RefScripts,
   freezeStake: POSIXTime,
   logFlag: boolean,
 ): Promise<void> {
   // INSERT NODE ACCOUNT 1
 
   const insertNodeConfig: InsertNodeConfig = {
-    scripts: {
-      nodePolicy: scripts.nodePolicy,
-      nodeValidator: scripts.nodeValidator,
-    },
-    refScripts: {
-      nodeValidator: refUTxOs.nodeValidatorUTxO,
-      nodePolicy: refUTxOs.nodePolicyUTxO,
-    },
+    configTN: configTN,
+    refScripts: refUTxOs,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
     minimumStake: 1_000,
@@ -226,7 +258,11 @@ export async function insertThreeNodes(
     ? console.log(
         "insertNode result",
         JSON.stringify(
-          await parseUTxOsAtScript(lucid, scripts.nodeValidator, SetNode),
+          await parseUTxOsAtScript(
+            lucid,
+            refUTxOs.nodeValidator.scriptRef?.script!,
+            SetNode,
+          ),
           replacer,
           2,
         ),

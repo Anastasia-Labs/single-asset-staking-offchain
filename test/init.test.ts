@@ -1,5 +1,4 @@
 import {
-  buildScripts,
   CreateConfig,
   initNode,
   InitNodeConfig,
@@ -9,29 +8,16 @@ import {
   parseUTxOsAtScript,
   replacer,
   SetNode,
-  StakingConfig,
   TWENTY_FOUR_HOURS_MS,
   createConfig,
-  fetchConfigUTxO,
   FetchConfig,
   fetchConfigReadableUTxO,
   utxosAtScript,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
-import alwaysFail from "./compiled/alwaysFails.json";
-import configPolicy from "./compiled/configPolicy.json";
-import nodeValidator from "./compiled/nodeValidator.json";
-import nodePolicy from "./compiled/nodePolicy.json";
-import nodeStakeValidator from "./compiled/nodeStakeValidator.json";
-import foldPolicy from "./compiled/foldPolicy.json";
-import foldValidator from "./compiled/foldValidator.json";
-import rewardFoldPolicy from "./compiled/rewardFoldPolicy.json";
-import rewardFoldValidator from "./compiled/rewardFoldValidator.json";
-import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
-import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
+import alwaysFails from "./compiled/alwaysFails.json";
 import {
-  deploy,
-  getRefUTxOs,
+  buildDeployFetchRefScripts,
   initializeLucidContext,
   LucidContext,
 } from "./setup.js";
@@ -43,7 +29,7 @@ test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", 
   users,
   emulator,
 }) => {
-  const logFlag = true;
+  const logFlag = false;
 
   const [treasuryUTxO] = await lucid
     .selectWalletFrom({ address: users.treasury1.address })
@@ -57,41 +43,13 @@ test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", 
 
   const currentTime = emulator.now();
 
-  const newScripts = buildScripts(lucid, {
-    alwaysFails: alwaysFail.cborHex,
-    configPolicy: configPolicy.cborHex,
-    nodePolicy: nodePolicy.cborHex,
-    nodeValidator: nodeValidator.cborHex,
-    nodeStakeValidator: nodeStakeValidator.cborHex,
-    foldPolicy: foldPolicy.cborHex,
-    foldValidator: foldValidator.cborHex,
-    rewardFoldPolicy: rewardFoldPolicy.cborHex,
-    rewardFoldValidator: rewardFoldValidator.cborHex,
-    tokenHolderPolicy: tokenHolderPolicy.cborHex,
-    tokenHolderValidator: tokenHolderValidator.cborHex,
-  });
-
-  expect(newScripts.type).toBe("ok");
-  if (newScripts.type == "error") return;
-
   // DEPLOY
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
+  const refUTxOsRes = await buildDeployFetchRefScripts(lucid, emulator);
 
-  const deployTime = emulator.now();
-  const deployRefScripts = await deploy(
-    lucid,
-    emulator,
-    newScripts.data,
-    deployTime,
-  );
-
-  expect(deployRefScripts.type).toBe("ok");
-  if (deployRefScripts.type == "error") return;
-  // Find node refs script
-  const deployPolicyId = deployRefScripts.data.deployPolicyId;
-
-  const refUTxOs = await getRefUTxOs(lucid, deployPolicyId);
-  console.log(refUTxOs);
+  expect(refUTxOsRes.type).toBe("ok");
+  if (refUTxOsRes.type == "error") return;
+  const refUTxOs = refUTxOsRes.data;
 
   // CREATE CONFIG
   const createConfigObj: CreateConfig = {
@@ -111,22 +69,19 @@ test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", 
     refScripts: {
       configPolicy: refUTxOs.configPolicy,
     },
-    alwaysFails: alwaysFail.cborHex,
+    alwaysFails: alwaysFails.cborHex,
     currentTime: emulator.now(),
   };
 
-  // console.log(createConfigObj);
   lucid.selectWalletFromSeed(users.account1.seedPhrase);
   const createConfigUnsigned = await createConfig(lucid, createConfigObj);
-  // console.log(createConfigUnsigned);
 
   expect(createConfigUnsigned.type).toBe("ok");
   if (createConfigUnsigned.type == "error") return;
-  // console.log(tx.data.txComplete.to_json())
   const createConfigSigned = await createConfigUnsigned.data.tx
     .sign()
     .complete();
-  const createConfigHash = await createConfigSigned.submit();
+  await createConfigSigned.submit();
 
   const configTN = createConfigUnsigned.data.configTN;
 
@@ -156,9 +111,9 @@ test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", 
     lucid,
     initTokenHolderConfig,
   );
-  console.log(initTokenHolderUnsigned);
+  // console.log(initTokenHolderUnsigned);
 
-  // expect(initTokenHolderUnsigned.type).toBe("ok");
+  expect(initTokenHolderUnsigned.type).toBe("ok");
   if (initTokenHolderUnsigned.type == "ok") {
     const initTokenHolderSigned = await initTokenHolderUnsigned.data
       .sign()
@@ -170,7 +125,10 @@ test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", 
   logFlag
     ? console.log(
         "utxos at tokenholderScript",
-        await utxosAtScript(lucid, newScripts.data.tokenHolderValidator),
+        await utxosAtScript(
+          lucid,
+          refUTxOs.tokenHolderValidator.scriptRef?.script!,
+        ),
       )
     : null;
 
@@ -185,7 +143,7 @@ test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", 
   };
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
   const initNodeUnsigned = await initNode(lucid, initNodeConfig);
-  console.log(initNodeUnsigned);
+  // console.log(initNodeUnsigned);
 
   expect(initNodeUnsigned.type).toBe("ok");
   if (initNodeUnsigned.type == "error") return;
@@ -201,7 +159,7 @@ test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", 
         JSON.stringify(
           await parseUTxOsAtScript(
             lucid,
-            newScripts.data.nodeValidator,
+            refUTxOs.nodeValidator.scriptRef?.script!,
             SetNode,
           ),
           replacer,
