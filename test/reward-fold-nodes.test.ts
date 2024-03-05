@@ -24,6 +24,7 @@ import {
   claimNode,
   CreateConfig,
   createConfig,
+  FoldDatum,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
@@ -36,7 +37,7 @@ import {
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test.skip<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - initFold - multiFold - initRewardFold \
+test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - initFold - multiFold - initRewardFold \
 - rewardFoldNodes - reclaimReward - account3 claimReward)", async ({
   lucid,
   users,
@@ -271,36 +272,13 @@ test.skip<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes 
 
   // REWARD FOLD NODES
 
-  const refScripts = {
-    nodeValidator: refUTxOs.nodeValidatorUTxO,
-    nodeStakeValidator: refUTxOs.nodeStakeValidatorUTxO,
-    rewardFoldPolicy: refUTxOs.rewardPolicyUTxO,
-    rewardFoldValidator: refUTxOs.rewardValidatorUTxO,
-  };
-  // console.log(refScripts);
-
-  const nodeUTxOs = await parseUTxOsAtScript(
-    lucid,
-    refUTxOs.nodeValidator,
-    SetNode,
-  );
-  const sortedUTxOs = sortByOutRefWithIndex(nodeUTxOs);
-
   const rewardFoldNodesConfig: RewardFoldNodesConfig = {
-    nodeInputs: sortedUTxOs.map((data) => {
-      return data.value.outRef;
-    }),
+    configTN: configTN,
     rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     rewardTN: "MIN",
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
-    scripts: {
-      nodeValidator: refUTxOs.nodeValidator,
-      nodeStakeValidator: refUTxOs.nodeStakeValidator,
-      rewardFoldPolicy: refUTxOs.rewardFoldPolicy,
-      rewardFoldValidator: refUTxOs.rewardFoldValidator,
-    },
-    refScripts: refScripts,
+    refScripts: refUTxOs,
     currentTime: emulator.now(),
   };
 
@@ -319,23 +297,6 @@ test.skip<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes 
   emulator.awaitBlock(4);
 
   // RECLAIM REWARD
-
-  const nodeUTxOs1 = await utxosAtScript(lucid, refUTxOs.nodeValidator);
-
-  const rewardFoldConfig: RewardFoldNodeConfig = {
-    nodeInputs: nodeUTxOs1,
-    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    rewardTN: "MIN",
-    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    stakeTN: "MIN",
-    scripts: {
-      nodeValidator: refUTxOs.nodeValidator,
-      nodeStakeValidator: refUTxOs.nodeStakeValidator,
-      rewardFoldPolicy: refUTxOs.rewardFoldPolicy,
-      rewardFoldValidator: refUTxOs.rewardFoldValidator,
-    },
-    refScripts: refScripts,
-  };
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
   const reclaimRewardUnsigned = await reclaimReward(
@@ -373,14 +334,8 @@ test.skip<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes 
 
   // CLAIM REWARD & STAKE
   const removeNodeConfig: RemoveNodeConfig = {
-    scripts: {
-      nodePolicy: refUTxOs.nodePolicy,
-      nodeValidator: refUTxOs.nodeValidator,
-    },
-    refScripts: {
-      nodeValidator: refUTxOs.nodeValidatorUTxO,
-      nodePolicy: refUTxOs.nodePolicyUTxO,
-    },
+    configTN: configTN,
+    refScripts: refUTxOs,
     currentTime: emulator.now(),
     freezeStake: currentTime + ONE_HOUR_MS,
     endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,

@@ -1,5 +1,4 @@
 import {
-  buildScripts,
   initFold,
   InitFoldConfig,
   initNode,
@@ -15,32 +14,22 @@ import {
   replacer,
   rewardFoldNode,
   RewardFoldNodeConfig,
-  sortByOutRefWithIndex,
   TWENTY_FOUR_HOURS_MS,
   utxosAtScript,
   SetNode,
   reclaimReward,
   RemoveNodeConfig,
-  removeNode,
   dinitNode,
   DInitNodeConfig,
   claimNode,
+  FoldDatum,
+  createConfig,
+  CreateConfig,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
-import nodeValidator from "./compiled/nodeValidator.json";
-import nodePolicy from "./compiled/nodePolicy.json";
-import nodeStakeValidator from "./compiled/nodeStakeValidator.json";
-import foldPolicy from "./compiled/foldPolicy.json";
-import foldValidator from "./compiled/foldValidator.json";
-import rewardFoldPolicy from "./compiled/rewardFoldPolicy.json";
-import rewardFoldValidator from "./compiled/rewardFoldValidator.json";
-import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
-import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
 import {
   buildDeployFetchRefScripts,
-  deploy,
-  getRefUTxOs,
   initializeLucidContext,
   insertThreeNodes,
   LucidContext,
@@ -48,7 +37,7 @@ import {
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test.skip<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - initFold - multiFold - initRewardFold \
+test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - initFold - multiFold - initRewardFold \
 - rewardFold1 - dinit - rewardFold2 - rewardFold3 - reclaimReward - account3 claimReward)", async ({
   lucid,
   users,
@@ -279,30 +268,17 @@ test.skip<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes 
     .complete();
   const initRewardFoldHash = await initRewardFoldSigned.submit();
 
+  emulator.awaitBlock(4);
+
   // REWARD FOLD 1
-
-  const nodeUTxOs = await utxosAtScript(lucid, refUTxOs.nodeValidator);
-
-  const refScripts = {
-    nodeValidator: refUTxOs.nodeValidatorUTxO,
-    nodeStakeValidator: refUTxOs.nodeStakeValidatorUTxO,
-    rewardFoldPolicy: refUTxOs.rewardPolicyUTxO,
-    rewardFoldValidator: refUTxOs.rewardValidatorUTxO,
-  };
-  // console.log(refScripts);
 
   const rewardFoldConfig: RewardFoldNodeConfig = {
     rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     rewardTN: "MIN",
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
-    scripts: {
-      nodeValidator: refUTxOs.nodeValidator,
-      nodeStakeValidator: refUTxOs.nodeStakeValidator,
-      rewardFoldPolicy: refUTxOs.rewardFoldPolicy,
-      rewardFoldValidator: refUTxOs.rewardFoldValidator,
-    },
-    refScripts: refScripts,
+    configTN: configTN,
+    refScripts: refUTxOs,
     currentTime: emulator.now(),
   };
 
@@ -319,14 +295,8 @@ test.skip<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes 
 
   // DEINIT - Deinit should not affect the rewards fold or claims
   const dinitNodeConfig: DInitNodeConfig = {
-    scripts: {
-      nodePolicy: refUTxOs.nodePolicy,
-      nodeValidator: refUTxOs.nodeValidator,
-    },
-    refScripts: {
-      nodePolicy: refUTxOs.nodePolicyUTxO,
-      nodeValidator: refUTxOs.nodeValidatorUTxO,
-    },
+    configTN: configTN,
+    refScripts: refUTxOs,
   };
   const dinitNodeUnsigned = await dinitNode(lucid, dinitNodeConfig);
   // console.log(dinitNodeUnsigned);
@@ -438,14 +408,8 @@ test.skip<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes 
 
   // CLAIM REWARD & STAKE
   const removeNodeConfig: RemoveNodeConfig = {
-    scripts: {
-      nodePolicy: refUTxOs.nodePolicy,
-      nodeValidator: refUTxOs.nodeValidator,
-    },
-    refScripts: {
-      nodeValidator: refUTxOs.nodeValidatorUTxO,
-      nodePolicy: refUTxOs.nodePolicyUTxO,
-    },
+    configTN: configTN,
+    refScripts: refUTxOs,
     currentTime: emulator.now(),
     freezeStake: currentTime + ONE_HOUR_MS,
     endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
