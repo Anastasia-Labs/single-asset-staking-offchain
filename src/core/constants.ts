@@ -39,12 +39,12 @@ export const REF_SCRIPT_TNs = {
 };
 
 export enum CampaignStatus {
-  StakingNotStarted,
-  StakingOpen,
-  StakeFrozen,
-  StakingEnded,
-  StakeCalculationStarted,
-  StakeCalculationEnded,
-  RewardsProcessingStarted,
-  UserClaimsAllowed,
+  StakingNotStarted = "StakingNotStarted",
+  StakingOpen = "StakingOpen",
+  StakeFrozen = "StakeFrozen",
+  StakingEnded = "StakingEnded",
+  StakeCalculationStarted = "StakeCalculationStarted",
+  StakeCalculationEnded = "StakeCalculationEnded",
+  RewardsProcessingStarted = "RewardsProcessingStarted",
+  UserClaimsAllowed = "UserClaimsAllowed",
 }

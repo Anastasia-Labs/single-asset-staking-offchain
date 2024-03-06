@@ -25,11 +25,19 @@ import {
   FoldDatum,
   createConfig,
   CreateConfig,
+  FetchCampaignStateConfig,
+  fetchCampaignState,
+  CampaignStatus,
+  FetchUserNodeConfig,
+  fetchUserNode,
+  fetchNodeUTxOs,
+  fetchReadableNodeUTxOs,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
 import {
   buildDeployFetchRefScripts,
+  checkCampaignStatus,
   initializeLucidContext,
   insertThreeNodes,
   LucidContext,
@@ -154,6 +162,15 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
       )
     : null;
 
+  await checkCampaignStatus(
+    lucid,
+    emulator,
+    CampaignStatus.StakingNotStarted,
+    refUTxOs,
+    configTN,
+    createConfigObj,
+  );
+
   // INIT NODE
   const initNodeConfig: InitNodeConfig = {
     configTN: configTN,
@@ -176,6 +193,15 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
 
   emulator.awaitBlock(4);
 
+  await checkCampaignStatus(
+    lucid,
+    emulator,
+    CampaignStatus.StakingOpen,
+    refUTxOs,
+    configTN,
+    createConfigObj,
+  );
+
   // INSERT NODES, ACCOUNT 1 -> ACCOUNT 2 -> ACCOUNT 3
   const freezeStake = currentTime + ONE_HOUR_MS;
   await insertThreeNodes(
@@ -188,8 +214,51 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
     logFlag,
   );
 
+  // FETCH STATE
+  const userNodeConfig: FetchUserNodeConfig = {
+    refScripts: refUTxOs,
+    configTN: configTN,
+    userAddress: users.account1.address,
+  };
+
+  const userNode = await fetchUserNode(lucid, userNodeConfig);
+
+  expect(userNode.type).toBe("ok");
+  if (userNode.type == "error") return;
+  // console.log(userNode.data);
+
+  const allNodes = await fetchNodeUTxOs(lucid, userNodeConfig);
+
+  expect(allNodes.type).toBe("ok");
+  if (allNodes.type == "error") return;
+  // console.log(allNodes.data);
+
+  const allReadableNodes = await fetchReadableNodeUTxOs(lucid, userNodeConfig);
+
+  expect(allReadableNodes.type).toBe("ok");
+  if (allReadableNodes.type == "error") return;
+  // console.log(allReadableNodes.data);
+
+  await checkCampaignStatus(
+    lucid,
+    emulator,
+    CampaignStatus.StakingOpen,
+    refUTxOs,
+    configTN,
+    createConfigObj,
+  );
+
   // Wait for endStaking to pass
   emulator.awaitBlock(6000);
+
+  await checkCampaignStatus(
+    lucid,
+    emulator,
+    CampaignStatus.StakingEnded,
+    refUTxOs,
+    configTN,
+    createConfigObj,
+  );
 
   // INIT FOLD
   const initFoldConfig: InitFoldConfig = {
@@ -208,6 +277,15 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   const initFoldHash = await initFoldSigned.submit();
 
   emulator.awaitBlock(4);
+
+  await checkCampaignStatus(
+    lucid,
+    emulator,
+    CampaignStatus.StakeCalculationStarted,
+    refUTxOs,
+    configTN,
+    createConfigObj,
+  );
 
   // MULTIFOLD
 
@@ -246,6 +324,15 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
       )
     : null;
 
+  await checkCampaignStatus(
+    lucid,
+    emulator,
+    CampaignStatus.StakeCalculationEnded,
+    refUTxOs,
+    configTN,
+    createConfigObj,
+  );
+
   const initRewardFoldConfig: InitRewardFoldConfig = {
     rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     rewardTN: "MIN",
@@ -269,6 +356,15 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
   const initRewardFoldHash = await initRewardFoldSigned.submit();
 
   emulator.awaitBlock(4);
+
+  await checkCampaignStatus(
+    lucid,
+    emulator,
+    CampaignStatus.RewardsProcessingStarted,
+    refUTxOs,
+    configTN,
+    createConfigObj,
+  );
 
   // REWARD FOLD 1
 
@@ -322,6 +418,15 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
         ),
       )
     : null;
+
+  await checkCampaignStatus(
+    lucid,
+    emulator,
+    CampaignStatus.RewardsProcessingStarted,
+    refUTxOs,
+    configTN,
+    createConfigObj,
+  );
 
   // console.log("utxos at staking validator", await parseUTxOsAtScript(lucid, refUTxOs.nodeValidator, SetNode))
 
@@ -406,6 +511,15 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
       )
     : null;
 
+  await checkCampaignStatus(
+    lucid,
+    emulator,
+    CampaignStatus.UserClaimsAllowed,
+    refUTxOs,
+    configTN,
+    createConfigObj,
+  );
+
   // CLAIM REWARD & STAKE
   const removeNodeConfig: RemoveNodeConfig = {
     configTN: configTN,
@@ -449,4 +563,13 @@ test<LucidContext>("Test - initRewardTokenHolder - initNode  - insertNodes - ini
         await lucid.utxosAt(users.account3.address),
       )
     : null;
+
+  await checkCampaignStatus(
+    lucid,
+    emulator,
+    CampaignStatus.UserClaimsAllowed,
+    refUTxOs,
+    configTN,
+    createConfigObj,
+  );
 });

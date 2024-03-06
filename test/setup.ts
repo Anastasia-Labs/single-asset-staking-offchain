@@ -18,6 +18,11 @@ import {
   POSIXTime,
   REF_SCRIPT_TNs,
   buildScripts,
+  fetchRefScripts,
+  CampaignStatus,
+  CreateConfig,
+  FetchCampaignStateConfig,
+  fetchCampaignState,
 } from "../src/index.js";
 import { expect } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
@@ -123,7 +128,15 @@ export async function buildDeployFetchRefScripts(
   // Find node refs script
   const deployPolicyId = deployRefScripts.data.deployPolicyId;
 
-  return { type: "ok", data: await getRefUTxOs(lucid, deployPolicyId) };
+  const refScripts = await fetchRefScripts(lucid, {
+    deployPolicyId: deployPolicyId,
+    alwaysFails: alwaysFails.cborHex,
+  });
+
+  expect(refScripts.type).toBe("ok");
+  if (refScripts.type == "error") return refScripts;
+
+  return { type: "ok", data: refScripts.data };
 }
 
 export async function deploy(
@@ -153,29 +166,6 @@ export async function deploy(
   }
 
   return deploy;
-}
-
-export async function getRefUTxOs(
-  lucid: Lucid,
-  deployPolicyId: string,
-): Promise<RefScripts> {
-  const alwaysFailsAddr = lucid.utils.validatorToAddress({
-    type: "PlutusV2",
-    script: alwaysFails.cborHex,
-  });
-
-  const refScripts = {};
-  for (const [key, value] of Object.entries(REF_SCRIPT_TNs)) {
-    const [utxo] = await lucid.utxosAtWithUnit(
-      alwaysFailsAddr,
-      toUnit(deployPolicyId, fromText(value)),
-    );
-
-    refScripts[key] = utxo;
-  }
-  // "as unknown as RefScripts" used as a hack to avoid incorrect linting error of missing
-  // fields for RefScripts object
-  return refScripts as unknown as RefScripts;
 }
 
 // Inserts three nodes belonging to account 1, 2 & 3 in the same order
@@ -268,4 +258,27 @@ export async function insertThreeNodes(
         ),
       )
     : null;
+}
+
+export async function checkCampaignStatus(
+  lucid: Lucid,
+  emulator: Emulator,
+  expectedStatus: CampaignStatus,
+  refUTxOs: RefScripts,
+  configTN: string,
+  config: CreateConfig,
+): Promise<void> {
+  const campaignStateConfig: FetchCampaignStateConfig = {
+    configTN: configTN,
+    ...config.stakingConfig,
+    refScripts: refUTxOs,
+    currentTime: emulator.now(),
+  };
+
+  const campaignState = await fetchCampaignState(lucid, campaignStateConfig);
+
+  // console.log(campaignState);
+  expect(campaignState.type).toBe("ok");
+  if (campaignState.type == "error") return;
+  expect(campaignState.data.campaignStatus).toBe(expectedStatus);
 }

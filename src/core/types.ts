@@ -108,6 +108,7 @@ export type FetchCampaignStateConfig = {
   stakeTN: string;
   rewardCS: PolicyId;
   rewardTN: string;
+  currentTime?: POSIXTime;
   refScripts: {
     configPolicy: UTxO;
     nodeValidator: UTxO;

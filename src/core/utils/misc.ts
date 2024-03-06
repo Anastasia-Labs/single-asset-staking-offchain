@@ -468,6 +468,8 @@ export const findRewardFoldUTxO = async (
   }
 };
 
+// TODO fix stake calculation when stake and reward token are the same
+// after rewards claim is done. (No rewardFold UTxO datum to fetch total stake)
 export const calculateTotalStake = async (
   lucid: Lucid,
   configTN: string,

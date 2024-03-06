@@ -1,4 +1,5 @@
 import {
+  Address,
   Data,
   Lucid,
   MintingPolicy,
@@ -18,6 +19,7 @@ import {
 } from "../core/types.js";
 import {
   CampaignStatus,
+  MIN_ADA,
   calculateTotalStake,
   findFoldUTxO,
   findHeadNode,
@@ -33,7 +35,7 @@ export const fetchCampaignState = async (
   lucid: Lucid,
   config: FetchCampaignStateConfig,
 ): Promise<Result<CampaignState>> => {
-  const currentTime = Date.now();
+  config.currentTime ??= Date.now();
 
   if (
     !config.refScripts.nodeValidator.scriptRef ||
@@ -94,21 +96,6 @@ export const fetchCampaignState = async (
     totalReward = Number(tokenHolderUTxO.assets[rewardToken]);
   }
 
-  const headNodeUTxORes = await findHeadNode(
-    lucid,
-    config.configTN,
-    nodeValidatorAddr,
-    nodePolicyId,
-  );
-  if (headNodeUTxORes.type == "error") {
-    if (currentTime < config.freezeStake)
-      return {
-        type: "ok",
-        data: { campaignStatus: CampaignStatus.StakingNotStarted },
-      };
-    else return headNodeUTxORes; // todo handling for condition where Dinit happens after rewards processing
-  }
-
   const totalStake = await calculateTotalStake(
     lucid,
     config.configTN,
@@ -121,17 +108,37 @@ export const fetchCampaignState = async (
   const campaignStateRes: Result<CampaignState> = {
     type: "ok",
     data: {
-      campaignStatus: CampaignStatus.StakingOpen,
+      campaignStatus: CampaignStatus.StakingNotStarted,
       totalStake: totalStake.data,
       totalReward: totalReward,
     },
   };
 
-  if (currentTime < config.freezeStake) {
+  const headNodeUTxORes = await findHeadNode(
+    lucid,
+    config.configTN,
+    nodeValidatorAddr,
+    nodePolicyId,
+  );
+  if (headNodeUTxORes.type == "error") {
+    if (config.currentTime < config.freezeStake) return campaignStateRes;
+    else if (config.currentTime > config.endStaking) {
+      return checkRewardFoldState(
+        lucid,
+        config,
+        campaignStateRes.data,
+        rewardFoldValidatorAddr,
+        rewardFoldPolicyId,
+      );
+    } else return headNodeUTxORes;
+  }
+
+  if (config.currentTime < config.freezeStake) {
+    campaignStateRes.data.campaignStatus = CampaignStatus.StakingOpen;
     return campaignStateRes;
   } else if (
-    currentTime >= config.freezeStake &&
-    currentTime <= config.endStaking
+    config.currentTime >= config.freezeStake &&
+    config.currentTime <= config.endStaking
   ) {
     campaignStateRes.data.campaignStatus = CampaignStatus.StakeFrozen;
     return campaignStateRes;
@@ -145,30 +152,14 @@ export const fetchCampaignState = async (
       foldPolicyId,
     );
     if (foldUTxO.type == "error") {
-      const rfoldUTxO = await findRewardFoldUTxO(
+      return checkRewardFoldState(
         lucid,
-        config.configTN,
+        config,
+        campaignStateRes.data,
         rewardFoldValidatorAddr,
         rewardFoldPolicyId,
+        headNodeUTxORes.data,
       );
-      if (rfoldUTxO.type == "error") {
-        campaignStateRes.data.campaignStatus = CampaignStatus.StakingEnded;
-        return campaignStateRes;
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const rFoldDatum = Data.from(rfoldUTxO.data.datum!, RewardFoldDatum);
-      campaignStateRes.data.totalStake = Number(rFoldDatum.totalStaked);
-      campaignStateRes.data.totalReward = Number(rFoldDatum.totalRewardTokens);
-
-      if (rFoldDatum.currNode.next) {
-        campaignStateRes.data.campaignStatus =
-          CampaignStatus.RewardsProcessingStarted;
-        return campaignStateRes;
-      } else {
-        campaignStateRes.data.campaignStatus = CampaignStatus.UserClaimsAllowed;
-        return campaignStateRes;
-      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -183,6 +174,63 @@ export const fetchCampaignState = async (
       campaignStateRes.data.totalStake = Number(foldDatum.staked);
       return campaignStateRes;
     }
+  }
+};
+
+export const checkRewardFoldState = async (
+  lucid: Lucid,
+  config: FetchCampaignStateConfig,
+  campaignState: CampaignState,
+  rewardFoldValidatorAddr: Address,
+  rewardFoldPolicyId: string,
+  headNode?: UTxO,
+): Promise<Result<CampaignState>> => {
+  const campaignStateRes: Result<CampaignState> = {
+    type: "ok",
+    data: campaignState,
+  };
+
+  const rfoldUTxO = await findRewardFoldUTxO(
+    lucid,
+    config.configTN,
+    rewardFoldValidatorAddr,
+    rewardFoldPolicyId,
+  );
+  if (rfoldUTxO.type == "error") {
+    if (headNode) {
+      if (headNode.assets["lovelace"] == MIN_ADA) {
+        campaignStateRes.data.campaignStatus = CampaignStatus.UserClaimsAllowed;
+        if (
+          toUnit(config.stakeCS, fromText(config.stakeTN)) ==
+          toUnit(config.rewardCS, fromText(config.rewardTN))
+        )
+          campaignStateRes.data.totalStake = undefined;
+
+        return campaignStateRes;
+      } else {
+        campaignStateRes.data.campaignStatus = CampaignStatus.StakingEnded;
+        return campaignStateRes;
+      }
+    } else {
+      // TODO fix this check as it has weak guarantees of confirming that
+      // reward fold concluded, head deinit and reward reclaimed.
+      campaignStateRes.data.campaignStatus = CampaignStatus.UserClaimsAllowed;
+      return campaignStateRes;
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const rFoldDatum = Data.from(rfoldUTxO.data.datum!, RewardFoldDatum);
+  campaignStateRes.data.totalStake = Number(rFoldDatum.totalStaked);
+  campaignStateRes.data.totalReward = Number(rFoldDatum.totalRewardTokens);
+
+  if (rFoldDatum.currNode.next) {
+    campaignStateRes.data.campaignStatus =
+      CampaignStatus.RewardsProcessingStarted;
+    return campaignStateRes;
+  } else {
+    campaignStateRes.data.campaignStatus = CampaignStatus.UserClaimsAllowed;
+    return campaignStateRes;
   }
 };
 
