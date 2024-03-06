@@ -5,10 +5,12 @@ import {
   Assets,
   Constr,
   Data,
+  fromHex,
   fromText,
   generateSeedPhrase,
   getAddressDetails,
   Lucid,
+  toHex,
   UTxO,
 } from "@anastasia-labs/lucid-cardano-fork";
 import { SETNODE_PREFIX } from "../constants.js";
@@ -62,11 +64,11 @@ export function toAddress(address: AddressD, lucid: Lucid): Address {
   const paymentCredential = (() => {
     if ("PublicKeyCredential" in address.paymentCredential) {
       return lucid.utils.keyHashToCredential(
-        address.paymentCredential.PublicKeyCredential[0]
+        address.paymentCredential.PublicKeyCredential[0],
       );
     } else {
       return lucid.utils.scriptHashToCredential(
-        address.paymentCredential.ScriptCredential[0]
+        address.paymentCredential.ScriptCredential[0],
       );
     }
   })();
@@ -75,11 +77,11 @@ export function toAddress(address: AddressD, lucid: Lucid): Address {
     if ("Inline" in address.stakeCredential) {
       if ("PublicKeyCredential" in address.stakeCredential.Inline[0]) {
         return lucid.utils.keyHashToCredential(
-          address.stakeCredential.Inline[0].PublicKeyCredential[0]
+          address.stakeCredential.Inline[0].PublicKeyCredential[0],
         );
       } else {
         return lucid.utils.scriptHashToCredential(
-          address.stakeCredential.Inline[0].ScriptCredential[0]
+          address.stakeCredential.Inline[0].ScriptCredential[0],
         );
       }
     } else {
@@ -119,7 +121,7 @@ export const fromAddressToData = (address: Address): Result<Data> => {
 
 /**
  * Returns a list of UTxOs whose total assets are equal to or greater than the asset value provided
- * @param utxos list of available utxos 
+ * @param utxos list of available utxos
  * @param minAssets minimum total assets required
  */
 export function selectUtxos(utxos: UTxO[], minAssets: Assets): Result<UTxO[]> {
@@ -128,7 +130,8 @@ export function selectUtxos(utxos: UTxO[], minAssets: Assets): Result<UTxO[]> {
   const assetsRequired = new Map<string, bigint>(Object.entries(minAssets));
 
   for (const utxo of utxos) {
-    if (utxo.scriptRef) { // not selecting utxos with scriptRef
+    if (utxo.scriptRef) {
+      // not selecting utxos with scriptRef
       continue;
     }
 
@@ -157,49 +160,44 @@ export function selectUtxos(utxos: UTxO[], minAssets: Assets): Result<UTxO[]> {
   }
 
   if (assetsRequired.size > 0) {
-    return { type : "error", error : new Error(`Insufficient funds`) }
+    return { type: "error", error: new Error(`Insufficient funds`) };
   }
 
-  return { type: "ok", data : selectedUtxos };
+  return { type: "ok", data: selectedUtxos };
 }
 
-export function getInputUtxoIndices(indexInputs: UTxO[], remainingInputs: UTxO[]) : bigint[] {
+export function getInputUtxoIndices(
+  indexInputs: UTxO[],
+  remainingInputs: UTxO[],
+): bigint[] {
   const allInputs = indexInputs.concat(remainingInputs);
 
   const sortedInputs = sortUTxOsByOutRefWithIndex(allInputs);
   const indicesMap = new Map<string, bigint>();
-  
-  sortedInputs.forEach((value, index) =>{
+
+  sortedInputs.forEach((value, index) => {
     indicesMap.set(value.txHash + value.outputIndex, BigInt(index));
-  })
+  });
 
   return indexInputs.flatMap((value) => {
     const index = indicesMap.get(value.txHash + value.outputIndex);
-    if(index !== undefined)
-      return index
-    else
-      return []
+    if (index !== undefined) return index;
+    else return [];
   });
 }
 
 export function sortUTxOsByOutRefWithIndex(utxos: UTxO[]): UTxO[] {
-
-  return utxos
-    .sort((a, b) => {
-      if (a.txHash < b.txHash) {
+  return utxos.sort((a, b) => {
+    if (a.txHash < b.txHash) {
+      return -1;
+    } else if (a.txHash > b.txHash) {
+      return 1;
+    } else if (a.txHash == b.txHash) {
+      if (a.outputIndex < b.outputIndex) {
         return -1;
-
-      } else if (a.txHash > b.txHash) {
-        return 1;
-
-      } else if (a.txHash == b.txHash) {
-        if (a.outputIndex < b.outputIndex) {
-          return -1;
-        } 
-        else return 1;
-
-      } else return 0;
-    });
+      } else return 1;
+    } else return 0;
+  });
 }
 
 export function sumUtxoAssets(utxos: UTxO[]): Assets {
@@ -211,23 +209,32 @@ export function sumUtxoAssets(utxos: UTxO[]): Assets {
 /** Remove the intersection of a & b asset quantities from a
  * @param a assets to be removed from
  * @param b assets to remove
- * For e.g. 
- * a = {[x] : 5n, [y] : 10n} 
+ * For e.g.
+ * a = {[x] : 5n, [y] : 10n}
  * b = {[x] : 3n, [y] : 15n, [z] : 4n}
  * remove(a, b) = {[x] : 2n}
- */  
+ */
 export function remove(a: Assets, b: Assets): Assets {
-  
-  for(const [key, value] of Object.entries(b)) {
-    if(Object.hasOwn(a, key)){
-      if(a[key] < value)
-        delete a[key]
-      else if(a[key] > value)
-        a[key] -= value;
-      else
-        delete a[key];
+  for (const [key, value] of Object.entries(b)) {
+    if (Object.hasOwn(a, key)) {
+      if (a[key] < value) delete a[key];
+      else if (a[key] > value) a[key] -= value;
+      else delete a[key];
     }
   }
 
   return a;
+}
+
+/**
+ * Returns a unique token name using a Utxo's txid and idx
+ * @param utxo UTxO whose OutRef will be used
+ */
+export async function getUniqueTokenName(utxo: UTxO): Promise<string> {
+  const id = fromHex(utxo.txHash);
+  const data = new Uint8Array([utxo.outputIndex, ...id]);
+
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA3-256", data));
+
+  return toHex(hash);
 }

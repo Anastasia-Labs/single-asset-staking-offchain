@@ -12,83 +12,97 @@ import {
   NodeValidatorAction,
   SetNode,
   RewardFoldDatum,
-  RewardFoldAct
+  RewardFoldAct,
 } from "../core/contract.types.js";
 import { Result, RewardFoldNodeConfig } from "../core/types.js";
 import {
   MIN_ADA,
   TIME_TOLERANCE_MS,
-  rFold,
+  findOwnNode,
+  findRewardFoldUTxO,
 } from "../index.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const rewardFoldNode = async (
   lucid: Lucid,
-  config: RewardFoldNodeConfig
+  config: RewardFoldNodeConfig,
 ): Promise<Result<TxComplete>> => {
-  const nodeValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.nodeValidator,
-  };
+  if (
+    !config.refScripts.nodeValidator.scriptRef ||
+    !config.refScripts.nodePolicy.scriptRef ||
+    !config.refScripts.nodeStakeValidator.scriptRef ||
+    !config.refScripts.rewardFoldPolicy.scriptRef ||
+    !config.refScripts.rewardFoldValidator.scriptRef
+  )
+    return { type: "error", error: new Error("Missing Script Reference") };
+  const nodeValidator: SpendingValidator =
+    config.refScripts.nodeValidator.scriptRef;
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
-  const nodeInputs = config.nodeInputs
-    ? config.nodeInputs
+  const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
+  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+
+  const nodeUTxOs = config.nodeUTxOs
+    ? config.nodeUTxOs
     : await lucid.utxosAt(nodeValidatorAddr);
 
-  const rewardFoldValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.rewardFoldValidator,
-  };
+  const rewardFoldValidator: SpendingValidator =
+    config.refScripts.rewardFoldValidator.scriptRef;
   const rewardFoldValidatorAddr =
     lucid.utils.validatorToAddress(rewardFoldValidator);
 
-  const rewardFoldPolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.rewardFoldPolicy,
-  };
+  const rewardFoldPolicy: MintingPolicy =
+    config.refScripts.rewardFoldPolicy.scriptRef;
   const rewardFoldPolicyId = lucid.utils.mintingPolicyToId(rewardFoldPolicy);
 
-  const stakingStakeValidator: WithdrawalValidator = {
-    type: "PlutusV2",
-    script: config.scripts.stakingStakeValidator,
-  };
+  const nodeStakeValidator: WithdrawalValidator =
+    config.refScripts.nodeStakeValidator.scriptRef;
 
-  const [rewardUTxO] = await lucid.utxosAtWithUnit(
-    lucid.utils.validatorToAddress(rewardFoldValidator),
-    toUnit(rewardFoldPolicyId, rFold)
+  const rewardUTxO = await findRewardFoldUTxO(
+    lucid,
+    config.configTN,
+    rewardFoldValidatorAddr,
+    rewardFoldPolicyId,
   );
-  if (!rewardUTxO.datum)
-    return { type: "error", error: new Error("missing RewardFoldDatum") };
+  if (rewardUTxO.type == "error") return rewardUTxO;
 
-  const oldRewardFoldDatum = Data.from(rewardUTxO.datum, RewardFoldDatum);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const oldRewardFoldDatum = Data.from(rewardUTxO.data.datum!, RewardFoldDatum);
 
-  if(oldRewardFoldDatum.currNode.next == null)
-    return { type: "error", error: new Error("Rewards fold already completed")}
+  if (oldRewardFoldDatum.currNode.next == null)
+    return {
+      type: "error",
+      error: new Error("Rewards fold already completed"),
+    };
 
-  const nodeInput = nodeInputs.find((utxo) => {
-    if (utxo.datum) {
-      const nodeDatum = Data.from(utxo.datum, SetNode);
-      return nodeDatum.key == oldRewardFoldDatum.currNode.next;
-    }
-  });
+  const ownNodeRes = await findOwnNode(
+    lucid,
+    config.configTN,
+    nodeValidatorAddr,
+    nodePolicyId,
+    oldRewardFoldDatum.currNode.next,
+    nodeUTxOs,
+  );
 
-  if (!nodeInput?.datum)
-    return { type: "error", error: new Error("missing SetNodeDatum") };
+  if (ownNodeRes.type == "error") return ownNodeRes;
+  const nodeInput = ownNodeRes.data;
 
-  const nodeDatum = Data.from(nodeInput.datum, SetNode);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const nodeDatum = Data.from(nodeInput.datum!, SetNode);
   const newFoldDatum = Data.to(
     {
       currNode: {
         key: oldRewardFoldDatum.currNode.key,
         next: nodeDatum.next,
+        configTN: config.configTN,
       },
       totalRewardTokens: oldRewardFoldDatum.totalRewardTokens,
       totalStaked: oldRewardFoldDatum.totalStaked,
       owner: oldRewardFoldDatum.owner,
     },
-    RewardFoldDatum
+    RewardFoldDatum,
   );
-  
+
   const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
   const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
   const nodeStake = nodeInput.assets[stakeToken];
@@ -97,69 +111,62 @@ export const rewardFoldNode = async (
     (nodeStake * oldRewardFoldDatum.totalRewardTokens) /
     oldRewardFoldDatum.totalStaked;
 
-  const nodeOutputAssets = {...nodeInput.assets};
+  const nodeOutputAssets = { ...nodeInput.assets };
   nodeOutputAssets["lovelace"] = MIN_ADA; // NODE_ADA - FOLDING_FEE
-  
-  // nodeOutputAssets[rewardToken] may not be undefined in case stake and reward tokens are one and the same
-  nodeOutputAssets[rewardToken] = (nodeOutputAssets[rewardToken] || 0n) + owedRewardTokenAmount;
 
-  const remainingRewardTokenAmount = rewardUTxO.assets[rewardToken] - owedRewardTokenAmount;
+  // nodeOutputAssets[rewardToken] may not be undefined in case stake and reward tokens are one and the same
+  nodeOutputAssets[rewardToken] =
+    (nodeOutputAssets[rewardToken] || 0n) + owedRewardTokenAmount;
+
+  const remainingRewardTokenAmount =
+    rewardUTxO.data.assets[rewardToken] - owedRewardTokenAmount;
 
   config.currentTime ??= Date.now();
   const upperBound = config.currentTime + TIME_TOLERANCE_MS;
   const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
+
   try {
     const tx = lucid
       .newTx()
       .collectFrom([nodeInput], Data.to("RewardFoldAct", NodeValidatorAction))
-      .collectFrom([rewardUTxO], Data.to("RewardsFoldNode", RewardFoldAct))
+      .collectFrom([rewardUTxO.data], Data.to("RewardsFoldNode", RewardFoldAct))
       .withdraw(
-        lucid.utils.validatorToRewardAddress(stakingStakeValidator),
+        lucid.utils.validatorToRewardAddress(nodeStakeValidator),
         0n,
-        Data.void()
+        Data.void(),
       )
       .payToContract(
         rewardFoldValidatorAddr,
         { inline: newFoldDatum },
         {
-          ...rewardUTxO.assets,
-          [stakeToken]: remainingRewardTokenAmount
-        }
+          ...rewardUTxO.data.assets,
+          [stakeToken]: remainingRewardTokenAmount,
+        },
       )
       .payToContract(
         nodeValidatorAddr,
-        { inline: nodeInput.datum },
-        nodeOutputAssets
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        { inline: nodeInput.datum! },
+        nodeOutputAssets,
       )
-      .compose(
-        config.refScripts?.rewardFoldValidator
-          ? lucid.newTx().readFrom([config.refScripts.rewardFoldValidator])
-          : lucid.newTx().attachSpendingValidator(rewardFoldValidator)
-      )
-      .compose(
-        config.refScripts?.nodeValidator
-          ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-          : lucid.newTx().attachSpendingValidator(nodeValidator)
-      )
-      .compose(
-        config.refScripts?.stakingStakeValidator
-          ? lucid.newTx().readFrom([config.refScripts.stakingStakeValidator])
-          : lucid.newTx().attachWithdrawalValidator(stakingStakeValidator)
-      )
+      .readFrom([
+        config.refScripts.rewardFoldValidator,
+        config.refScripts.nodeValidator,
+        config.refScripts.nodeStakeValidator,
+        configUTxOResponse.data,
+      ])
       .validFrom(lowerBound)
-      .validTo(upperBound)
+      .validTo(upperBound);
 
-    return { 
-      type: "ok", 
-      data: await 
-            (
-              process.env.NODE_ENV == "emulator" 
-                ? tx.complete() 
-                : tx.complete({nativeUplc : false})
-            )
-      };
-
+    return {
+      type: "ok",
+      data: await (process.env.NODE_ENV == "emulator"
+        ? tx.complete()
+        : tx.complete({ nativeUplc: false })),
+    };
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };
 

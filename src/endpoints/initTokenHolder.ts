@@ -7,60 +7,65 @@ import {
   TxComplete,
   fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { PROTOCOL_FEE, PROTOCOL_PAYMENT_KEY, PROTOCOL_STAKE_KEY, RTHOLDER } from "../core/constants.js";
+import {
+  PROTOCOL_FEE,
+  PROTOCOL_PAYMENT_KEY,
+  PROTOCOL_STAKE_KEY,
+  RTHOLDER,
+} from "../core/constants.js";
 import { InitTokenHolderConfig, Result } from "../core/types.js";
 import { TokenHolderMintAction } from "../index.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const initTokenHolder = async (
   lucid: Lucid,
-  config: InitTokenHolderConfig
+  config: InitTokenHolderConfig,
 ): Promise<Result<TxComplete>> => {
-  const tokenHolderValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.tokenHolderValidator,
-  };
+  if (
+    !config.refScripts.tokenHolderValidator.scriptRef ||
+    !config.refScripts.tokenHolderPolicy.scriptRef
+  )
+    return { type: "error", error: new Error("Missing Script Reference") };
 
+  const tokenHolderValidator: SpendingValidator =
+    config.refScripts.tokenHolderValidator.scriptRef;
   const tokenHolderValidatorAddr =
     lucid.utils.validatorToAddress(tokenHolderValidator);
 
-  const tokenHolderPolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.tokenHolderPolicy,
-  };
-
+  const tokenHolderPolicy: MintingPolicy =
+    config.refScripts.tokenHolderPolicy.scriptRef;
   const tokenHolderPolicyId = lucid.utils.mintingPolicyToId(tokenHolderPolicy);
 
-  const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN))
+  const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
   const rtHolderAsset = toUnit(tokenHolderPolicyId, fromText(RTHOLDER));
   const mintRTHolderAct = Data.to("PMintHolder", TokenHolderMintAction);
+
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
 
   try {
     const tx = await lucid
       .newTx()
-      .collectFrom([config.initUTXO])
+      .collectFrom([config.rewardInitUTXO])
       .payToContract(
         tokenHolderValidatorAddr,
-        { inline: Data.void() },
+        { inline: Data.to(config.configTN) },
         {
           [rtHolderAsset]: BigInt(1),
           [rewardToken]: BigInt(config.rewardAmount),
-        }
+        },
       )
       .mintAssets({ [rtHolderAsset]: BigInt(1) }, mintRTHolderAct)
       .payToAddress(
         lucid.utils.credentialToAddress(
           lucid.utils.keyHashToCredential(PROTOCOL_PAYMENT_KEY),
-          lucid.utils.keyHashToCredential(PROTOCOL_STAKE_KEY)
+          lucid.utils.keyHashToCredential(PROTOCOL_STAKE_KEY),
         ),
         {
           [rewardToken]: BigInt(config.rewardAmount * PROTOCOL_FEE),
-        }
+        },
       )
-      .compose(
-        config.refScripts?.tokenHolderPolicy
-          ? lucid.newTx().readFrom([config.refScripts.tokenHolderPolicy])
-          : lucid.newTx().attachMintingPolicy(tokenHolderPolicy)
-      )
+      .readFrom([config.refScripts.tokenHolderPolicy, configUTxOResponse.data])
       .complete();
 
     return { type: "ok", data: tx };

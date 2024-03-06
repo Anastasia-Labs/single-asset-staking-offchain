@@ -9,9 +9,8 @@ import { Deploy, DeployRefScriptsConfig, Result } from "../core/types.js";
 
 export const deployRefScripts = async (
   lucid: Lucid,
-  config: DeployRefScriptsConfig
+  config: DeployRefScriptsConfig,
 ): Promise<Result<Deploy>> => {
-
   const walletUtxos = await lucid.wallet.getUtxos();
 
   if (!walletUtxos.length)
@@ -59,7 +58,7 @@ export const deployRefScripts = async (
       .payToAddressWithData(
         alwaysFailsAddr,
         { scriptRef: script },
-        { [toUnit(deployPolicyId, fromText(config.name))]: 1n }
+        { [toUnit(deployPolicyId, fromText(config.name))]: 1n },
       )
       .validTo(config.currentTime + 29 * 60 * 1000)
       .complete();
@@ -68,8 +67,8 @@ export const deployRefScripts = async (
       type: "ok",
       data: {
         tx: tx,
-        deployPolicyId: deployPolicyId
-      }
+        deployPolicyId: deployPolicyId,
+      },
     };
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };

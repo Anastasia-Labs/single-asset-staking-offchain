@@ -6,57 +6,68 @@ import {
   toUnit,
   TxComplete,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { originNodeTokenName } from "../core/constants.js";
-import { NodeValidatorAction, StakingNodeAction } from "../core/contract.types.js";
+import { MIN_ADA, originNodeTokenName } from "../core/constants.js";
+import {
+  NodeValidatorAction,
+  StakingNodeAction,
+} from "../core/contract.types.js";
 import { DInitNodeConfig, Result } from "../core/types.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
+import { findHeadNode } from "../index.js";
 
 export const dinitNode = async (
   lucid: Lucid,
-  config: DInitNodeConfig
+  config: DInitNodeConfig,
 ): Promise<Result<TxComplete>> => {
-  const nodeValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.nodeValidator,
-  };
-
+  if (
+    !config.refScripts.nodeValidator.scriptRef ||
+    !config.refScripts.nodePolicy.scriptRef
+  )
+    return { type: "error", error: new Error("Missing Script Reference") };
+  const nodeValidator: SpendingValidator =
+    config.refScripts.nodeValidator.scriptRef;
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
-  const nodePolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.nodePolicy,
-  };
-
+  const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
   const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
 
-  const [headNodeUTxO] = await lucid.utxosAtWithUnit(
+  const headNodeUTxO = await findHeadNode(
+    lucid,
+    config.configTN,
     nodeValidatorAddr,
-    toUnit(nodePolicyId, originNodeTokenName)
+    nodePolicyId,
   );
 
-  if (!headNodeUTxO)
-    return { type: "error", error: new Error("Head node token not found at validator address: " + nodeValidatorAddr) };
+  if (headNodeUTxO.type == "error") return headNodeUTxO;
+
+  if (headNodeUTxO.data.assets["lovelace"] !== MIN_ADA)
+    return {
+      type: "error",
+      error: new Error("Cannot DeInit Node before Rewards Fold is initiated."),
+    };
 
   const assets = {
-    [toUnit(nodePolicyId, originNodeTokenName)]: -1n
+    [toUnit(nodePolicyId, originNodeTokenName)]: -1n,
   };
 
   const redeemerNodePolicy = Data.to("PDInit", StakingNodeAction);
 
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
+
   try {
     const tx = await lucid
       .newTx()
-      .collectFrom([headNodeUTxO], Data.to("LinkedListAct", NodeValidatorAction))
+      .collectFrom(
+        [headNodeUTxO.data],
+        Data.to("LinkedListAct", NodeValidatorAction),
+      )
       .mintAssets(assets, redeemerNodePolicy)
-      .compose(
-        config.refScripts?.nodePolicy
-          ? lucid.newTx().readFrom([config.refScripts.nodePolicy])
-          : lucid.newTx().attachMintingPolicy(nodePolicy)
-      )
-      .compose(
-        config.refScripts?.nodeValidator
-          ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-          : lucid.newTx().attachMintingPolicy(nodeValidator)
-      )
+      .readFrom([
+        config.refScripts.nodePolicy,
+        config.refScripts.nodeValidator,
+        configUTxOResponse.data,
+      ])
       .complete();
 
     return { type: "ok", data: tx };

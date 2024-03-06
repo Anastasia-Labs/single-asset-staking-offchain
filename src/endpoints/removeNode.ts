@@ -13,11 +13,18 @@ import {
   SetNode,
 } from "../core/contract.types.js";
 import { RemoveNodeConfig, Result } from "../core/types.js";
-import { divCeil, mkNodeKeyTN, TIME_TOLERANCE_MS } from "../index.js";
+import {
+  divCeil,
+  findOwnNode,
+  findPreviousNode,
+  mkNodeKeyTN,
+  TIME_TOLERANCE_MS,
+} from "../index.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const removeNode = async (
   lucid: Lucid,
-  config: RemoveNodeConfig
+  config: RemoveNodeConfig,
 ): Promise<Result<TxComplete>> => {
   config.currentTime ??= Date.now();
 
@@ -26,22 +33,22 @@ export const removeNode = async (
   if (!walletUtxos.length)
     return { type: "error", error: new Error("No utxos in wallet") };
 
-  const nodeValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.nodeValidator,
-  };
+  if (
+    !config.refScripts.nodeValidator.scriptRef ||
+    !config.refScripts.nodePolicy.scriptRef
+  )
+    return { type: "error", error: new Error("Missing Script Reference") };
+  const nodeValidator: SpendingValidator =
+    config.refScripts.nodeValidator.scriptRef;
 
   const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
-  const nodePolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.nodePolicy,
-  };
-
+  const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
   const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
 
   const userAddress = await lucid.wallet.address();
-  const userPubKeyHash = lucid.utils.getAddressDetails(userAddress).paymentCredential?.hash;
+  const userPubKeyHash =
+    lucid.utils.getAddressDetails(userAddress).paymentCredential?.hash;
 
   if (!userPubKeyHash)
     return { type: "error", error: new Error("missing PubKeyHash") };
@@ -50,32 +57,43 @@ export const removeNode = async (
     ? config.nodeUTxOs
     : await lucid.utxosAt(nodeValidatorAddr);
 
-  const node = nodeUTXOs.find((value) => {
-    if (value.datum) {
-      const datum = Data.from(value.datum, SetNode);
-      return datum.key !== null && datum.key == userPubKeyHash;
-    }
-  });
+  const nodeResponse = await findOwnNode(
+    lucid,
+    config.configTN,
+    nodeValidatorAddr,
+    nodePolicyId,
+    userPubKeyHash,
+    nodeUTXOs,
+  );
 
-  if (!node || !node.datum)
-    return { type: "error", error: new Error("missing node") };
+  if (nodeResponse.type == "error") return nodeResponse;
+  const node = nodeResponse.data;
 
   if (config.currentTime > config.endStaking)
-    return { type: "error", error: new Error("Cannot remove node after endStaking. Please claim node instead.")}
+    return {
+      type: "error",
+      error: new Error(
+        "Cannot remove node after endStaking. Please claim node instead.",
+      ),
+    };
 
-  const nodeDatum = Data.from(node.datum, SetNode);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const nodeDatum = Data.from(node.datum!, SetNode);
 
-  const prevNode = nodeUTXOs.find((value) => {
-    if (value.datum) {
-      const datum = Data.from(value.datum, SetNode);
-      return datum.next !== null && datum.next == userPubKeyHash;
-    }
-  });
+  const prevNodeResponse = await findPreviousNode(
+    lucid,
+    config.configTN,
+    nodeValidatorAddr,
+    nodePolicyId,
+    userPubKeyHash,
+    nodeUTXOs,
+  );
 
-  if (!prevNode || !prevNode.datum)
-    return { type: "error", error: new Error("missing prevNode") };
+  if (prevNodeResponse.type == "error") return prevNodeResponse;
+  const prevNode = prevNodeResponse.data;
 
-  const prevNodeDatum = Data.from(prevNode.datum, SetNode);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const prevNodeDatum = Data.from(prevNode.datum!, SetNode);
 
   const assets = {
     [toUnit(nodePolicyId, mkNodeKeyTN(userPubKeyHash))]: -1n,
@@ -84,6 +102,7 @@ export const removeNode = async (
   const newPrevNode: SetNode = {
     key: prevNodeDatum.key,
     next: nodeDatum.next,
+    configTN: config.configTN,
   };
 
   const newPrevNodeDatum = Data.to(newPrevNode, SetNode);
@@ -95,89 +114,81 @@ export const removeNode = async (
         coveringNode: newPrevNode,
       },
     },
-    StakingNodeAction
+    StakingNodeAction,
   );
-  
+
   const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
   const redeemerNodeValidator = Data.to("LinkedListAct", NodeValidatorAction);
 
-  const upperBound = (config.currentTime + TIME_TOLERANCE_MS)
-  const lowerBound = (config.currentTime - TIME_TOLERANCE_MS)
+  const upperBound = config.currentTime + TIME_TOLERANCE_MS;
+  const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
   const beforeStakeFreeze = upperBound < config.freezeStake;
-  const afterFreezeBeforeEnd = lowerBound > config.freezeStake && upperBound < config.endStaking;
+  const afterFreezeBeforeEnd =
+    lowerBound > config.freezeStake && upperBound < config.endStaking;
+
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
 
   try {
     if (beforeStakeFreeze) {
-
       const tx = await lucid
         .newTx()
         .collectFrom([node, prevNode], redeemerNodeValidator)
-        .compose(
-          config.refScripts?.nodeValidator
-            ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-            : lucid.newTx().attachSpendingValidator(nodeValidator)
-        )
         .payToContract(
           nodeValidatorAddr,
           { inline: newPrevNodeDatum },
-          prevNode.assets
+          prevNode.assets,
         )
         .addSignerKey(userPubKeyHash)
         .mintAssets(assets, redeemerNodePolicy)
-        .compose(
-          config.refScripts?.nodePolicy
-            ? lucid.newTx().readFrom([config.refScripts.nodePolicy])
-            : lucid.newTx().attachMintingPolicy(nodePolicy)
-        )
+        .readFrom([
+          config.refScripts.nodePolicy,
+          config.refScripts.nodeValidator,
+          configUTxOResponse.data,
+        ])
         .validFrom(lowerBound)
         .validTo(upperBound)
         .complete();
       return { type: "ok", data: tx };
-
     } else if (afterFreezeBeforeEnd) {
-
       const penaltyAmount = divCeil(node.assets[stakeToken], 4n);
       const balanceAmount = node.assets[stakeToken] - penaltyAmount;
 
       const tx = await lucid
         .newTx()
         .collectFrom([node, prevNode], redeemerNodeValidator)
-        .compose(
-          config.refScripts?.nodeValidator
-            ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-            : lucid.newTx().attachSpendingValidator(nodeValidator)
-        )
         .payToContract(
           nodeValidatorAddr,
           { inline: newPrevNodeDatum },
-          prevNode.assets
+          prevNode.assets,
         )
         .payToAddress(config.penaltyAddress, {
           [stakeToken]: penaltyAmount,
         })
         .payToAddress(userAddress, {
-          [stakeToken]: balanceAmount
+          [stakeToken]: balanceAmount,
         })
         .addSignerKey(userPubKeyHash)
         .mintAssets(assets, redeemerNodePolicy)
-        .compose(
-          config.refScripts?.nodePolicy
-            ? lucid.newTx().readFrom([config.refScripts.nodePolicy])
-            : lucid.newTx().attachMintingPolicy(nodePolicy)
-        )
+        .readFrom([
+          config.refScripts.nodePolicy,
+          config.refScripts.nodeValidator,
+          configUTxOResponse.data,
+        ])
         .validFrom(lowerBound)
         .validTo(upperBound)
         .complete();
 
       return { type: "ok", data: tx };
-
     } else {
-      return { type: "error", 
-            error: new Error(`Transaction validity range is overlapping staking phases. 
-                              Please wait for ${TIME_TOLERANCE_MS/1_000} seconds before trying
-                              to remove node.`)
-        }
+      return {
+        type: "error",
+        error:
+          new Error(`Transaction validity range is overlapping staking phases. 
+                              Please wait for ${TIME_TOLERANCE_MS / 1_000} seconds before trying
+                              to remove node.`),
+      };
     }
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };

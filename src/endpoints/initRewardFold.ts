@@ -9,100 +9,117 @@ import {
   fromText,
   WithdrawalValidator,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { cFold, MIN_ADA, originNodeTokenName, rFold, RTHOLDER } from "../core/constants.js";
-import { SetNode, FoldDatum, RewardFoldDatum, NodeValidatorAction, RewardFoldMintAct } from "../core/contract.types.js";
+import { cFold, MIN_ADA, rFold, RTHOLDER } from "../core/constants.js";
+import {
+  SetNode,
+  FoldDatum,
+  RewardFoldDatum,
+  NodeValidatorAction,
+  RewardFoldMintAct,
+} from "../core/contract.types.js";
 import { InitRewardFoldConfig, Result } from "../core/types.js";
-import { fromAddress } from "../index.js";
+import {
+  findFoldUTxO,
+  findHeadNode,
+  findTokenHolderUTxO,
+  fromAddress,
+} from "../index.js";
+import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const initRewardFold = async (
   lucid: Lucid,
-  config: InitRewardFoldConfig
+  config: InitRewardFoldConfig,
 ): Promise<Result<TxComplete>> => {
-  const tokenHolderValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.tokenHolderValidator,
-  };
+  if (
+    !config.refScripts.nodeValidator.scriptRef ||
+    !config.refScripts.nodePolicy.scriptRef ||
+    !config.refScripts.nodeStakeValidator.scriptRef ||
+    !config.refScripts.rewardFoldPolicy.scriptRef ||
+    !config.refScripts.rewardFoldValidator.scriptRef ||
+    !config.refScripts.tokenHolderValidator.scriptRef ||
+    !config.refScripts.tokenHolderPolicy.scriptRef ||
+    !config.refScripts.foldValidator.scriptRef ||
+    !config.refScripts.foldPolicy.scriptRef
+  )
+    return { type: "error", error: new Error("Missing Script Reference") };
 
-  const tokenHolderPolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.tokenHolderPolicy,
-  };
-  const tokenHolderPolicyId = lucid.utils.mintingPolicyToId(tokenHolderPolicy);
+  const nodeValidator: SpendingValidator =
+    config.refScripts.nodeValidator.scriptRef;
+  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
 
-  const rewardFoldValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.rewardFoldValidator,
-  };
+  const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
+  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+
+  const rewardFoldValidator: SpendingValidator =
+    config.refScripts.rewardFoldValidator.scriptRef;
   const rewardFoldValidatorAddr =
     lucid.utils.validatorToAddress(rewardFoldValidator);
 
-  const rewardFoldPolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.rewardFoldPolicy,
-  };
+  const rewardFoldPolicy: MintingPolicy =
+    config.refScripts.rewardFoldPolicy.scriptRef;
   const rewardFoldPolicyId = lucid.utils.mintingPolicyToId(rewardFoldPolicy);
 
-  const commitFoldValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.foldValidator,
-  };
-  const commitFoldValidatorAddr =
-    lucid.utils.validatorToAddress(commitFoldValidator);
+  const nodeStakeValidator: WithdrawalValidator =
+    config.refScripts.nodeStakeValidator.scriptRef;
 
-  const commitFoldPolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.foldPolicy,
-  };
-  const commitFoldPolicyId = lucid.utils.mintingPolicyToId(commitFoldPolicy);
+  const tokenHolderValidator: SpendingValidator =
+    config.refScripts.tokenHolderValidator.scriptRef;
+  const tokenHolderValidatorAddr =
+    lucid.utils.validatorToAddress(tokenHolderValidator);
 
-  const stakingPolicy: MintingPolicy = {
-    type: "PlutusV2",
-    script: config.scripts.nodePolicy,
-  };
+  const tokenHolderPolicy: MintingPolicy =
+    config.refScripts.tokenHolderPolicy.scriptRef;
+  const tokenHolderPolicyId = lucid.utils.mintingPolicyToId(tokenHolderPolicy);
 
-  const nodeValidator: SpendingValidator = {
-    type: "PlutusV2",
-    script: config.scripts.nodeValidator,
-  };
+  const foldValidator: SpendingValidator =
+    config.refScripts.foldValidator.scriptRef;
+  const commitFoldValidatorAddr = lucid.utils.validatorToAddress(foldValidator);
 
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const foldPolicy: MintingPolicy = config.refScripts.foldPolicy.scriptRef;
+  const commitFoldPolicyId = lucid.utils.mintingPolicyToId(foldPolicy);
 
-  const stakingStakeValidator: WithdrawalValidator = {
-    type: "PlutusV2",
-    script: config.scripts.stakingStakeValidator,
-  };
-
-  const [headNodeUTxO] = await lucid.utxosAtWithUnit(
+  const headNodeUTxORes = await findHeadNode(
+    lucid,
+    config.configTN,
     nodeValidatorAddr,
-    toUnit(
-      lucid.utils.mintingPolicyToId(stakingPolicy),
-      originNodeTokenName
-    )
+    nodePolicyId,
   );
+  if (headNodeUTxORes.type == "error") return headNodeUTxORes;
+  const headNodeUTxO = headNodeUTxORes.data;
 
-  if (!headNodeUTxO || !headNodeUTxO.datum)
-    return { type: "error", error: new Error("missing nodeRefInputUTxO") };
-
-  const headNodeDatum = Data.from(headNodeUTxO.datum, SetNode);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const headNodeDatum = Data.from(headNodeUTxO.datum!, SetNode);
 
   const rtHolderUnit = toUnit(tokenHolderPolicyId, fromText(RTHOLDER));
 
-  const tokenHolderUTxO = await lucid.utxoByUnit(rtHolderUnit);
+  const tokenHolderUTxORes = await findTokenHolderUTxO(
+    lucid,
+    config.configTN,
+    tokenHolderValidatorAddr,
+    tokenHolderPolicyId,
+  );
+  if (tokenHolderUTxORes.type == "error") return tokenHolderUTxORes;
+  const tokenHolderUTxO = tokenHolderUTxORes.data;
 
   const commitFoldUnit = toUnit(commitFoldPolicyId, cFold);
-  const commitFoldUTxO = (
-    await lucid.utxosAtWithUnit(commitFoldValidatorAddr, commitFoldUnit)
-  ).find((value) => {
-    if (value.datum) {
-      const datum = Data.from(value.datum, FoldDatum);
-      return datum.currNode.next == null;
-    }
-  });
 
-  if (!commitFoldUTxO || !commitFoldUTxO.datum)
-    return { type: "error", error: new Error("missing commitFoldUTxO") };
+  const commitFoldUTxORes = await findFoldUTxO(
+    lucid,
+    config.configTN,
+    commitFoldValidatorAddr,
+    commitFoldPolicyId,
+  );
+  if (commitFoldUTxORes.type == "error") return commitFoldUTxORes;
 
-  const commitFoldDatum = Data.from(commitFoldUTxO.datum, FoldDatum);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const commitFoldDatum = Data.from(commitFoldUTxORes.data.datum!, FoldDatum);
+  if (commitFoldDatum.currNode.next)
+    return {
+      type: "error",
+      error: new Error(
+        "Cannot Init Reward Fold as Commit Fold is not completed.",
+      ),
+    };
 
   const rewardUnit = toUnit(config.rewardCS, fromText(config.rewardTN));
 
@@ -113,78 +130,60 @@ export const initRewardFold = async (
       totalStaked: commitFoldDatum.staked,
       owner: fromAddress(await lucid.wallet.address()),
     },
-    RewardFoldDatum
+    RewardFoldDatum,
   );
 
   const burnRTHolderAct = Data.to(new Constr(1, []));
   const burnCommitFoldAct = Data.to(new Constr(1, []));
   const reclaimCommitFoldAct = Data.to(new Constr(1, []));
 
+  const configUTxOResponse = await fetchConfigUTxO(lucid, config);
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
+
   try {
     const tx = await lucid
       .newTx()
-      .collectFrom([headNodeUTxO], Data.to("RewardFoldAct", NodeValidatorAction))
+      .collectFrom(
+        [headNodeUTxO],
+        Data.to("RewardFoldAct", NodeValidatorAction),
+      )
       .collectFrom([tokenHolderUTxO], Data.void())
-      .collectFrom([commitFoldUTxO], reclaimCommitFoldAct)
+      .collectFrom([commitFoldUTxORes.data], reclaimCommitFoldAct)
       .payToContract(
         rewardFoldValidatorAddr,
         { inline: datum },
         {
           [toUnit(rewardFoldPolicyId, rFold)]: 1n,
           [rewardUnit]: tokenHolderUTxO.assets[rewardUnit],
-        }
+        },
       )
       .payToContract(
         nodeValidatorAddr,
-        { inline: headNodeUTxO.datum },
-        { ...headNodeUTxO.assets, lovelace: MIN_ADA } // Taking FOLDING_FEE to indicate rewards fold init. NODE_ADA - FOLDING_FEE == MIN_ADA
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        { inline: headNodeUTxO.datum! },
+        { ...headNodeUTxO.assets, lovelace: MIN_ADA }, // Taking FOLDING_FEE to indicate rewards fold init. NODE_ADA - FOLDING_FEE == MIN_ADA
       )
       .mintAssets(
         { [toUnit(rewardFoldPolicyId, rFold)]: 1n },
-        Data.to("MintRewardFold", RewardFoldMintAct)
+        Data.to("MintRewardFold", RewardFoldMintAct),
       )
       .mintAssets({ [commitFoldUnit]: -1n }, burnCommitFoldAct)
       .mintAssets({ [rtHolderUnit]: -1n }, burnRTHolderAct)
       .withdraw(
-        lucid.utils.validatorToRewardAddress(stakingStakeValidator),
+        lucid.utils.validatorToRewardAddress(nodeStakeValidator),
         0n,
-        Data.void()
+        Data.void(),
       )
-      .compose(
-        config.refScripts?.tokenHolderValidator
-          ? lucid.newTx().readFrom([config.refScripts.tokenHolderValidator])
-          : lucid.newTx().attachSpendingValidator(tokenHolderValidator)
-      )
-      .compose(
-        config.refScripts?.commitFoldValidator
-          ? lucid.newTx().readFrom([config.refScripts.commitFoldValidator])
-          : lucid.newTx().attachSpendingValidator(commitFoldValidator)
-      )
-      .compose(
-        config.refScripts?.rewardFoldPolicy
-          ? lucid.newTx().readFrom([config.refScripts.rewardFoldPolicy])
-          : lucid.newTx().attachMintingPolicy(rewardFoldPolicy)
-      )
-      .compose(
-        config.refScripts?.commitFoldPolicy
-          ? lucid.newTx().readFrom([config.refScripts.commitFoldPolicy])
-          : lucid.newTx().attachMintingPolicy(commitFoldPolicy)
-      )
-      .compose(
-        config.refScripts?.tokenHolderPolicy
-          ? lucid.newTx().readFrom([config.refScripts.tokenHolderPolicy])
-          : lucid.newTx().attachMintingPolicy(tokenHolderPolicy)
-      )
-      .compose(
-        config.refScripts?.nodeValidator
-          ? lucid.newTx().readFrom([config.refScripts.nodeValidator])
-          : lucid.newTx().attachSpendingValidator(nodeValidator)
-      )
-      .compose(
-        config.refScripts?.stakingStakeValidator
-          ? lucid.newTx().readFrom([config.refScripts.stakingStakeValidator])
-          : lucid.newTx().attachWithdrawalValidator(stakingStakeValidator)
-      )
+      .readFrom([
+        config.refScripts.tokenHolderValidator,
+        config.refScripts.tokenHolderPolicy,
+        config.refScripts.nodeValidator,
+        config.refScripts.nodeStakeValidator,
+        config.refScripts.foldValidator,
+        config.refScripts.foldPolicy,
+        config.refScripts.rewardFoldPolicy,
+        configUTxOResponse.data,
+      ])
       .addSigner(await lucid.wallet.address())
       .complete();
 
