@@ -5,30 +5,32 @@
 - [Introduction](#introduction)
 - [Overview](#overview)
 - [Details](#details)
-    - [Deployment](#deployment)
-        - [Build Scripts](#build-scripts)
-        - [Deploy Reference Scripts](#deploy-reference-scripts)
-        - [Lock Rewards](#lock-rewards)
-        - [Initialize Head Node](#initialize-head-node)
-    - [User Participation](#user-participation)
-    - [Active Staking](#active-staking)
-    - [Rewards Processing](#rewards-processing)
-        - [Initialize Commit Fold](#initialize-commit-fold)
-        - [Complete Commit Fold](#complete-commit-fold)
-        - [Initialize Reward Fold](#initialize-reward-fold)
-        - [Complete Reward Fold](#complete-reward-fold)
-    - [Claim](#claim)
-        - [Project Reclaims Reward](#project-reclaims-reward)
-        - [Deinitialize Head Node](#deinitialize-head-node)
-
+  - [Deployment](#deployment)
+    - [Build Scripts](#build-scripts)
+    - [Deploy Reference Scripts](#deploy-reference-scripts)
+  - [Setup](#setup)
+    - [Create Config UTxO](#create-config-utxo)
+    - [Lock Rewards](#lock-rewards)
+    - [Initialize Head Node](#initialize-head-node)
+  - [User Participation](#user-participation)
+  - [Active Staking](#active-staking)
+  - [Rewards Processing](#rewards-processing)
+    - [Initialize Commit Fold](#initialize-commit-fold)
+    - [Complete Commit Fold](#complete-commit-fold)
+    - [Initialize Reward Fold](#initialize-reward-fold)
+    - [Complete Reward Fold](#complete-reward-fold)
+  - [Claim](#claim)
+    - [Project Reclaims Reward](#project-reclaims-reward)
+    - [Deinitialize Head Node](#deinitialize-head-node)
+- [Important Notes](#important-notes)
 
 # Introduction
 
-"Single Asset Staking Offchain" project provides with the necessary SDK to interact with "Single Asset Staking Contracts". These contracts facilitate collective staking of digital assets and distributing rewards among participants in a completely on-chain and trustless manner.
+"Single Asset Staking Offchain" project provides the necessary SDK to interact with "Single Asset Staking Contracts". These contracts facilitate collective staking of digital assets and distributing rewards among participants in a completely on-chain and trustless manner.
 
-As the name suggests, it allows for a single asset, which can be any Cardano Native Fungible Token, to be staked to earn rewards. The reward itself can be any Cardano Native Fungible Token. The contracts are parameterized with `policyId` and `tokenName` (in addition to a few others) of stake token and reward token. This allows different projects conducting the Staking event to configure the contracts accordingly. 
+As the name suggests, it allows for a single asset, which can be any Cardano Native Fungible Token, to be staked to earn rewards. The reward itself can be any Cardano Native Fungible Token. The contracts are parameterized with `policyId` and `tokenName` (in addition to a few others) of stake token and reward token. This allows different projects conducting the Staking event to configure the contracts accordingly.
 
-Instead of a fixed percentage based return, the staking reward obtained is not known beforehand. Because its determined by the total amount of assets staked till the end of the staking period and the total rewards locked before staking begins. Eligible participants are then given rewards propotional to their share of stake (`(userStake * totalRewards) / totalStake`). 
+Instead of a fixed percentage based return, the staking reward obtained is not known beforehand. Because its determined by the total amount of assets staked till the end of the staking period and the total rewards locked before staking begins. Eligible participants are then given rewards propotional to their share of stake (`(userStake * totalRewards) / totalStake`).
 
 The contracts are available at [Single Asset Staking](https://github.com/Anastasia-Labs/single-asset-staking).
 
@@ -40,6 +42,10 @@ An interesting technical detail about this protocol is the use of an [on-chain a
 data StakingSetNode = MkSetNode
   { key :: StakingNodeKey  -- owner wallet's PaymentPubKeyHash
   , next :: StakingNodeKey -- next PaymentPubKeyHash in a list of lexicographically sorted key hashes
+  {- This field tells us which Staking Campaign this node belongs to.
+     Each Staking Campaign is uniquely identified by a Config UTxO
+     containing an NFT (configCS.configTN) -}
+  , configTN :: TokenName
   }
 
 data StakingNodeKey = Key BuiltinByteString | Empty
@@ -49,16 +55,18 @@ This sections provides you with the timeline of different phases involved in Sin
 
 ```mermaid
 timeline
-    
+
     title Single Asset Staking Phases
-    
+
     Deployment : Build Scripts
                : Deploy Reference Scripts
-               : Lock Rewards
-               : Initialize Head Node
-    
-    User Participation : Register Stake 
-                       : Modify Stake* 
+
+    Setup : Create Config UTxO
+          : Lock Rewards
+          : Initialize Head Node
+
+    User Participation : Register Stake
+                       : Modify Stake*
                        : Remove Stake* (w/o penalty)
 
     Active Staking : Remove Stake* (w/ penalty)
@@ -79,62 +87,15 @@ timeline
 
 ## Deployment
 
-Everything begins here with the project configuring and setting up the Smart Contracts. Its only after the deployment phase is completed that users can begin staking. It comprises of below four actions that need to be performed.
+Everything begins here with _Anastasia Labs_ configuring and providing the Smart Contracts, on-chain as Reference Scripts. Once these are available, Projects can reuse the same contracts for any number of new Staking Campaigns. The deployment phase comprises of below two actions.
 
 ### **Build Scripts**
 
-The contracts available from Single Asset Staking repository, require paramters configuring details of Staking event. 
-
-```mermaid
----
-title: Build Scripts
----
-graph LR
-    P("Parameters
-    -----------------------
-        stakingInitUTxO
-        rewardInitUTxO 
-        freezeStake    
-        endStaking     
-        penaltyAddress 
-        stakeCS        
-        stakeTN
-        minimumStake
-        rewardCS
-        rewardTN 
-    ")
-    UV("Unapplied Validators
-    ----------------------------
-        nodePolicy
-        nodeValidator
-        nodeStakeValidator
-        foldPolicy
-        foldValidator
-        rewardFoldPolicy
-        rewardFoldValidator
-        tokenHolderValidator
-        tokenHolderPolicy
-    ")
-    AV("Applied Validators
-    ----------------------------
-        nodePolicy
-        nodeValidator
-        nodeStakeValidator
-        foldPolicy
-        foldValidator
-        rewardFoldPolicy
-        rewardFoldValidator
-        tokenHolderValidator
-        tokenHolderPolicy
-    ")
-    P --> UV
-    UV --> AV
-
-```
+The contracts available from Single Asset Staking repository, require certain paramters to be applied. These parameters include `configCS` (policyId of ConfigPolicy) and script credentials in case of dependant scripts. This step involves providing contracts with the required parameters.
 
 ### **Deploy Reference Scripts**
 
-This step uses the applied validators obtained above to create a [Reference Script UTxO](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0033) for every validator. In order to easily identify a particular validator on-chain, a native minting policy is used in conjuction. It mints an NFT with the validator name and is made available inside the RefUTxO. This native minting policy allows minting for a very short duration of *thirty mintues* within which all the RefUTxOs must be created. All the RefUTxOs are sent to an "Always Fail Script" address ensuring they are immutable and locked forever.
+This step uses the applied validators obtained above to create a [Reference Script UTxO](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0033) for every validator. In order to easily identify a particular validator on-chain, a native minting policy is used in conjuction. It mints an NFT with the validator name and is made available inside the RefUTxO. This native minting policy allows minting for a very short duration of _thirty mintues_ within which all the RefUTxOs must be created. All the RefUTxOs are sent to an "Always Fail Script" address ensuring they are immutable and locked forever.
 
 ```mermaid
 ---
@@ -143,18 +104,69 @@ title: Deploy Reference Scripts
 graph LR
     I1(Input UTxO)
     TX[ Transaction ]
-    subgraph Always Fail Script
+    subgraph Always Fails Script
     O1(("UTxO
-        $deployId.StakingValidator
-        ref_script: nodeValidator "))
+        $deployId.ConfigPolicy
+        ref_script: configPolicy "))
     O2(("UTxO
-        $deployId.StakingPolicy
+        $deployId.NodeValidator
+        ref_script: nodeValidator "))
+    O3(("UTxO
+        $deployId.NodePolicy
         ref_script: nodePolicy"))
     ..
     end
     I1 --> TX
     MP{Native Minting Policy} -.-o TX
-    TX --> O2
+    TX --> O3
+```
+
+## Setup
+
+Every Project which wants to create a new Staking Campaign will start from here. This phases consists of below three actions. Its only after this phase is completed that users can begin staking.
+
+### **Create Config UTxO**
+
+Every individual Staking Campaign begins by first creating a Config UTxO for it. It works like this:
+
+- Every Staking Campaign's configuration, instead of being configured in the contract as parameters, is obtained from a Config UTxO's datum. This datum (of type `StakingConfig`) contains all the event related details. Thereby leaving the same set of contracts to work for multiple campaigns.
+
+```hs
+data StakingConfig = StakingConfig
+  { stakingInitUTxO :: TxOutRef
+  , rewardInitUTxO :: TxOutRef
+  , freezeStake :: POSIXTime
+  , endStaking :: POSIXTime
+  , penaltyAddress :: Address
+  , stakeCS :: CurrencySymbol
+  , stakeTN :: TokenName
+  , minimumStake :: Integer
+  , rewardCS :: CurrencySymbol
+  , rewardTN :: TokenName
+  }
+```
+
+- All the deployed smart contracts require this Config UTxO as a reference input to validate every transaction.
+- With the help of a Config Policy, this UTxO is uniquely identified by an NFT (`configCS.configTN`), minted in the same transaction.
+- This ouput is then sent to an Always Fails Script address, guaranteeing no changes to the camapaign parameters.
+- All the UTxOs belonging to a particular campaign will have the same `configTN` field value in their datum to avoid mixing UTxOs from different campaigns.
+
+```mermaid
+---
+title: Create Config UTxO
+---
+graph LR
+    I1(Config Init UTxO)
+    TX[ Transaction ]
+    subgraph Always Fails Script
+    O1(("Output
+        $ConfigPolicy.abc: 1n
+        datum: StakingConfig"))
+    end
+    I1 --> TX
+    MP{"Ref Input
+      $deployId.ConfigPolicy"}  -.-o|Mint $ConfigPolicy.configTN| TX
+    TX --> O1
 ```
 
 ### **Lock Rewards**
@@ -171,14 +183,18 @@ graph LR
     subgraph Token Holder Validator
     O1(("Output 1
         $rewardCS.rewardTN: totalReward
-        $TokenHolderPolicy.RTHolder: 1n "))
+        $TokenHolderPolicy.RTHolder: 1n
+        datum: configTN = abc"))
     end
     O2(("Output 2"))
     I1 --> TX
-    MP{"RefOutput
+    MP{"Ref Input
       $deployId.TokenHolderPolicy"}  -.-o|Mint $TokenHolderPolicy.RTHolder| TX
     TX --> O1
     TX -->|1% Protocol Fees| O2
+    R1(("Ref Input
+        $ConfigPolicy.abc: 1n
+        datum: StakingConfig")) -.-o TX
 ```
 
 ### **Initialize Head Node**
@@ -197,13 +213,17 @@ graph LR
     subgraph Staking Validator
     O1(("Head Node
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSN: 1n 
-        datum: key = null, next = null"))
+        $NodePolicy.FSN: 1n
+        datum: key = null, next = null,
+        configTN = abc"))
     end
     I1 --> TX
-    MP{"RefInput
-      $deployId.StakingPolicy"}  -.-o|Mint $StakingPolicy.FSN| TX
+    MP{"Ref Input
+      $deployId.NodePolicy"}  -.-o|Mint $NodePolicy.FSN| TX
     TX --> O1
+    R1(("Ref Input
+        $ConfigPolicy.abc: 1n
+        datum: StakingConfig")) -.-o TX
 ```
 
 ## User Participation
@@ -212,13 +232,13 @@ Now the Staking event is opened and users can participate by locking their stake
 
 ## Active Staking
 
-Once stake is frozen (configured by parameter `freezeStake :: POSIXTime`), the active staking phase begins for which the participants will be earning rewards. This phase lasts till `endStaking :: POSIXTime` as decided by the project. During this period, new participants cannot enter nor can the old ones modify their stake. However, existing stakers can still get their stake back if they choose to, by paying 25% of their stake as penalty fee. 
+Once stake is frozen (configured by parameter `freezeStake :: POSIXTime`), the active staking phase begins for which the participants will be earning rewards. This phase lasts till `endStaking :: POSIXTime` as decided by the project. During this period, new participants cannot enter nor can the old ones modify their stake. However, existing stakers can still get their stake back if they choose to, by paying 25% of their stake as penalty fee.
 
 ## Rewards Processing
 
-After the active staking phase has ended (after `endStaking :: POSIXTime`) comes the part where project processes and allocates rewards to its participants who staked till now. 
+After the active staking phase has ended (after `endStaking :: POSIXTime`) comes the part where project processes and allocates rewards to its participants who staked till now.
 
-Its done by first calculating and saving the total amount staked on-chain. Then every participant's stake UTxO is updated to include rewards in it, in proportion to their stake. Reward calculation is given by the formula `(userStake * totalRewards) / totalStake`. 
+Its done by first calculating and saving the total amount staked on-chain. Then every participant's stake UTxO is updated to include rewards in it, in proportion to their stake. Reward calculation is given by the formula `(userStake * totalRewards) / totalStake`.
 
 Following sequence of on-chain actions elaborate further on how rewards processing mechanism works.
 
@@ -236,26 +256,30 @@ graph LR
     subgraph Staking Validator
     N1(("Ref Input
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSN: 1n 
-        datum: 
-        key = null, next = aa1 "))
+        $NodePolicy.FSN: 1n
+        datum:
+        key = null, next = aa1,
+        configTN = abc "))
     N2(("UTxO
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSNaa1 : 1n 
-        datum: 
-        key = aa1, next = bb2 "))
+        $NodePolicy.FSNaa1 : 1n
+        datum:
+        key = aa1, next = bb2,
+        configTN = abc "))
     N3(("UTxO
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSNbb2 : 1n
-        datum: 
-        key = bb2, next = null "))
+        $NodePolicy.FSNbb2 : 1n
+        datum:
+        key = bb2, next = null,
+        configTN = abc "))
     end
     subgraph Fold Validator
     O1(("Output
-        $FoldPolicy.CFold: 1n 
+        $FoldPolicy.CFold: 1n
         datum:
-        key = null, next = aa1
-        totalStake = 0n
+        key = null, next = aa1,
+        totalStake = 0n,
+        configTN = abc
         "))
     end
     N1 -.-o TX
@@ -263,6 +287,9 @@ graph LR
     MP{"Ref Input
       $deployId.FoldPolicy"}  -.-o|Mint $FoldPolicy.CFold| TX
     TX --> O1
+    R1(("Ref Input
+        $ConfigPolicy.abc: 1n
+        datum: StakingConfig")) -.-o TX
 ```
 
 ### **Complete Commit Fold**
@@ -279,32 +306,37 @@ graph LR
     subgraph Staking Validator
     N1(("UTxO
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSN: 1n 
-        datum: 
-        key = null, next = aa1 "))
+        $NodePolicy.FSN: 1n
+        datum:
+        key = null, next = aa1,
+        configTN = abc "))
     N2(("Ref Input
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSNaa1 : 1n 
-        datum: 
-        key = aa1, next = bb2 "))
+        $NodePolicy.FSNaa1 : 1n
+        datum:
+        key = aa1, next = bb2,
+        configTN = abc "))
     N3(("Ref Input
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSNbb2 : 1n
-        datum: 
-        key = bb2, next = null "))
+        $NodePolicy.FSNbb2 : 1n
+        datum:
+        key = bb2, next = null,
+        configTN = abc "))
     end
     subgraph Fold Validator
     F1(("Input
-        $FoldPolicy.CFold: 1n 
+        $FoldPolicy.CFold: 1n
         datum:
-        key = null, next = aa1
-        totalStake = 0n
+        key = null, next = aa1,
+        totalStake = 0n,
+        configTN = abc
         "))
     F2(("Output
-        $FoldPolicy.CFold: 1n 
+        $FoldPolicy.CFold: 1n
         datum:
-        key = null, next = null
-        totalStake = 2 * minStake
+        key = null, next = null,
+        totalStake = 2 * minStake,
+        configTN = abc
         "))
     end
     F1 --> TX
@@ -312,13 +344,16 @@ graph LR
     N3 -.-o TX
     I1 --> TX
     TX --> F2
+    R1(("Ref Input
+        $ConfigPolicy.abc: 1n
+        datum: StakingConfig")) -.-o TX
 ```
 
 > Note: Head Node's stake is never taken into account.
 
 ### **Initialize Reward Fold**
 
-Now that we have total staked amount available on-chain, we initialize the reward fold wherein a UTxO to `rewardFoldValidator` is sent. This contains total reward amount obtained from UTxO locked at "Token Holder Validator" along with `totalRewardTokens` and `totalStake` in its datum. Additionally, it has `$RewardPolicy.RFold` NFT minted from "Reward Policy" which validates that the initialization is carried out accurately. 
+Now that we have total staked amount available on-chain, we initialize the reward fold wherein a UTxO to `rewardFoldValidator` is sent. This contains total reward amount obtained from UTxO locked at "Token Holder Validator" along with `totalRewardTokens` and `totalStake` in its datum. Additionally, it has `$RewardPolicy.RFold` NFT minted from "Reward Policy" which validates that the initialization is carried out accurately.
 
 ```mermaid
 ---
@@ -331,38 +366,43 @@ graph LR
     N1(("Head Node Input
         $ADA : 3
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSN: 1n 
-        datum: 
-        key = null, next = aa1 "))
+        $NodePolicy.FSN: 1n
+        datum:
+        key = null, next = aa1,
+        configTN = abc "))
     N2(("Head Node Output
         $ADA : 2
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSN: 1n 
-        datum: 
-        key = null, next = aa1 "))
+        $NodePolicy.FSN: 1n
+        datum:
+        key = null, next = aa1,
+        configTN = abc "))
     end
     subgraph Commit Fold Validator
     F1(("Input
-        $FoldPolicy.CFold: 1n 
+        $FoldPolicy.CFold: 1n
         datum:
         totalStake = 2 * minStake
-        key = null, next = null
+        key = null, next = null,
+        configTN = abc
         "))
     end
     subgraph Reward Fold Validator
-    R1(("Output
-        $RewardPolicy.RFold: 1n 
+    O1(("Output
+        $RewardPolicy.RFold: 1n
         $rewardCS.rewardTN: totalReward
         datum:
         totalRewardTokens = totalReward
         totalStake = 2 * minStake
-        key = null, next = aa1        
+        key = null, next = aa1,
+        configTN = abc
         "))
     end
     subgraph Token Holder Validator
     T1(("Input
         $rewardCS.rewardTN: totalReward
-        $TokenHolderPolicy.RTHolder: 1n "))
+        $TokenHolderPolicy.RTHolder: 1n
+        datum: configTN = abc "))
     end
     MP1{"Ref Input
       $deployId.TokenHolderPolicy"}  -.-o|Burn $TokenHolderPolicy.RTHolder| TX
@@ -370,12 +410,16 @@ graph LR
       $deployId.FoldPolicy"}  -.-o|Burn $FoldPolicy.CFold| TX
     MP3{"Ref Input
       $deployId.RewardPolicy"}  -.-o|Mint $RewardPolicy.RFold| TX
+
     T1 --> TX
     F1 --> TX
     N1 --> TX
     I1 --> TX
-    TX --> R1
+    TX --> O1
     TX --> N2
+    R1(("Ref Input
+        $ConfigPolicy.abc: 1n
+        datum: StakingConfig")) -.-o TX
 ```
 
 > Note: Upon undergoing rewards fold a UTxO has to pay 1 ADA folding fee.
@@ -394,61 +438,72 @@ graph LR
     subgraph Staking Validator
     N1(("UTxO
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSN: 1n 
-        datum: 
-        key = null, next = aa1 "))
+        $NodePolicy.FSN: 1n
+        datum:
+        key = null, next = aa1,
+        configTN = abc "))
     N2(("Input
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSNaa1 : 1n 
-        datum: 
-        key = aa1, next = bb2 "))
+        $NodePolicy.FSNaa1 : 1n
+        datum:
+        key = aa1, next = bb2,
+        configTN = abc "))
     N3(("Input
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSNbb2 : 1n
-        datum: 
-        key = bb2, next = null "))
+        $NodePolicy.FSNbb2 : 1n
+        datum:
+        key = bb2, next = null,
+        configTN = abc "))
     N4(("Output
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSNaa1 : 1n
-        $rewardCS.rewardTN: totalReward/2 
-        datum: 
-        key = aa1, next = bb2 "))
+        $NodePolicy.FSNaa1 : 1n
+        $rewardCS.rewardTN: totalReward/2
+        datum:
+        key = aa1, next = bb2,
+        configTN = abc "))
     N5(("Output
         $stakeCS.stakeTN: minStake
-        $StakingPolicy.FSNbb2 : 1n
+        $NodePolicy.FSNbb2 : 1n
         $rewardCS.rewardTN: totalReward/2
-        datum: 
-        key = bb2, next = null "))
+        datum:
+        key = bb2, next = null,
+        configTN = abc "))
     end
     subgraph Reward Fold Validator
-    R1(("Output
-        $RewardPolicy.RFold: 1n 
+    O1(("Output
+        $RewardPolicy.RFold: 1n
         $rewardCS.rewardTN: totalReward
         datum:
         totalRewardTokens = totalReward
         totalStake = 2 * minStake
-        key = null, next = aa1        
+        key = null, next = aa1,
+        configTN = abc
         "))
-    R2(("Output
-        $RewardPolicy.RFold: 1n 
+    O2(("Output
+        $RewardPolicy.RFold: 1n
         $rewardCS.rewardTN: rewardsLeft*
         datum:
         totalRewardTokens = totalReward
         totalStake = 2 * minStake
-        key = null, next = null        
+        key = null, next = null,
+        configTN = abc
         "))
     end
-    R1 --> TX
+    O1 --> TX
     N2 --> TX
     N3 --> TX
     I1 --> TX
-    TX --> R2
+    TX --> O2
     TX --> N4
     TX --> N5
+    R1(("Ref Input
+        $ConfigPolicy.abc: 1n
+        datum: StakingConfig")) -.-o TX
 ```
+
 > Note: [*] - If any reward tokens are left due to remainder from integer division in `(userStake * totalRewards) / totalStake`
 
-## Claim 
+## Claim
 
 Only after rewards are processed can the participants claim their stake and reward. They can do so by spending their stake UTxO from "Staking Validator" after signing transaction with private key belonging to the PaymentPubKeyHash as `key` in UTxO's datum.
 
@@ -459,3 +514,9 @@ Once the rewards are processed, project is free to claim any remaining project t
 ### **Deinitialize Head Node**
 
 The project is also free to reclaim the Head Node with the "minStake" and lovelaces present in it. It can only be done after the reward fold is initiated (Reward Fold Token datum has `next == *head node's next*`), therefore ensuring no information is lost.
+
+# Important Notes
+
+1. Its advisable to use three different wallets, each containing one Init UTxO (`configInitUTxO`, `stakingInitUTxO` & `rewardInitUTxO`). So that they aren’t spent before their respective Init transactions.
+2. Only `stakeTN` and `rewardTN` fields are expected to be UTF-8 encoded strings. All the other Currency Symbols/ Policy Ids and Token name strings are expected to Hex encoded strings.
+3. The offchain expects Cardano Native Token amounts in their lowest denomination/unit. For example, if the Stake Token is [MIN](https://cardanoscan.io/token/29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c64d494e) which has 6 decimal places and you want 10 MIN to be the minimum stake. You will have to configure `minimumStake`(field in `StakingConfig` and other Config objects) to be `10 * 10^6` (`Amount * 10 ^ Decimals`) i.e `10_000_000`. Similarly, the reponses obtained from the endpoint will provide CNT amount values in their lowest unit. Fields like `totalStake` & `totalReward` (in `CampaignState`) and `rewardAmount` in `InitTokenHolderConfig` adhere to this representation.
