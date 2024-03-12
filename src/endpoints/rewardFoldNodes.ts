@@ -210,9 +210,7 @@ export const rewardFoldNodes = async (
 
     return {
       type: "ok",
-      data: await (process.env.NODE_ENV == "emulator"
-        ? tx.complete()
-        : tx.complete({ nativeUplc: false })),
+      data: await tx.complete(),
     };
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };
