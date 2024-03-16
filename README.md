@@ -89,11 +89,11 @@ timeline
 
 Everything begins here with _Anastasia Labs_ configuring and providing the Smart Contracts, on-chain as Reference Scripts. Once these are available, Projects can reuse the same contracts for any number of new Staking Campaigns. The deployment phase comprises of below two actions.
 
-### **Build Scripts**
+### **Build Scripts** `buildScripts.ts`
 
 The contracts available from Single Asset Staking repository, require certain paramters to be applied. These parameters include `configCS` (policyId of ConfigPolicy) and script credentials in case of dependant scripts. This step involves providing contracts with the required parameters.
 
-### **Deploy Reference Scripts**
+### **Deploy Reference Scripts** `deployRefScripts.ts`
 
 This step uses the applied validators obtained above to create a [Reference Script UTxO](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0033) for every validator. In order to easily identify a particular validator on-chain, a native minting policy is used in conjuction. It mints an NFT with the validator name and is made available inside the RefUTxO. This native minting policy allows minting for a very short duration of _thirty mintues_ within which all the RefUTxOs must be created. All the RefUTxOs are sent to an "Always Fail Script" address ensuring they are immutable and locked forever.
 
@@ -125,7 +125,7 @@ graph LR
 
 Every Project which wants to create a new Staking Campaign will start from here. This phases consists of below three actions. Its only after this phase is completed that users can begin staking.
 
-### **Create Config UTxO**
+### **Create Config UTxO** `createConfig.ts`
 
 Every individual Staking Campaign begins by first creating a Config UTxO for it. It works like this:
 
@@ -169,7 +169,7 @@ graph LR
     TX --> O1
 ```
 
-### **Lock Rewards**
+### **Lock Rewards** `initTokenHolder.ts`
 
 Here project locks the entire staking reward in `tokenHolderValidator`. The total reward amount will be distributed among participants in proportion to their stake. Locking of rewards beforehand gives high assurance to all the participants before they can begin staking. One percent of total reward amount is paid as protocol fees for facilitating staking.
 
@@ -197,7 +197,7 @@ graph LR
         datum: StakingConfig")) -.-o TX
 ```
 
-### **Initialize Head Node**
+### **Initialize Head Node** `initNode.ts`
 
 This marks the beginning of the association list which will contain all the stake by different participants as separate UTxOs. The first node of the list know as head node is created in this step.
 
@@ -230,7 +230,7 @@ graph LR
 
 Now the Staking event is opened and users can participate by locking their stake in `nodeValidator` by updating the linked list. Before the stake is frozen, participants can choose to increase, decrease or remove their stake altogether.
 
-## Active Staking
+## Active Staking (`insertNode.ts`, `modifyNode.ts`, `removeNode.ts`)
 
 Once stake is frozen (configured by parameter `freezeStake :: POSIXTime`), the active staking phase begins for which the participants will be earning rewards. This phase lasts till `endStaking :: POSIXTime` as decided by the project. During this period, new participants cannot enter nor can the old ones modify their stake. However, existing stakers can still get their stake back if they choose to, by paying 25% of their stake as penalty fee.
 
@@ -242,7 +242,7 @@ Its done by first calculating and saving the total amount staked on-chain. Then 
 
 Following sequence of on-chain actions elaborate further on how rewards processing mechanism works.
 
-### **Initialize Commit Fold**
+### **Initialize Commit Fold** `initFold.ts`
 
 Commit Fold carries out the computation of total staked amount by going over all the linked list UTxOs one after the other in order. The current state of the computation, i.e. how far along the linked list it has summed and the current sum, is stored in a UTxO at `foldValidator`. This UTxO is uniquely identified with the presence of an NFT ($FoldPolicy.CFold) minted using `foldPolicy`. This initialization of commit UTxO is perfomed in this step.
 
@@ -292,9 +292,9 @@ graph LR
         datum: StakingConfig")) -.-o TX
 ```
 
-### **Complete Commit Fold**
+### **Complete Commit Fold** `multiFold.ts`
 
-Here one stake UTxO after another is used as reference input to calculate and update `totalStake` value in Commit Fold UTxO's datum. This is done till the end of list is not reached, at which point `next = null` in fold datum and `totalStake` is finally determined.
+Here one stake UTxO after another is used as reference input to calculate and update `totalStake` value in Commit Fold UTxO's datum. This is done till the end of list is not reached, at which point `next = null` in fold datum and `totalStake` is finally determined. This endpoint needs to be called repeatedly till `fetchCampaignState` in `fetchState.ts` does not return `CapaignStatus.StakeCalculationEnded` in its CampaignStatus field of CampaignState.
 
 ```mermaid
 ---
@@ -351,7 +351,7 @@ graph LR
 
 > Note: Head Node's stake is never taken into account.
 
-### **Initialize Reward Fold**
+### **Initialize Reward Fold** `initRewardFold.ts`
 
 Now that we have total staked amount available on-chain, we initialize the reward fold wherein a UTxO to `rewardFoldValidator` is sent. This contains total reward amount obtained from UTxO locked at "Token Holder Validator" along with `totalRewardTokens` and `totalStake` in its datum. Additionally, it has `$RewardPolicy.RFold` NFT minted from "Reward Policy" which validates that the initialization is carried out accurately.
 
@@ -424,9 +424,9 @@ graph LR
 
 > Note: Upon undergoing rewards fold a UTxO has to pay 1 ADA folding fee.
 
-### **Complete Reward Fold**
+### **Complete Reward Fold** `rewardFoldNodes.ts`
 
-With Reward Fold UTxO initialized with rewards and other essential information, rewards can be distributed into individual stake UTxO. This is similar to commit fold, with UTxO after head node being processed first and other UTxOs in the order they appear in list. Rewards fold gets concluded when `next = null` on processing the last UTxO of the list. Upon undergoing rewards fold a UTxO has to pay 1 ADA folding fee.
+With Reward Fold UTxO initialized with rewards and other essential information, rewards can be distributed into individual stake UTxO. This is similar to commit fold, with UTxO after head node being processed first and other UTxOs in the order they appear in list. Rewards fold gets concluded when `next = null` on processing the last UTxO of the list. Upon undergoing rewards fold a UTxO has to pay 1 ADA folding fee. This endpoint needs to be called repeatedly till `fetchCampaignState` in `fetchState.ts` does not return `CapaignStatus.UserClaimsAllowed` in its CampaignStatus field of CampaignState.
 
 ```mermaid
 ---
@@ -503,15 +503,15 @@ graph LR
 
 > Note: [*] - If any reward tokens are left due to remainder from integer division in `(userStake * totalRewards) / totalStake`
 
-## Claim
+## Claim `claimNode.ts`
 
 Only after rewards are processed can the participants claim their stake and reward. They can do so by spending their stake UTxO from "Staking Validator" after signing transaction with private key belonging to the PaymentPubKeyHash as `key` in UTxO's datum.
 
-### **Project Reclaims Reward**
+### **Project Reclaims Reward** `reclaimReward.ts`
 
 Once the rewards are processed, project is free to claim any remaining project tokens left in "Reward Fold UTxO" along with any lovelaces present. They'll have to additionally burn "$RewardPolicy.RFold" token for this, which is only allowed when `next = null` i.e. all rewards are processed.
 
-### **Deinitialize Head Node**
+### **Deinitialize Head Node** `dinitNode.ts`
 
 The project is also free to reclaim the Head Node with the "minStake" and lovelaces present in it. It can only be done after the reward fold is initiated (Reward Fold Token datum has `next == *head node's next*`), therefore ensuring no information is lost.
 
