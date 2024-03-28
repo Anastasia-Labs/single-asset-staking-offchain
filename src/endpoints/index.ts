@@ -1,6 +1,7 @@
 export * from "./createConfig.js";
 export * from "./fetchConfig.js";
 export * from "./fetchState.js";
+export * from "./initStaking.js";
 export * from "./initNode.js";
 export * from "./dinitNode.js";
 export * from "./insertNode.js";

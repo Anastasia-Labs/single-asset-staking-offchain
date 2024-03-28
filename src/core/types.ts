@@ -78,6 +78,24 @@ export type InitTokenHolderConfig = {
   };
 };
 
+export type InitStakingConfig = {
+  configTN: string;
+  stakingInitUTXO: UTxO;
+  stakeCS: PolicyId;
+  stakeTN: string;
+  rewardCS: string;
+  rewardTN: string;
+  rewardAmount: number;
+  minimumStake: number;
+  refScripts: {
+    configPolicy: UTxO;
+    nodePolicy: UTxO;
+    nodeValidator: UTxO;
+    tokenHolderPolicy: UTxO;
+    tokenHolderValidator: UTxO;
+  };
+};
+
 export type InitNodeConfig = {
   configTN: string;
   stakingInitUTXO: UTxO;
