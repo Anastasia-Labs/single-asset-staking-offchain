@@ -60,7 +60,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       penaltyAddress: users.treasury1.address,
       stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       stakeTN: "MIN",
-      minimumStake: 1_000,
+      minimumStake: 1_000_000_000_000,
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       rewardTN: "MIN",
     },
@@ -94,7 +94,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     stakingInitUTXO: treasuryUTxO,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
-    minimumStake: 1000,
+    minimumStake: 1_000_000_000_000,
     refScripts: refUTxOs,
   };
   const initNodeUnsigned = await initNode(lucid, initNodeConfig);
@@ -130,8 +130,8 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     refScripts: refUTxOs,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
-    minimumStake: 1_000,
-    toStake: 4_000,
+    minimumStake: 1_000_000_000_000,
+    toStake: 1_001_000_000_000,
     freezeStake: currentTime + ONE_HOUR_MS,
     currentTime: emulator.now(),
   };
@@ -170,8 +170,8 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     refScripts: refUTxOs,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
-    minimumStake: 1_000,
-    toStake: 5_000,
+    minimumStake: 1_000_000_000_000,
+    toStake: 1_002_000_000_000,
     freezeStake: currentTime + ONE_HOUR_MS,
     currentTime: emulator.now(),
   };
@@ -209,8 +209,8 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     refScripts: refUTxOs,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
-    minimumStake: 1_000,
-    toStake: 10_000,
+    minimumStake: 1_000_000_000_000,
+    toStake: 1_022_000_000_000,
     freezeStake: currentTime + ONE_HOUR_MS,
     currentTime: emulator.now(),
   };
@@ -234,8 +234,8 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     refScripts: refUTxOs,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
-    minimumStake: 1_000,
-    toStake: 1_000,
+    minimumStake: 1_000_000_000_000,
+    toStake: 1_000_000_000_000,
     freezeStake: currentTime + ONE_HOUR_MS,
     currentTime: emulator.now(),
   };

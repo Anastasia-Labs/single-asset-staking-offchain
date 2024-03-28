@@ -1,34 +1,37 @@
 import {
-  createConfig,
   CreateConfig,
-  FoldDatum,
-  initFold,
-  InitFoldConfig,
   initNode,
   InitNodeConfig,
+  initTokenHolder,
+  InitTokenHolderConfig,
   ONE_HOUR_MS,
   parseUTxOsAtScript,
   replacer,
   SetNode,
   TWENTY_FOUR_HOURS_MS,
+  createConfig,
+  FetchConfig,
+  fetchConfigReadableUTxO,
+  utxosAtScript,
+  InitStakingConfig,
+  initStaking,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
 import {
   buildDeployFetchRefScripts,
   initializeLucidContext,
-  insertThreeNodes,
   LucidContext,
 } from "./setup.js";
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode - account3 insertNode - treasury1 initFold", async ({
+test<LucidContext>("Test - deploy - createConfig - initStaking", async ({
   lucid,
   users,
   emulator,
 }) => {
-  const logFlag = false;
+  const logFlag = true;
 
   const [treasuryUTxO] = await lucid
     .selectWalletFrom({ address: users.treasury1.address })
@@ -54,7 +57,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   const createConfigObj: CreateConfig = {
     stakingConfig: {
       stakingInitUTXO: treasuryUTxO,
-      rewardInitUTXO: reward1UTxO,
+      rewardInitUTXO: treasuryUTxO,
       freezeStake: currentTime + ONE_HOUR_MS,
       endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
       penaltyAddress: users.treasury1.address,
@@ -86,28 +89,50 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
 
   emulator.awaitBlock(4);
 
-  // INIT NODE
-  const initNodeConfig: InitNodeConfig = {
+  const fetchConfig: FetchConfig = {
+    configTN: configTN,
+    refScripts: refUTxOs,
+  };
+  const configUTxOResponse = await fetchConfigReadableUTxO(lucid, fetchConfig);
+  if (configUTxOResponse.type == "error") return configUTxOResponse;
+
+  // console.log(configUTxOResponse);
+
+  // INIT STAKING
+  const initStakingConfig: InitStakingConfig = {
     configTN: configTN,
     stakingInitUTXO: treasuryUTxO,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
     minimumStake: 1_000_000_000_000,
+    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "MIN",
+    rewardAmount: 8_000_000_000_000,
     refScripts: refUTxOs,
   };
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const initNodeUnsigned = await initNode(lucid, initNodeConfig);
+  const initStakingUnsigned = await initStaking(lucid, initStakingConfig);
+  // console.log(initStakingUnsigned);
 
-  expect(initNodeUnsigned.type).toBe("ok");
-  if (initNodeUnsigned.type == "error") return;
-
-  const initNodeSigned = await initNodeUnsigned.data.sign().complete();
-  const initNodeHash = await initNodeSigned.submit();
-  // console.log(initNodeHash)
+  expect(initStakingUnsigned.type).toBe("ok");
+  if (initStakingUnsigned.type == "error") return;
+  // console.log(tx.data.txComplete.to_json())
+  const initStakingSigned = await initStakingUnsigned.data.sign().complete();
+  await initStakingSigned.submit();
 
   emulator.awaitBlock(4);
+  logFlag
+    ? console.log(
+        "utxos at tokenholderScript",
+        await utxosAtScript(
+          lucid,
+          refUTxOs.tokenHolderValidator.scriptRef?.script!,
+        ),
+      )
+    : null;
 
+  emulator.awaitBlock(4);
   logFlag
     ? console.log(
         "initNode result ",
@@ -116,69 +141,6 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
             lucid,
             refUTxOs.nodeValidator.scriptRef?.script!,
             SetNode,
-          ),
-          replacer,
-          2,
-        ),
-      )
-    : null;
-
-  // INSERT NODES, ACCOUNT 1 -> ACCOUNT 2 -> ACCOUNT 3
-  const freezeStake = currentTime + ONE_HOUR_MS;
-  await insertThreeNodes(
-    lucid,
-    emulator,
-    users,
-    configTN,
-    refUTxOs,
-    freezeStake,
-    logFlag,
-  );
-
-  // Incorrect INIT FOLD - Init before endStaking
-
-  const initFoldConfig: InitFoldConfig = {
-    refScripts: refUTxOs,
-    configTN: configTN,
-    currentTime: emulator.now(),
-  };
-
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const initFoldUnsignedF = await initFold(lucid, initFoldConfig);
-
-  // console.log(initFoldUnsignedF);
-  expect(initFoldUnsignedF.type).toBe("error");
-  if (initFoldUnsignedF.type == "ok") return;
-
-  // Wait for endStaking to pass
-  emulator.awaitBlock(5000);
-
-  // INIT FOLD
-
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const initFoldUnsigned = await initFold(lucid, {
-    ...initFoldConfig,
-    currentTime: emulator.now(),
-  });
-
-  // console.log(initFoldUnsigned);
-  expect(initFoldUnsigned.type).toBe("ok");
-  if (initFoldUnsigned.type == "error") return;
-  // console.log(insertNodeUnsigned.data.txComplete.to_json())
-
-  const initFoldSigned = await initFoldUnsigned.data.sign().complete();
-  const initFoldHash = await initFoldSigned.submit();
-
-  emulator.awaitBlock(100);
-
-  logFlag
-    ? console.log(
-        "init fold result",
-        JSON.stringify(
-          await parseUTxOsAtScript(
-            lucid,
-            refUTxOs.foldValidator.scriptRef?.script!,
-            FoldDatum,
           ),
           replacer,
           2,

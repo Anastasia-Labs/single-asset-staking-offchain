@@ -51,35 +51,35 @@ export async function initializeLucidContext(context: LucidContext) {
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
         fromText("MIN"),
-      )]: BigInt(10_000_000),
+      )]: BigInt(10_000_000_000_000),
     }),
     reward1: await generateAccountSeedPhrase({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
         fromText("MIN"),
-      )]: BigInt(100_000_000),
+      )]: BigInt(10_000_000_000_000),
     }),
     account1: await generateAccountSeedPhrase({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
         fromText("MIN"),
-      )]: BigInt(10_000_000),
+      )]: BigInt(2_000_000_000_000),
     }),
     account2: await generateAccountSeedPhrase({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
         fromText("MIN"),
-      )]: BigInt(10_000_000),
+      )]: BigInt(2_000_000_000_000),
     }),
     account3: await generateAccountSeedPhrase({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
         fromText("MIN"),
-      )]: BigInt(10_000_000),
+      )]: BigInt(2_000_000_000_000),
     }),
   };
 
@@ -185,8 +185,8 @@ export async function insertThreeNodes(
     refScripts: refUTxOs,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
-    minimumStake: 1_000,
-    toStake: 4_000,
+    minimumStake: 1_000_000_000_000,
+    toStake: 1_000_000_000_000,
     freezeStake: freezeStake,
     currentTime: emulator.now(),
   };
@@ -209,7 +209,7 @@ export async function insertThreeNodes(
 
   const insertNodeConfig2: InsertNodeConfig = {
     ...insertNodeConfig,
-    toStake: 5_000,
+    toStake: 1_002_000_000_000,
     currentTime: emulator.now(),
   };
 
@@ -228,7 +228,7 @@ export async function insertThreeNodes(
 
   const insertNodeConfig3: InsertNodeConfig = {
     ...insertNodeConfig,
-    toStake: 5_000,
+    toStake: 1_003_000_000_000,
     currentTime: emulator.now(),
   };
 

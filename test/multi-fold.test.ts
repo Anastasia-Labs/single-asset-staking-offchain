@@ -62,7 +62,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
       penaltyAddress: users.treasury1.address,
       stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       stakeTN: "MIN",
-      minimumStake: 1_000,
+      minimumStake: 1_000_000_000_000,
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       rewardTN: "MIN",
     },
@@ -96,7 +96,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
     stakingInitUTXO: treasuryUTxO,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
-    minimumStake: 1000,
+    minimumStake: 1_000_000_000_000,
     refScripts: refUTxOs,
   };
 
