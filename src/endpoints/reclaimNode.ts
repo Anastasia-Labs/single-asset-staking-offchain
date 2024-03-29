@@ -1,6 +1,7 @@
 import { Lucid, TxComplete } from "@anastasia-labs/lucid-cardano-fork";
 import { RemoveNodeConfig, Result } from "../core/types.js";
-import { claimNode, removeNode } from "../index.js";
+import { claimNode } from "./claimNode.js";
+import { removeNode } from "./removeNode.js";
 
 export const reclaimNode = async (
   lucid: Lucid,

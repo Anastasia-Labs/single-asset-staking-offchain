@@ -19,7 +19,7 @@ import {
   RemoveNodeConfig,
   dinitNode,
   DInitNodeConfig,
-  claimNode,
+  reclaimNode,
   FoldDatum,
   createConfig,
   CreateConfig,
@@ -512,7 +512,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   };
 
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
-  const removeNodeUnsigned = await claimNode(lucid, removeNodeConfig);
+  const removeNodeUnsigned = await reclaimNode(lucid, removeNodeConfig);
   // console.log(removeNodeUnsigned);
   expect(removeNodeUnsigned.type).toBe("ok");
   if (removeNodeUnsigned.type == "error") return;

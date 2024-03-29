@@ -10,8 +10,6 @@ import {
   ONE_HOUR_MS,
   parseUTxOsAtScript,
   replacer,
-  RewardFoldNodeConfig,
-  sortByOutRefWithIndex,
   TWENTY_FOUR_HOURS_MS,
   utxosAtScript,
   SetNode,
@@ -19,7 +17,7 @@ import {
   RemoveNodeConfig,
   RewardFoldNodesConfig,
   rewardFoldNodes,
-  claimNode,
+  reclaimNode,
   CreateConfig,
   createConfig,
   FoldDatum,
@@ -321,7 +319,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   };
 
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
-  const removeNodeUnsigned = await claimNode(lucid, removeNodeConfig);
+  const removeNodeUnsigned = await reclaimNode(lucid, removeNodeConfig);
   // console.log(removeNodeUnsigned);
   expect(removeNodeUnsigned.type).toBe("ok");
   if (removeNodeUnsigned.type == "error") return;

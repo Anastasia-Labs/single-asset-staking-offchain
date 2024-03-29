@@ -5,7 +5,7 @@ import {
   InitStakingConfig,
   ONE_HOUR_MS,
   parseUTxOsAtScript,
-  removeNode,
+  reclaimNode,
   RemoveNodeConfig,
   replacer,
   SetNode,
@@ -167,7 +167,7 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
   };
 
   lucid.selectWalletFromSeed(users.account1.seedPhrase);
-  const removeNodeUnsigned = await removeNode(lucid, removeNodeConfig);
+  const removeNodeUnsigned = await reclaimNode(lucid, removeNodeConfig);
   // console.log(removeNodeUnsigned);
 
   expect(removeNodeUnsigned.type).toBe("ok");
@@ -205,7 +205,7 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
   // REMOVE NODE 2
 
   lucid.selectWalletFromSeed(users.account2.seedPhrase);
-  const removeNodeUnsigned2 = await removeNode(lucid, {
+  const removeNodeUnsigned2 = await reclaimNode(lucid, {
     ...removeNodeConfig,
     currentTime: emulator.now(),
   });
@@ -242,7 +242,7 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
   // FAIL REMOVE NODE 2
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const removeNodeUnsigned3 = await removeNode(lucid, {
+  const removeNodeUnsigned3 = await reclaimNode(lucid, {
     ...removeNodeConfig,
     currentTime: emulator.now(),
   });
@@ -277,7 +277,7 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
   // FAIL REMOVE NODE 3
 
   lucid.selectWalletFromSeed(users.account3.seedPhrase);
-  const removeNodeUnsigned4 = await removeNode(lucid, {
+  const removeNodeUnsigned4 = await reclaimNode(lucid, {
     ...removeNodeConfig,
     currentTime: emulator.now(),
   });
