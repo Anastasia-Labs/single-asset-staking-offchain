@@ -1,8 +1,8 @@
 import {
   CreateConfig,
   createConfig,
-  initNode,
-  InitNodeConfig,
+  initStaking,
+  InitStakingConfig,
   ONE_HOUR_MS,
   parseUTxOsAtScript,
   removeNode,
@@ -22,7 +22,7 @@ import {
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode - account3 insertNode - account2 removeNode", async ({
+test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNode - account3 insertNode - account2 removeNode", async ({
   lucid,
   users,
   emulator,
@@ -32,9 +32,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   const [treasuryUTxO] = await lucid
     .selectWalletFrom({ address: users.treasury1.address })
     .wallet.getUtxos();
-  const [reward1UTxO] = await lucid
-    .selectWalletFrom({ address: users.reward1.address })
-    .wallet.getUtxos();
+
   const [configUTxO] = await lucid
     .selectWalletFrom({ address: users.account1.address })
     .wallet.getUtxos();
@@ -53,7 +51,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   const createConfigObj: CreateConfig = {
     stakingConfig: {
       stakingInitUTXO: treasuryUTxO,
-      rewardInitUTXO: reward1UTxO,
+
       freezeStake: currentTime + ONE_HOUR_MS,
       endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
       penaltyAddress: users.treasury1.address,
@@ -85,29 +83,34 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
 
   emulator.awaitBlock(4);
 
-  // INIT NODE
-  const initNodeConfig: InitNodeConfig = {
+  // INIT STAKING
+  const initStakingConfig: InitStakingConfig = {
     configTN: configTN,
     stakingInitUTXO: treasuryUTxO,
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
     minimumStake: 1_000_000_000_000,
+    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "MIN",
+    rewardAmount: 8_000_000_000_000,
     refScripts: refUTxOs,
   };
+
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const initNodeUnsigned = await initNode(lucid, initNodeConfig);
+  const initStakingUnsigned = await initStaking(lucid, initStakingConfig);
+  // console.log(initStakingUnsigned);
 
-  expect(initNodeUnsigned.type).toBe("ok");
-  if (initNodeUnsigned.type == "error") return;
-
-  const initNodeSigned = await initNodeUnsigned.data.sign().complete();
-  const initNodeHash = await initNodeSigned.submit();
+  expect(initStakingUnsigned.type).toBe("ok");
+  if (initStakingUnsigned.type == "error") return;
+  // console.log(tx.data.txComplete.to_json())
+  const initStakingSigned = await initStakingUnsigned.data.sign().complete();
+  await initStakingSigned.submit();
 
   emulator.awaitBlock(4);
 
   logFlag
     ? console.log(
-        "initNode result ",
+        "initStaking result ",
         JSON.stringify(
           await parseUTxOsAtScript(
             lucid,

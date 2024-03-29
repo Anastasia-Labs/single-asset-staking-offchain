@@ -53,13 +53,6 @@ export async function initializeLucidContext(context: LucidContext) {
         fromText("MIN"),
       )]: BigInt(10_000_000_000_000),
     }),
-    reward1: await generateAccountSeedPhrase({
-      lovelace: BigInt(500_000_000),
-      [toUnit(
-        "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-        fromText("MIN"),
-      )]: BigInt(10_000_000_000_000),
-    }),
     account1: await generateAccountSeedPhrase({
       lovelace: BigInt(500_000_000),
       [toUnit(
@@ -85,7 +78,6 @@ export async function initializeLucidContext(context: LucidContext) {
 
   context.emulator = new Emulator([
     context.users.treasury1,
-    context.users.reward1,
     context.users.account1,
     context.users.account2,
     context.users.account3,

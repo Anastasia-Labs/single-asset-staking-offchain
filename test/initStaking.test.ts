@@ -1,9 +1,5 @@
 import {
   CreateConfig,
-  initNode,
-  InitNodeConfig,
-  initTokenHolder,
-  InitTokenHolderConfig,
   ONE_HOUR_MS,
   parseUTxOsAtScript,
   replacer,
@@ -36,9 +32,7 @@ test<LucidContext>("Test - deploy - createConfig - initStaking", async ({
   const [treasuryUTxO] = await lucid
     .selectWalletFrom({ address: users.treasury1.address })
     .wallet.getUtxos();
-  const [reward1UTxO] = await lucid
-    .selectWalletFrom({ address: users.reward1.address })
-    .wallet.getUtxos();
+
   const [configUTxO] = await lucid
     .selectWalletFrom({ address: users.account1.address })
     .wallet.getUtxos();
@@ -57,7 +51,6 @@ test<LucidContext>("Test - deploy - createConfig - initStaking", async ({
   const createConfigObj: CreateConfig = {
     stakingConfig: {
       stakingInitUTXO: treasuryUTxO,
-      rewardInitUTXO: treasuryUTxO,
       freezeStake: currentTime + ONE_HOUR_MS,
       endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
       penaltyAddress: users.treasury1.address,
@@ -135,7 +128,7 @@ test<LucidContext>("Test - deploy - createConfig - initStaking", async ({
   emulator.awaitBlock(4);
   logFlag
     ? console.log(
-        "initNode result ",
+        "initStaking result ",
         JSON.stringify(
           await parseUTxOsAtScript(
             lucid,
