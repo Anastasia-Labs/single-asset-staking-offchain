@@ -20,7 +20,7 @@ import {
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode - account3 insertNode - treasury1 initFold", async ({
+test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNode - account3 insertNode - treasury1 initFold", async ({
   lucid,
   users,
   emulator,
@@ -30,9 +30,7 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   const [treasuryUTxO] = await lucid
     .selectWalletFrom({ address: users.treasury1.address })
     .wallet.getUtxos();
-  const [reward1UTxO] = await lucid
-    .selectWalletFrom({ address: users.reward1.address })
-    .wallet.getUtxos();
+
   const [configUTxO] = await lucid
     .selectWalletFrom({ address: users.account1.address })
     .wallet.getUtxos();
@@ -51,13 +49,13 @@ test<LucidContext>("Test - initNode - account1 insertNode - account2 insertNode 
   const createConfigObj1: CreateConfig = {
     stakingConfig: {
       stakingInitUTXO: treasuryUTxO,
-      rewardInitUTXO: reward1UTxO,
+
       freezeStake: currentTime + ONE_HOUR_MS,
       endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
       penaltyAddress: users.treasury1.address,
       stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       stakeTN: "MIN",
-      minimumStake: 1_000,
+      minimumStake: 1_000_000_000_000,
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       rewardTN: "MIN",
     },

@@ -28,7 +28,6 @@ export type AssetClass = {
 export type CreateConfig = {
   stakingConfig: {
     stakingInitUTXO: UTxO;
-    rewardInitUTXO: UTxO;
     freezeStake: POSIXTime;
     endStaking: POSIXTime;
     penaltyAddress: Address;
@@ -65,34 +64,29 @@ export type FetchRefScriptsConfig = {
   alwaysFails: CborHex;
 };
 
-export type InitTokenHolderConfig = {
-  configTN: string;
-  rewardInitUTXO: UTxO;
-  rewardCS: string;
-  rewardTN: string;
-  rewardAmount: number;
-  refScripts: {
-    configPolicy: UTxO;
-    tokenHolderPolicy: UTxO;
-    tokenHolderValidator: UTxO;
-  };
-};
-
-export type InitNodeConfig = {
+export type InitStakingConfig = {
   configTN: string;
   stakingInitUTXO: UTxO;
   stakeCS: PolicyId;
   stakeTN: string;
+  rewardCS: string;
+  rewardTN: string;
+  rewardAmount: number;
   minimumStake: number;
   refScripts: {
     configPolicy: UTxO;
     nodePolicy: UTxO;
     nodeValidator: UTxO;
+    tokenHolderPolicy: UTxO;
+    tokenHolderValidator: UTxO;
   };
 };
 
 export type DInitNodeConfig = {
   configTN: string;
+  penaltyAddress: Address;
+  stakeCS: PolicyId;
+  stakeTN: string;
   refScripts: {
     configPolicy: UTxO;
     nodePolicy: UTxO;
@@ -219,6 +213,7 @@ export type InitRewardFoldConfig = {
   configTN: string;
   rewardCS: string;
   rewardTN: string;
+  penaltyAddress: Address;
   refScripts: {
     configPolicy: UTxO;
     nodeValidator: UTxO;
@@ -267,6 +262,30 @@ export type RewardFoldNodesConfig = {
   stakeCS: PolicyId;
   stakeTN: string;
   currentTime?: POSIXTime;
+};
+
+export type ProcessRewardsConfig = {
+  configTN: string;
+  nodeUTxOs?: UTxO[];
+  rewardCS: string;
+  rewardTN: string;
+  stakeCS: PolicyId;
+  stakeTN: string;
+  endStaking: POSIXTime;
+  freezeStake: POSIXTime;
+  penaltyAddress: Address;
+  refScripts: {
+    configPolicy: UTxO;
+    nodeValidator: UTxO;
+    nodePolicy: UTxO;
+    nodeStakeValidator: UTxO;
+    foldPolicy: UTxO;
+    foldValidator: UTxO;
+    rewardFoldPolicy: UTxO;
+    rewardFoldValidator: UTxO;
+    tokenHolderPolicy: UTxO;
+    tokenHolderValidator: UTxO;
+  };
 };
 
 export type BuildScriptsConfig = {

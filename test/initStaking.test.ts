@@ -1,9 +1,5 @@
 import {
   CreateConfig,
-  initNode,
-  InitNodeConfig,
-  initTokenHolder,
-  InitTokenHolderConfig,
   ONE_HOUR_MS,
   parseUTxOsAtScript,
   replacer,
@@ -13,6 +9,8 @@ import {
   FetchConfig,
   fetchConfigReadableUTxO,
   utxosAtScript,
+  InitStakingConfig,
+  initStaking,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
@@ -24,19 +22,17 @@ import {
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", async ({
+test<LucidContext>("Test - deploy - createConfig - initStaking", async ({
   lucid,
   users,
   emulator,
 }) => {
-  const logFlag = false;
+  const logFlag = true;
 
   const [treasuryUTxO] = await lucid
     .selectWalletFrom({ address: users.treasury1.address })
     .wallet.getUtxos();
-  const [reward1UTxO] = await lucid
-    .selectWalletFrom({ address: users.reward1.address })
-    .wallet.getUtxos();
+
   const [configUTxO] = await lucid
     .selectWalletFrom({ address: users.account1.address })
     .wallet.getUtxos();
@@ -55,13 +51,12 @@ test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", 
   const createConfigObj: CreateConfig = {
     stakingConfig: {
       stakingInitUTXO: treasuryUTxO,
-      rewardInitUTXO: reward1UTxO,
       freezeStake: currentTime + ONE_HOUR_MS,
       endStaking: currentTime + ONE_HOUR_MS + TWENTY_FOUR_HOURS_MS,
       penaltyAddress: users.treasury1.address,
       stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       stakeTN: "MIN",
-      minimumStake: 1_000,
+      minimumStake: 1_000_000_000_000,
       rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       rewardTN: "MIN",
     },
@@ -96,30 +91,28 @@ test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", 
 
   // console.log(configUTxOResponse);
 
-  // INIT PROJECT TOKEN HOLDER
-  const initTokenHolderConfig: InitTokenHolderConfig = {
+  // INIT STAKING
+  const initStakingConfig: InitStakingConfig = {
     configTN: configTN,
-    rewardInitUTXO: reward1UTxO,
+    stakingInitUTXO: treasuryUTxO,
+    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    stakeTN: "MIN",
+    minimumStake: 1_000_000_000_000,
     rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     rewardTN: "MIN",
-    rewardAmount: 90_000_000,
+    rewardAmount: 8_000_000_000_000,
     refScripts: refUTxOs,
   };
 
-  lucid.selectWalletFromSeed(users.reward1.seedPhrase);
-  const initTokenHolderUnsigned = await initTokenHolder(
-    lucid,
-    initTokenHolderConfig,
-  );
-  // console.log(initTokenHolderUnsigned);
+  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  const initStakingUnsigned = await initStaking(lucid, initStakingConfig);
+  // console.log(initStakingUnsigned);
 
-  expect(initTokenHolderUnsigned.type).toBe("ok");
-  if (initTokenHolderUnsigned.type == "ok") {
-    const initTokenHolderSigned = await initTokenHolderUnsigned.data
-      .sign()
-      .complete();
-    const initTokenHolderHash = await initTokenHolderSigned.submit();
-  }
+  expect(initStakingUnsigned.type).toBe("ok");
+  if (initStakingUnsigned.type == "error") return;
+  // console.log(tx.data.txComplete.to_json())
+  const initStakingSigned = await initStakingUnsigned.data.sign().complete();
+  await initStakingSigned.submit();
 
   emulator.awaitBlock(4);
   logFlag
@@ -132,30 +125,10 @@ test<LucidContext>("Test - deploy - createConfig - initTokenHolder - initNode", 
       )
     : null;
 
-  // INIT NODE - treasury1 account
-  const initNodeConfig: InitNodeConfig = {
-    configTN: configTN,
-    stakingInitUTXO: treasuryUTxO,
-    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    stakeTN: "MIN",
-    minimumStake: 1000,
-    refScripts: refUTxOs,
-  };
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const initNodeUnsigned = await initNode(lucid, initNodeConfig);
-  // console.log(initNodeUnsigned);
-
-  expect(initNodeUnsigned.type).toBe("ok");
-  if (initNodeUnsigned.type == "error") return;
-  // console.log(tx.data.txComplete.to_json())
-  const initNodeSigned = await initNodeUnsigned.data.sign().complete();
-  const initNodeHash = await initNodeSigned.submit();
-  // console.log(initNodeHash)
-
   emulator.awaitBlock(4);
   logFlag
     ? console.log(
-        "initNode result ",
+        "initStaking result ",
         JSON.stringify(
           await parseUTxOsAtScript(
             lucid,

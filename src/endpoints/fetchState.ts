@@ -212,7 +212,7 @@ export const checkRewardFoldState = async (
         return campaignStateRes;
       }
     } else {
-      // TODO fix this check as it has weak guarantees of confirming that
+      // TODO improve this check as it has weak guarantees of confirming that
       // reward fold concluded, head deinit and reward reclaimed.
       campaignStateRes.data.campaignStatus = CampaignStatus.UserClaimsAllowed;
       return campaignStateRes;

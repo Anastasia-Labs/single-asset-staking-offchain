@@ -5,6 +5,7 @@ import {
   Data,
   toUnit,
   TxComplete,
+  fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
 import { MIN_ADA, originNodeTokenName } from "../core/constants.js";
 import {
@@ -55,6 +56,8 @@ export const dinitNode = async (
   const configUTxOResponse = await fetchConfigUTxO(lucid, config);
   if (configUTxOResponse.type == "error") return configUTxOResponse;
 
+  const stakeToken = toUnit(config.stakeCS, fromText(config.stakeTN));
+
   try {
     const tx = await lucid
       .newTx()
@@ -63,6 +66,9 @@ export const dinitNode = async (
         Data.to("LinkedListAct", NodeValidatorAction),
       )
       .mintAssets(assets, redeemerNodePolicy)
+      .payToAddress(config.penaltyAddress, {
+        [stakeToken]: headNodeUTxO.data.assets[stakeToken],
+      })
       .readFrom([
         config.refScripts.nodePolicy,
         config.refScripts.nodeValidator,

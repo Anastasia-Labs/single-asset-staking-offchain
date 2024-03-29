@@ -5,6 +5,7 @@ import {
   TxComplete,
   MintingPolicy,
   toUnit,
+  fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
 import {
   RewardFoldDatum,
@@ -71,6 +72,8 @@ export const reclaimReward = async (
   const configUTxOResponse = await fetchConfigUTxO(lucid, config);
   if (configUTxOResponse.type == "error") return configUTxOResponse;
 
+  const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
+
   try {
     const tx = await lucid
       .newTx()
@@ -79,6 +82,9 @@ export const reclaimReward = async (
         { [toUnit(rewardFoldPolicyId, rFold)]: -1n },
         Data.to("BurnRewardFold", RewardFoldMintAct),
       )
+      .payToAddress(config.penaltyAddress, {
+        [rewardToken]: rewardUTxO.data.assets[rewardToken],
+      })
       .addSigner(userAddr)
       .readFrom([
         config.refScripts.rewardFoldValidator,

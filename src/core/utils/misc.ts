@@ -3,6 +3,7 @@ import {
   Data,
   Lucid,
   SpendingValidator,
+  TxComplete,
   UTxO,
   Unit,
   fromText,
@@ -12,6 +13,8 @@ import { FoldDatum, RewardFoldDatum, SetNode } from "../contract.types.js";
 import { Either, ReadableUTxO, Result } from "../types.js";
 import { mkNodeKeyTN } from "./utils.js";
 import { CFOLD, RFOLD, RTHOLDER, originNodeTokenName } from "../constants.js";
+import { setTimeout } from "timers/promises";
+import { match } from "ts-pattern";
 
 export const utxosAtScript = async (
   lucid: Lucid,
@@ -522,3 +525,85 @@ export const replacer = (key: unknown, value: unknown) =>
 export const divCeil = (a: bigint, b: bigint) => {
   return 1n + (a - 1n) / b;
 };
+
+export async function timeoutAsync<T>(
+  asyncFunction: () => Promise<T>,
+  timeoutMs: number,
+): Promise<Result<T>> {
+  const race = await Promise.race([
+    asyncFunction(),
+    setTimeout(timeoutMs, new Error("timeout async")),
+  ]);
+  return race instanceof Error
+    ? { type: "error", error: race }
+    : { type: "ok", data: race };
+}
+
+export async function safeAsync<T>(
+  asyncFunction: () => Promise<T>,
+): Promise<Result<T>> {
+  try {
+    const data = await asyncFunction();
+    return { type: "ok", data };
+  } catch (error) {
+    return {
+      type: "error",
+      error: error instanceof Error ? error : new Error(JSON.stringify(error)),
+    };
+  }
+}
+
+// The below structure allows for modular error handling and
+// it adds type safety for async functions and timeouts async functions
+export async function signSubmitValidate(
+  lucid: Lucid,
+  txComplete: Result<TxComplete>,
+): Promise<boolean> {
+  const tx = match(txComplete)
+    .with({ type: "ok" }, (tx) => tx.data)
+    .otherwise((error) => {
+      console.log(error);
+      return null;
+    });
+  if (!tx) return false;
+
+  const signed = match(await safeAsync(async () => tx.sign().complete()))
+    .with({ type: "ok" }, (signed) => signed.data)
+    .otherwise((error) => {
+      console.log(error);
+      return null;
+    });
+  if (!signed) return false;
+
+  const submitted = match(await safeAsync(async () => signed.submit()))
+    .with({ type: "ok" }, (submmited) => submmited.data)
+    .otherwise((error) => {
+      console.log(error);
+      return null;
+    });
+  if (!submitted) return false;
+
+  const awaited = match(
+    await timeoutAsync(async () => lucid.awaitTx(submitted), 120_000),
+  )
+    .with({ type: "ok" }, () => {
+      console.log(`txSubmitted txHash: ${submitted}`);
+      return true;
+    })
+    .otherwise((error) => {
+      console.log(error);
+      return false;
+    });
+
+  return awaited;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function catchErrorHandling(error: any, errorMsg: string): Result<any> {
+  if (error instanceof Error) return { type: "error", error: error };
+  else
+    return {
+      type: "error",
+      error: new Error(errorMsg + JSON.stringify(error)),
+    };
+}
