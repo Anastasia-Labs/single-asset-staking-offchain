@@ -111,6 +111,9 @@ export type InitNodeConfig = {
 
 export type DInitNodeConfig = {
   configTN: string;
+  penaltyAddress: Address;
+  stakeCS: PolicyId;
+  stakeTN: string;
   refScripts: {
     configPolicy: UTxO;
     nodePolicy: UTxO;
@@ -237,6 +240,7 @@ export type InitRewardFoldConfig = {
   configTN: string;
   rewardCS: string;
   rewardTN: string;
+  penaltyAddress: Address;
   refScripts: {
     configPolicy: UTxO;
     nodeValidator: UTxO;
@@ -285,6 +289,30 @@ export type RewardFoldNodesConfig = {
   stakeCS: PolicyId;
   stakeTN: string;
   currentTime?: POSIXTime;
+};
+
+export type ProcessRewardsConfig = {
+  configTN: string;
+  nodeUTxOs?: UTxO[];
+  rewardCS: string;
+  rewardTN: string;
+  stakeCS: PolicyId;
+  stakeTN: string;
+  endStaking: POSIXTime;
+  freezeStake: POSIXTime;
+  penaltyAddress: Address;
+  refScripts: {
+    configPolicy: UTxO;
+    nodeValidator: UTxO;
+    nodePolicy: UTxO;
+    nodeStakeValidator: UTxO;
+    foldPolicy: UTxO;
+    foldValidator: UTxO;
+    rewardFoldPolicy: UTxO;
+    rewardFoldValidator: UTxO;
+    tokenHolderPolicy: UTxO;
+    tokenHolderValidator: UTxO;
+  };
 };
 
 export type BuildScriptsConfig = {
