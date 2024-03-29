@@ -47,10 +47,6 @@ export const createConfig = async (
       txHash: { hash: stakingConfig.stakingInitUTXO.txHash },
       outputIndex: BigInt(stakingConfig.stakingInitUTXO.outputIndex),
     },
-    rewardInitUTxO: {
-      txHash: { hash: stakingConfig.rewardInitUTXO.txHash },
-      outputIndex: BigInt(stakingConfig.rewardInitUTXO.outputIndex),
-    },
     freezeStake: BigInt(stakingConfig.freezeStake),
     endStaking: BigInt(stakingConfig.endStaking),
     penaltyAddress: fromAddress(stakingConfig.penaltyAddress),

@@ -86,7 +86,6 @@ export const StakingNodeAction =
 
 export const StakingConfigSchema = Data.Object({
   stakingInitUTxO: OutputReferenceSchema,
-  rewardInitUTxO: OutputReferenceSchema,
   freezeStake: Data.Integer(),
   endStaking: Data.Integer(),
   penaltyAddress: AddressSchema,

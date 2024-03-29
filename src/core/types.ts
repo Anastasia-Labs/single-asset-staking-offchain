@@ -28,7 +28,6 @@ export type AssetClass = {
 export type CreateConfig = {
   stakingConfig: {
     stakingInitUTXO: UTxO;
-    rewardInitUTXO: UTxO;
     freezeStake: POSIXTime;
     endStaking: POSIXTime;
     penaltyAddress: Address;
@@ -65,19 +64,6 @@ export type FetchRefScriptsConfig = {
   alwaysFails: CborHex;
 };
 
-export type InitTokenHolderConfig = {
-  configTN: string;
-  rewardInitUTXO: UTxO;
-  rewardCS: string;
-  rewardTN: string;
-  rewardAmount: number;
-  refScripts: {
-    configPolicy: UTxO;
-    tokenHolderPolicy: UTxO;
-    tokenHolderValidator: UTxO;
-  };
-};
-
 export type InitStakingConfig = {
   configTN: string;
   stakingInitUTXO: UTxO;
@@ -93,19 +79,6 @@ export type InitStakingConfig = {
     nodeValidator: UTxO;
     tokenHolderPolicy: UTxO;
     tokenHolderValidator: UTxO;
-  };
-};
-
-export type InitNodeConfig = {
-  configTN: string;
-  stakingInitUTXO: UTxO;
-  stakeCS: PolicyId;
-  stakeTN: string;
-  minimumStake: number;
-  refScripts: {
-    configPolicy: UTxO;
-    nodePolicy: UTxO;
-    nodeValidator: UTxO;
   };
 };
 
