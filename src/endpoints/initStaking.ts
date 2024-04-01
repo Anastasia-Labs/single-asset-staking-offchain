@@ -41,8 +41,11 @@ export const initStaking = async (
   if (!walletUtxos.length)
     return { type: "error", error: new Error("No utxos in wallet") };
 
-  const [initUTxO] = walletUtxos.filter((utxo) => {
-    return utxo == config.stakingInitUTXO;
+  const initUTxO = walletUtxos.find((utxo) => {
+    return (
+      utxo.txHash == config.stakingInitUTXO.txHash &&
+      utxo.outputIndex == config.stakingInitUTXO.outputIndex
+    );
   });
 
   if (!initUTxO)
