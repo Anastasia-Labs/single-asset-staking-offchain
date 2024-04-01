@@ -37,7 +37,7 @@ export const processRewards = async (
   const stateRes = await fetchCampaignState(lucid, config);
   if (stateRes.type == "error") return stateRes;
 
-  const campaignStatus = stateRes.data.campaignStatus;
+  let campaignStatus = stateRes.data.campaignStatus;
 
   // INIT FOLD
 
@@ -53,6 +53,9 @@ export const processRewards = async (
       const initFoldSigned = await initFoldUnsigned.data.sign().complete();
       const initFoldHash = await initFoldSigned.submit();
       await lucid.awaitTx(initFoldHash);
+      // offset wallet & blockchain sync
+      await setTimeout(20_000);
+      campaignStatus = CampaignStatus.StakeCalculationStarted;
     } catch (error) {
       return catchErrorHandling(
         error,
@@ -68,15 +71,16 @@ export const processRewards = async (
   }
 
   console.log("number of nodes at nodeValidator: ", config.nodeUTxOs.length);
-  const totalCommitFolds = Math.ceil((config.nodeUTxOs.length - 1) / 8);
-  console.log(
-    "time to complete commit fold (seconds): ",
-    totalCommitFolds * 40,
-  );
 
   // MULTIFOLD
 
-  if (campaignStatus <= CampaignStatus.StakeCalculationStarted) {
+  if (campaignStatus == CampaignStatus.StakeCalculationStarted) {
+    const totalCommitFolds = Math.ceil((config.nodeUTxOs.length - 1) / 8);
+    console.log(
+      "time to complete commit fold (seconds): ",
+      totalCommitFolds * 40,
+    );
+
     let foldNumber = 1;
     const maxRetries = 3;
 
@@ -115,11 +119,12 @@ export const processRewards = async (
       // offset wallet & blockchain sync
       await setTimeout(20_000);
     }
+    campaignStatus = CampaignStatus.StakeCalculationEnded;
   }
 
   // INIT REWARD FOLD
 
-  if (campaignStatus <= CampaignStatus.StakeCalculationEnded) {
+  if (campaignStatus == CampaignStatus.StakeCalculationEnded) {
     const initRewardFoldUnsigned = await initRewardFold(lucid, config);
 
     if (initRewardFoldUnsigned.type == "error") {
@@ -134,6 +139,7 @@ export const processRewards = async (
       const initRewardFoldHash = await initRewardFoldSigned.submit();
       await lucid.awaitTx(initRewardFoldHash);
       await setTimeout(20_000);
+      campaignStatus = CampaignStatus.RewardsProcessingStarted;
     } catch (error) {
       return catchErrorHandling(
         error,
@@ -142,15 +148,15 @@ export const processRewards = async (
     }
   }
 
-  const totalRewardFolds = Math.ceil((config.nodeUTxOs.length - 1) / 8);
-  console.log(
-    "time to complete reward fold (seconds): ",
-    totalRewardFolds * 40,
-  );
-
   // REWARD FOLDS
 
-  if (campaignStatus <= CampaignStatus.RewardsProcessingStarted) {
+  if (campaignStatus == CampaignStatus.RewardsProcessingStarted) {
+    const totalRewardFolds = Math.ceil((config.nodeUTxOs.length - 1) / 8);
+    console.log(
+      "time to complete reward fold (seconds): ",
+      totalRewardFolds * 40,
+    );
+
     let foldNumber = 1;
     const maxRetries = 3;
 
@@ -189,6 +195,7 @@ export const processRewards = async (
       // offset wallet & blockchain sync
       await setTimeout(20_000);
     }
+    campaignStatus = CampaignStatus.UserClaimsAllowed;
   }
 
   // RECLAIM REWARD & DEINIT
@@ -231,7 +238,7 @@ export const processRewards = async (
     nodePolicyId,
   );
 
-  if (campaignStatus <= CampaignStatus.UserClaimsAllowed) {
+  if (campaignStatus == CampaignStatus.UserClaimsAllowed) {
     let reclaimTxHash: TxHash = "";
     let deinitTxHash: TxHash = "";
 
