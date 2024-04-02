@@ -7,7 +7,9 @@ import {
 import { setTimeout } from "timers/promises";
 import { ProcessRewardsConfig, Result } from "../core/types.js";
 import {
+  COMMIT_FOLD_BATCH_SIZE,
   CampaignStatus,
+  REWARD_FOLD_BATCH_SIZE,
   catchErrorHandling,
   dinitNode,
   fetchCampaignState,
@@ -75,7 +77,9 @@ export const processRewards = async (
   // MULTIFOLD
 
   if (campaignStatus == CampaignStatus.StakeCalculationStarted) {
-    const totalCommitFolds = Math.ceil((config.nodeUTxOs.length - 1) / 8);
+    const totalCommitFolds = Math.ceil(
+      (config.nodeUTxOs.length - 1) / COMMIT_FOLD_BATCH_SIZE,
+    );
     console.log(
       "time to complete commit fold (seconds): ",
       totalCommitFolds * 40,
@@ -151,7 +155,9 @@ export const processRewards = async (
   // REWARD FOLDS
 
   if (campaignStatus == CampaignStatus.RewardsProcessingStarted) {
-    const totalRewardFolds = Math.ceil((config.nodeUTxOs.length - 1) / 8);
+    const totalRewardFolds = Math.ceil(
+      (config.nodeUTxOs.length - 1) / REWARD_FOLD_BATCH_SIZE,
+    );
     console.log(
       "time to complete reward fold (seconds): ",
       totalRewardFolds * 40,

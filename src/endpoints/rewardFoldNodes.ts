@@ -17,6 +17,7 @@ import {
 import { Result, RewardFoldNodesConfig } from "../core/types.js";
 import {
   MIN_ADA,
+  REWARD_FOLD_BATCH_SIZE,
   TIME_TOLERANCE_MS,
   findConsecutiveNodes,
   findRewardFoldUTxO,
@@ -81,7 +82,7 @@ export const rewardFoldNodes = async (
     nodeValidatorAddr,
     nodePolicyId,
     oldRewardFoldDatum.currNode.next,
-    8,
+    REWARD_FOLD_BATCH_SIZE,
     config.nodeUTxOs,
   );
   if (nodeInputsResponse.type == "error") return nodeInputsResponse;
