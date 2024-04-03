@@ -15,6 +15,9 @@ export const FOLDING_FEE_ADA = 1_000_000n;
 export const MIN_ADA = 2_000_000n;
 export const NODE_ADA = 3_000_000n;
 
+export const COMMIT_FOLD_BATCH_SIZE = 50;
+export const REWARD_FOLD_BATCH_SIZE = 25;
+
 export const TIME_TOLERANCE_MS =
   process.env.NODE_ENV == "emulator" ? 0 : 400_000;
 

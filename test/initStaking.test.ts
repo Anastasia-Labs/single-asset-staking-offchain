@@ -27,7 +27,7 @@ test<LucidContext>("Test - deploy - createConfig - initStaking", async ({
   users,
   emulator,
 }) => {
-  const logFlag = true;
+  const logFlag = false;
 
   const [treasuryUTxO] = await lucid
     .selectWalletFrom({ address: users.treasury1.address })

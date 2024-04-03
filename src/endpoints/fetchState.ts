@@ -200,11 +200,10 @@ export const checkRewardFoldState = async (
     if (headNode) {
       if (headNode.assets["lovelace"] == MIN_ADA) {
         campaignStateRes.data.campaignStatus = CampaignStatus.UserClaimsAllowed;
-        if (
-          toUnit(config.stakeCS, fromText(config.stakeTN)) ==
-          toUnit(config.rewardCS, fromText(config.rewardTN))
-        )
-          campaignStateRes.data.totalStake = undefined;
+        // Once reward fold is completed its not possible to accurately determine
+        // total stake or reward.
+        campaignStateRes.data.totalStake = undefined;
+        campaignStateRes.data.totalReward = undefined;
 
         return campaignStateRes;
       } else {
@@ -215,6 +214,8 @@ export const checkRewardFoldState = async (
       // TODO improve this check as it has weak guarantees of confirming that
       // reward fold concluded, head deinit and reward reclaimed.
       campaignStateRes.data.campaignStatus = CampaignStatus.UserClaimsAllowed;
+      campaignStateRes.data.totalStake = undefined;
+      campaignStateRes.data.totalReward = undefined;
       return campaignStateRes;
     }
   }
@@ -230,6 +231,8 @@ export const checkRewardFoldState = async (
     return campaignStateRes;
   } else {
     campaignStateRes.data.campaignStatus = CampaignStatus.UserClaimsAllowed;
+    campaignStateRes.data.totalStake = undefined;
+    campaignStateRes.data.totalReward = undefined;
     return campaignStateRes;
   }
 };

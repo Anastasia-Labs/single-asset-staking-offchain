@@ -11,6 +11,7 @@ import {
 import { FoldAct, FoldDatum, SetNode } from "../core/contract.types.js";
 import { MultiFoldConfig, Result } from "../core/types.js";
 import {
+  COMMIT_FOLD_BATCH_SIZE,
   TIME_TOLERANCE_MS,
   findConsecutiveNodes,
   findFoldUTxO,
@@ -76,7 +77,7 @@ export const multiFold = async (
     nodeValidatorAddr,
     nodePolicyId,
     nextNode,
-    8,
+    COMMIT_FOLD_BATCH_SIZE,
     config.nodeUTxOs,
   );
   if (nodeRefUTxOsResponse.type == "error") return nodeRefUTxOsResponse;
