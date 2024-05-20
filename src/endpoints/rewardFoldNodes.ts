@@ -168,6 +168,12 @@ export const rewardFoldNodes = async (
 
     const remainingRewardTokenAmount =
       rewardUTxO.data.assets[rewardToken] - totalOwedReward;
+    const updatedRewardUTxOAssets = {
+      ...rewardUTxO.data.assets,
+      [rewardToken]: remainingRewardTokenAmount,
+    };
+    if (remainingRewardTokenAmount == BigInt(0))
+      delete updatedRewardUTxOAssets[rewardToken];
     const rewardFoldValidatorRedeemer = Data.to(
       {
         RewardsFoldNodes: {
@@ -184,10 +190,7 @@ export const rewardFoldNodes = async (
       .payToContract(
         rewardFoldValidatorAddr,
         { inline: newFoldDatum },
-        {
-          ...rewardUTxO.data.assets,
-          [stakeToken]: remainingRewardTokenAmount,
-        },
+        updatedRewardUTxOAssets,
       )
       .withdraw(
         lucid.utils.validatorToRewardAddress(nodeStakeValidator),
