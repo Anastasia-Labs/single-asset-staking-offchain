@@ -10,6 +10,7 @@ import {
   COMMIT_FOLD_BATCH_SIZE,
   CampaignStatus,
   REWARD_FOLD_BATCH_SIZE,
+  TIME_TOLERANCE_MS,
   catchErrorHandling,
   dinitNode,
   fetchCampaignState,
@@ -28,11 +29,19 @@ export const processRewards = async (
   lucid: Lucid,
   config: ProcessRewardsConfig,
 ): Promise<Result<{ reclaimReward: TxHash; deinit: TxHash }>> => {
-  if (Date.now() < config.endStaking)
+  const currentTime = Date.now();
+  if (
+    currentTime < config.endStaking ||
+    config.endStaking > currentTime - TIME_TOLERANCE_MS
+  )
     return {
       type: "error",
       error: new Error(
-        "Cannot starting processing rewards before endStaking time",
+        currentTime < config.endStaking
+          ? "Cannot starting processing rewards before endStaking time"
+          : `Transaction validity range is overlapping staking phases. 
+          Please wait for ${TIME_TOLERANCE_MS / 1_000} seconds before trying
+          to process rewards.`,
       ),
     };
 
