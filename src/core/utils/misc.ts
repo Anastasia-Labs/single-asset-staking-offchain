@@ -416,6 +416,7 @@ export const findFoldUTxO = async (
   configTN: string,
   foldValidatorAddr: Address,
   foldPolicyId: string,
+  walletAddr?: Address,
 ): Promise<Result<UTxO>> => {
   try {
     const utxos = await lucid.utxosAtWithUnit(
@@ -423,16 +424,39 @@ export const findFoldUTxO = async (
       toUnit(foldPolicyId, fromText(CFOLD)),
     );
 
+    let pubKeyHash: string | undefined;
+
+    if (walletAddr) {
+      pubKeyHash =
+        lucid.utils.getAddressDetails(walletAddr).paymentCredential?.hash;
+
+      if (!pubKeyHash)
+        return { type: "error", error: new Error("User PubKeyHash not found") };
+    }
+
     const foldUTxO = utxos.find((value) => {
       if (value.datum) {
         const datum = Data.from(value.datum, FoldDatum);
 
-        return datum.currNode.configTN == configTN;
+        if (datum.currNode.configTN == configTN) {
+          const ownerCred = datum.owner.paymentCredential;
+          if (pubKeyHash) {
+            return (
+              "PublicKeyCredential" in ownerCred &&
+              pubKeyHash == ownerCred.PublicKeyCredential[0]
+            );
+          } else return true;
+        }
       }
     });
 
     if (!foldUTxO || !foldUTxO.datum)
-      return { type: "error", error: new Error("missing foldUTxO") };
+      return {
+        type: "error",
+        error: new Error(
+          "missing foldUTxO" + (walletAddr ? "under given owner" : ""),
+        ),
+      };
     else return { type: "ok", data: foldUTxO };
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };

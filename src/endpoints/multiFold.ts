@@ -51,12 +51,14 @@ export const multiFold = async (
 
   const foldPolicy: MintingPolicy = config.refScripts.foldPolicy.scriptRef;
   const foldPolicyId = lucid.utils.mintingPolicyToId(foldPolicy);
+  const walletAddr = await lucid.wallet.address();
 
   const foldUTxO = await findFoldUTxO(
     lucid,
     config.configTN,
     foldValidatorAddr,
     foldPolicyId,
+    walletAddr,
   );
   if (foldUTxO.type == "error") return foldUTxO;
 
