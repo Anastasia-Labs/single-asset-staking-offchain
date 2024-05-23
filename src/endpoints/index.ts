@@ -11,6 +11,5 @@ export * from "./fetchRefScripts.js";
 export * from "./initFold.js";
 export * from "./multiFold.js";
 export * from "./initRewardFold.js";
-export * from "./rewardFoldNode.js";
 export * from "./rewardFoldNodes.js";
 export * from "./reclaimReward.js";

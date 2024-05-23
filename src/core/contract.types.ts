@@ -158,7 +158,6 @@ export const RewardFoldActSchema = Data.Enum([
       nodeOutIdxs: Data.Array(Data.Integer()),
     }),
   }),
-  Data.Literal("RewardsFoldNode"),
   Data.Literal("RewardsReclaim"),
 ]);
 export type RewardFoldAct = Data.Static<typeof RewardFoldActSchema>;
