@@ -88,7 +88,7 @@ export const reclaimReward = async (
       .compose(
         remainingReward > 0n
           ? lucid.newTx().payToAddress(config.penaltyAddress, {
-              [rewardToken]: rewardUTxO.data.assets[rewardToken],
+              [rewardToken]: remainingReward,
             })
           : null,
       )
