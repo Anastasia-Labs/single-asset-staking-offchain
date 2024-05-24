@@ -21,6 +21,8 @@ import {
   CreateConfig,
   createConfig,
   FoldDatum,
+  DInitNodeConfig,
+  dinitNode,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
@@ -34,7 +36,7 @@ import {
 beforeEach<LucidContext>(initializeLucidContext);
 
 test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - initFold - multiFold - initRewardFold \
-- rewardFoldNodes - reclaimReward - account3 claimReward)", async ({
+- rewardFoldNodes - reclaimReward - dinit - account3 claimReward)", async ({
   lucid,
   users,
   emulator,
@@ -289,9 +291,27 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
 
   emulator.awaitBlock(4);
 
+  // DEINIT - Deinit should not affect the rewards fold or claims
+  const dinitNodeConfig: DInitNodeConfig = {
+    configTN: configTN,
+    refScripts: refUTxOs,
+    penaltyAddress: users.treasury1.address,
+    stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    stakeTN: "MIN",
+  };
+  const dinitNodeUnsigned = await dinitNode(lucid, dinitNodeConfig);
+  // console.log(dinitNodeUnsigned);
+
+  expect(dinitNodeUnsigned.type).toBe("ok");
+  if (dinitNodeUnsigned.type == "error") return;
+  const dinitNodeSigned = await dinitNodeUnsigned.data.sign().complete();
+  const dinitNodeHash = await dinitNodeSigned.submit();
+
+  emulator.awaitBlock(4);
+
   logFlag
     ? console.log(
-        "Reward Fold & Reclaim Reward Completed. Result:",
+        "Reward Fold, Reclaim Reward & Dinit Completed. Result:",
         await parseUTxOsAtScript(
           lucid,
           refUTxOs.nodeValidator.scriptRef?.script!,
@@ -301,7 +321,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
     : null;
   logFlag
     ? console.log(
-        "Treasury Address",
+        "Treasury Address/ Penalty Address",
         await lucid.utxosAt(users.treasury1.address),
       )
     : null;

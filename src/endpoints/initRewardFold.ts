@@ -102,12 +102,14 @@ export const initRewardFold = async (
   const tokenHolderUTxO = tokenHolderUTxORes.data;
 
   const commitFoldUnit = toUnit(commitFoldPolicyId, cFold);
+  const walletAddr = await lucid.wallet.address();
 
   const commitFoldUTxORes = await findFoldUTxO(
     lucid,
     config.configTN,
     commitFoldValidatorAddr,
     commitFoldPolicyId,
+    walletAddr,
   );
   if (commitFoldUTxORes.type == "error") return commitFoldUTxORes;
 
@@ -128,7 +130,7 @@ export const initRewardFold = async (
       currNode: headNodeDatum,
       totalRewardTokens: tokenHolderUTxO.assets[rewardUnit],
       totalStaked: commitFoldDatum.staked,
-      owner: fromAddress(await lucid.wallet.address()),
+      owner: fromAddress(walletAddr),
     },
     RewardFoldDatum,
   );
@@ -184,7 +186,7 @@ export const initRewardFold = async (
         config.refScripts.rewardFoldPolicy,
         configUTxOResponse.data,
       ])
-      .addSigner(await lucid.wallet.address())
+      .addSigner(walletAddr)
       .complete();
 
     return { type: "ok", data: tx };

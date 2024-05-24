@@ -231,8 +231,6 @@ export const checkRewardFoldState = async (
     return campaignStateRes;
   } else {
     campaignStateRes.data.campaignStatus = CampaignStatus.UserClaimsAllowed;
-    campaignStateRes.data.totalStake = undefined;
-    campaignStateRes.data.totalReward = undefined;
     return campaignStateRes;
   }
 };

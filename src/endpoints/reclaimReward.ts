@@ -73,6 +73,7 @@ export const reclaimReward = async (
   if (configUTxOResponse.type == "error") return configUTxOResponse;
 
   const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
+  const remainingReward = rewardUTxO.data.assets[rewardToken];
 
   try {
     const tx = await lucid
@@ -82,9 +83,15 @@ export const reclaimReward = async (
         { [toUnit(rewardFoldPolicyId, rFold)]: -1n },
         Data.to("BurnRewardFold", RewardFoldMintAct),
       )
-      .payToAddress(config.penaltyAddress, {
-        [rewardToken]: rewardUTxO.data.assets[rewardToken],
-      })
+      // If no rewards are left, the off-chain agent burns RFold token and
+      // claims ADA. No asset is sent to project's penalty address.
+      .compose(
+        remainingReward > 0n
+          ? lucid.newTx().payToAddress(config.penaltyAddress, {
+              [rewardToken]: remainingReward,
+            })
+          : null,
+      )
       .addSigner(userAddr)
       .readFrom([
         config.refScripts.rewardFoldValidator,
