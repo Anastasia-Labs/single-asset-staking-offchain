@@ -59,7 +59,7 @@ export const claimNode = async (
 
   if (node.type == "error") return node;
 
-  // After rewards fold is completed for a node, its lovelace value is MIN_ADA (NODE_ADA - FOLDING_FEE)
+  // After rewards fold is completed for a node, its lovelace value is less than NODE_ADA
   if (
     config.currentTime <= config.endStaking ||
     node.data.assets["lovelace"] == NODE_ADA

@@ -19,7 +19,7 @@ import {
 } from "../core/types.js";
 import {
   CampaignStatus,
-  MIN_ADA,
+  NODE_ADA,
   calculateTotalStake,
   findFoldUTxO,
   findHeadNode,
@@ -198,7 +198,7 @@ export const checkRewardFoldState = async (
   );
   if (rfoldUTxO.type == "error") {
     if (headNode) {
-      if (headNode.assets["lovelace"] == MIN_ADA) {
+      if (headNode.assets["lovelace"] != NODE_ADA) {
         campaignStateRes.data.campaignStatus = CampaignStatus.UserClaimsAllowed;
         // Once reward fold is completed its not possible to accurately determine
         // total stake or reward.

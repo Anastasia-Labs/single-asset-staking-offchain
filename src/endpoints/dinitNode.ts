@@ -7,7 +7,7 @@ import {
   TxComplete,
   fromText,
 } from "@anastasia-labs/lucid-cardano-fork";
-import { MIN_ADA, originNodeTokenName } from "../core/constants.js";
+import { NODE_ADA, originNodeTokenName } from "../core/constants.js";
 import {
   NodeValidatorAction,
   StakingNodeAction,
@@ -41,7 +41,7 @@ export const dinitNode = async (
 
   if (headNodeUTxO.type == "error") return headNodeUTxO;
 
-  if (headNodeUTxO.data.assets["lovelace"] !== MIN_ADA)
+  if (headNodeUTxO.data.assets["lovelace"] == NODE_ADA)
     return {
       type: "error",
       error: new Error("Cannot DeInit Node before Rewards Fold is initiated."),
