@@ -52,6 +52,10 @@ export async function initializeLucidContext(context: LucidContext) {
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
         fromText("MIN"),
       )]: BigInt(10_000_000_000_000),
+      [toUnit(
+        "3c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+        fromText("WIN"),
+      )]: BigInt(10_000_000_000_000),
     }),
     account1: await generateAccountSeedPhrase({
       lovelace: BigInt(500_000_000),

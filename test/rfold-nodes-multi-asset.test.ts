@@ -72,8 +72,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
       stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
       stakeTN: "MIN",
       minimumStake: 1_000_000_000_000,
-      rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-      rewardTN: "MIN",
+      rewardCS: "3c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+      rewardTN: "WIN",
     },
     configInitUTXO: configUTxO,
     refScripts: {
@@ -123,8 +123,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
     minimumStake: 1_000_000_000_000,
-    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    rewardTN: "MIN",
+    rewardCS: "3c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "WIN",
     rewardAmount: 8_000_000_000_000,
     refScripts: refUTxOs,
   };
@@ -222,8 +222,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
     : null;
 
   const initRewardFoldConfig: InitRewardFoldConfig = {
-    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    rewardTN: "MIN",
+    rewardCS: "3c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "WIN",
     refScripts: refUTxOs,
     configTN: configTN,
     penaltyAddress: users.treasury1.address,
@@ -250,8 +250,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
 
   const rewardFoldNodesConfig: RewardFoldNodesConfig = {
     configTN: configTN,
-    rewardCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
-    rewardTN: "MIN",
+    rewardCS: "3c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
+    rewardTN: "WIN",
     stakeCS: "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
     stakeTN: "MIN",
     refScripts: refUTxOs,
@@ -267,10 +267,21 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
 
   expect(rewardFoldUnsigned.type).toBe("ok");
   if (rewardFoldUnsigned.type == "error") return;
-  const rewardFoldSigned = await rewardFoldUnsigned.data.sign().complete();
+  const completedRFold = await rewardFoldUnsigned.data.complete();
+  // console.log(completedRFold.exUnits);
+  const rewardFoldSigned = await completedRFold.sign().complete();
   const rewardFoldHash = await rewardFoldSigned.submit();
 
   emulator.awaitBlock(4);
+
+  console.log(
+    "new nodes",
+    await parseUTxOsAtScript(
+      lucid,
+      refUTxOs.nodeValidator.scriptRef?.script!,
+      SetNode,
+    ),
+  );
 
   // RECLAIM REWARD
 
