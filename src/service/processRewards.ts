@@ -211,6 +211,8 @@ export const processRewards = async (
       await setTimeout(20_000);
     }
     campaignStatus = CampaignStatus.UserClaimsAllowed;
+    // offset wallet & blockchain sync
+    await setTimeout(20_000);
   }
 
   // RECLAIM REWARD & DEINIT
