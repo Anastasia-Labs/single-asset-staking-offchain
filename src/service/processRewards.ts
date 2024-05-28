@@ -112,6 +112,9 @@ export const processRewards = async (
         retries++;
       }
 
+      // offset wallet & blockchain sync
+      await setTimeout(20_000);
+
       if (retries == 3) {
         const stateRes = await fetchCampaignState(lucid, config);
         // Break if retries were due to commit fold already being
@@ -129,8 +132,6 @@ export const processRewards = async (
       }
 
       foldNumber++;
-      // offset wallet & blockchain sync
-      await setTimeout(20_000);
     }
     campaignStatus = CampaignStatus.StakeCalculationEnded;
   }
@@ -190,6 +191,9 @@ export const processRewards = async (
         retries++;
       }
 
+      // offset wallet & blockchain sync
+      await setTimeout(20_000);
+
       if (retries == 3) {
         const stateRes = await fetchCampaignState(lucid, config);
         // Break if retries were due to reward fold already being
@@ -207,8 +211,6 @@ export const processRewards = async (
       }
 
       foldNumber++;
-      // offset wallet & blockchain sync
-      await setTimeout(20_000);
     }
     campaignStatus = CampaignStatus.UserClaimsAllowed;
     // offset wallet & blockchain sync
