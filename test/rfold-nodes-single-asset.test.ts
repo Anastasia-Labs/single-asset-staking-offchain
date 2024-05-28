@@ -267,9 +267,9 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
 
   expect(rewardFoldUnsigned.type).toBe("ok");
   if (rewardFoldUnsigned.type == "error") return;
-  const completedRFold = await rewardFoldUnsigned.data.complete();
+  // const completedRFold = await rewardFoldUnsigned.data.complete();
   // console.log(completedRFold.exUnits);
-  const rewardFoldSigned = await completedRFold.sign().complete();
+  const rewardFoldSigned = await rewardFoldUnsigned.data.sign().complete();
   const rewardFoldHash = await rewardFoldSigned.submit();
 
   emulator.awaitBlock(4);
