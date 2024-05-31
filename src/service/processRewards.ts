@@ -24,9 +24,11 @@ import {
   rewardFoldNodes,
   signSubmitValidate,
 } from "../index.js";
+import * as lucidE from "@lucid-evolution/lucid";
 
 export const processRewards = async (
   lucid: Lucid,
+  lucid_evol: lucidE.LucidEvolution,
   config: ProcessRewardsConfig,
 ): Promise<Result<{ reclaimReward: TxHash; deinit: TxHash }>> => {
   const currentTime = Date.now();
@@ -183,11 +185,24 @@ export const processRewards = async (
       while (retries < maxRetries) {
         if (retries > 0) console.log(`retries : ${retries}`);
 
-        const rewardFoldUnsigned = await rewardFoldNodes(lucid, config);
+        const rewardFoldUnsigned = await rewardFoldNodes(
+          lucid,
+          lucid_evol,
+          config,
+        );
 
-        // console.log(initNodeUnsigned.data.txComplete.to_json());
-        const isValid = await signSubmitValidate(lucid, rewardFoldUnsigned);
-        if (isValid) break;
+        if (rewardFoldUnsigned.type == "error") return rewardFoldUnsigned;
+
+        try {
+          const rewardFoldSigned = await rewardFoldUnsigned.data.sign
+            .withWallet()
+            .complete();
+          const rewardFoldHash = await rewardFoldSigned.submit();
+          await lucid.awaitTx(rewardFoldHash);
+          break;
+        } catch (error) {
+          console.log(error);
+        }
         retries++;
       }
 

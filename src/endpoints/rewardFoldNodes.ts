@@ -26,11 +26,13 @@ import {
   sumUtxoAssets,
 } from "../index.js";
 import { fetchConfigUTxO } from "./fetchConfig.js";
+import * as lucidE from "@lucid-evolution/lucid";
 
 export const rewardFoldNodes = async (
   lucid: Lucid,
+  lucid_evol: lucidE.LucidEvolution,
   config: RewardFoldNodesConfig,
-): Promise<Result<TxComplete>> => {
+): Promise<Result<lucidE.TxSignBuilder>> => {
   if (
     !config.refScripts.nodeValidator.scriptRef ||
     !config.refScripts.nodePolicy.scriptRef ||
@@ -134,7 +136,7 @@ export const rewardFoldNodes = async (
   if (configUTxOResponse.type == "error") return configUTxOResponse;
 
   try {
-    let tx = lucid
+    let tx = lucid_evol
       .newTx()
       .collectFrom(nodeInputs, Data.to("RewardFoldAct", NodeValidatorAction));
 
@@ -157,9 +159,9 @@ export const rewardFoldNodes = async (
           error: new Error("No datum found for node input"),
         };
 
-      tx = tx.payToContract(
+      tx = tx.pay.ToContract(
         nodeValidatorAddr,
-        { inline: utxo.datum },
+        { kind: "inline", value: utxo.datum },
         nodeOutputAssets,
       );
 
@@ -187,9 +189,9 @@ export const rewardFoldNodes = async (
     tx = tx
       .collectFrom([rewardUTxO.data], rewardFoldValidatorRedeemer)
       .collectFrom(selectedUtxos.data)
-      .payToContract(
+      .pay.ToContract(
         rewardFoldValidatorAddr,
-        { inline: newFoldDatum },
+        { kind: "inline", value: newFoldDatum },
         updatedRewardUTxOAssets,
       )
       .withdraw(
@@ -197,12 +199,12 @@ export const rewardFoldNodes = async (
         0n,
         Data.void(),
       )
-      .compose(
-        // Return and balance native tokens (if any) obtained from spending wallet UTxOs
-        Object.keys(walletAssets).length > 0
-          ? lucid.newTx().payToAddress(walletAddress, walletAssets)
-          : null,
-      )
+      // .compose(
+      //   // Return and balance native tokens (if any) obtained from spending wallet UTxOs
+      //   Object.keys(walletAssets).length > 0
+      //     ? lucid.newTx().payToAddress(walletAddress, walletAssets)
+      //     : null,
+      // )
       .readFrom([
         config.refScripts.rewardFoldValidator,
         config.refScripts.nodeValidator,
@@ -214,9 +216,7 @@ export const rewardFoldNodes = async (
 
     return {
       type: "ok",
-      data: await (process.env.NODE_ENV == "emulator"
-        ? tx.complete()
-        : tx.complete({ nativeUplc: false })),
+      data: await tx.complete(),
     };
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };

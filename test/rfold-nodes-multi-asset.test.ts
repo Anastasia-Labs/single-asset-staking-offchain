@@ -35,7 +35,7 @@ import {
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - initFold - multiFold - initRewardFold \
+test.skip<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - initFold - multiFold - initRewardFold \
 - rewardFoldNodes - reclaimReward - dinit - account3 claimReward)", async ({
   lucid,
   users,

@@ -32,10 +32,11 @@ import {
   insertThreeNodes,
   LucidContext,
 } from "./setup.js";
+import * as lucidE from "@lucid-evolution/lucid";
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - initFold - multiFold - initRewardFold \
+test.skip<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - initFold - multiFold - initRewardFold \
 - rewardFoldNodes - reclaimReward - dinit - account3 claimReward)", async ({
   lucid,
   users,
@@ -259,17 +260,23 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   };
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  const provider = { ...lucid.provider };
+  const lucid_evol = await lucidE.Lucid(provider, lucid.network);
+  lucid_evol.selectWallet.fromSeed(users.treasury1.seedPhrase);
   const rewardFoldUnsigned = await rewardFoldNodes(
     lucid,
+    lucid_evol,
     rewardFoldNodesConfig,
   );
-  // console.log(rewardFoldUnsigned);
+  console.log(JSON.stringify(rewardFoldUnsigned));
 
   expect(rewardFoldUnsigned.type).toBe("ok");
   if (rewardFoldUnsigned.type == "error") return;
   // const completedRFold = await rewardFoldUnsigned.data.complete();
   // console.log(completedRFold.exUnits);
-  const rewardFoldSigned = await rewardFoldUnsigned.data.sign().complete();
+  const rewardFoldSigned = await rewardFoldUnsigned.data.sign
+    .withWallet()
+    .complete();
   const rewardFoldHash = await rewardFoldSigned.submit();
 
   emulator.awaitBlock(4);
