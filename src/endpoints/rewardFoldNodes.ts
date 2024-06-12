@@ -106,7 +106,6 @@ export const rewardFoldNodes = async (
     RewardFoldDatum,
   );
 
-  const walletAddress = await lucid.wallet.address();
   const walletUTxOs = await lucid.wallet.getUtxos();
   // adding 4 ADA to cover tx fees as we will do the coin selection.
   // Using more than sufficient ADA to safeguard against high tx costs
