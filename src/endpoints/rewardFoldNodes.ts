@@ -2,7 +2,6 @@ import {
   Lucid,
   SpendingValidator,
   Data,
-  TxComplete,
   MintingPolicy,
   fromText,
   toUnit,
@@ -16,7 +15,6 @@ import {
 } from "../core/contract.types.js";
 import { Result, RewardFoldNodesConfig } from "../core/types.js";
 import {
-  MIN_ADA,
   REWARD_FOLD_BATCH_SIZE,
   TIME_TOLERANCE_MS,
   findConsecutiveNodes,
@@ -146,7 +144,8 @@ export const rewardFoldNodes = async (
         oldRewardFoldDatum.totalStaked;
 
       const nodeOutputAssets = { ...utxo.assets };
-      nodeOutputAssets["lovelace"] = MIN_ADA; // NODE_ADA - FOLDING_FEE
+      // Let lucid set min ADA
+      delete nodeOutputAssets["lovelace"];
 
       // nodeOutputAssets[rewardToken] may not be undefined in case stake and reward tokens are one and the same
       nodeOutputAssets[rewardToken] =
@@ -199,12 +198,6 @@ export const rewardFoldNodes = async (
         0n,
         Data.void(),
       )
-      // .compose(
-      //   // Return and balance native tokens (if any) obtained from spending wallet UTxOs
-      //   Object.keys(walletAssets).length > 0
-      //     ? lucid.newTx().payToAddress(walletAddress, walletAssets)
-      //     : null,
-      // )
       .readFrom([
         config.refScripts.rewardFoldValidator,
         config.refScripts.nodeValidator,
