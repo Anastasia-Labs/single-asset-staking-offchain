@@ -19,7 +19,7 @@ export const COMMIT_FOLD_BATCH_SIZE = 50;
 export const REWARD_FOLD_BATCH_SIZE = 25;
 
 export const TIME_TOLERANCE_MS =
-  process.env.NODE_ENV == "emulator" ? 0 : 300_000;
+  process.env.NODE_ENV == "emulator" ? 0 : 180_000;
 
 export const PROTOCOL_PAYMENT_KEY =
   "014e9d57e1623f7eeef5d0a8d4e6734a562ba32cf910244cd74e1680";
