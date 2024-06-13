@@ -57,7 +57,7 @@ export const processRewards = async (
   if (campaignStatus == CampaignStatus.StakingEnded) {
     let retries = 0;
     while (retries < maxRetries) {
-      if (retries > 0) console.log(`retries : ${retries}`);
+      if (retries > 0) console.log(`initFold retries : ${retries}`);
 
       const initFoldUnsigned = await initFold(lucid, config);
       const response = await signSubmitValidate(lucid, initFoldUnsigned);
@@ -97,7 +97,7 @@ export const processRewards = async (
 
       let retries = 0;
       while (retries < maxRetries) {
-        if (retries > 0) console.log(`retries : ${retries}`);
+        if (retries > 0) console.log(`multiFold retries : ${retries}`);
 
         const multiFoldUnsigned = await multiFold(lucid, config);
         const response = await signSubmitValidate(lucid, multiFoldUnsigned);
@@ -135,7 +135,7 @@ export const processRewards = async (
   if (campaignStatus == CampaignStatus.StakeCalculationEnded) {
     let retries = 0;
     while (retries < maxRetries) {
-      if (retries > 0) console.log(`retries : ${retries}`);
+      if (retries > 0) console.log(`initRewardFold retries : ${retries}`);
 
       const initRewardFoldUnsigned = await initRewardFold(lucid, config);
       const response = await signSubmitValidate(lucid, initRewardFoldUnsigned);
@@ -162,13 +162,17 @@ export const processRewards = async (
 
     let foldNumber = 1;
     const maxRetries = 3;
+    let errorResponse: Result<object> = {
+      type: "error",
+      error: new Error("Error occurred while performing reward fold."),
+    };
 
     while (foldNumber <= totalRewardFolds) {
       console.log(`processing reward fold number: ${foldNumber}`);
 
       let retries = 0;
       while (retries < maxRetries) {
-        if (retries > 0) console.log(`retries : ${retries}`);
+        if (retries > 0) console.log(`rewardFoldNodes retries : ${retries}`);
 
         const rewardFoldUnsigned = await rewardFoldNodes(
           lucid,
@@ -176,6 +180,8 @@ export const processRewards = async (
           config,
         );
         if (rewardFoldUnsigned.type == "error") {
+          console.log(rewardFoldUnsigned);
+          errorResponse = rewardFoldUnsigned;
           retries++;
           continue;
         }
@@ -188,7 +194,11 @@ export const processRewards = async (
           await lucid.awaitTx(rewardFoldHash);
           break;
         } catch (error) {
-          console.log(error);
+          errorResponse.error =
+            error instanceof Error
+              ? error
+              : new Error(`${JSON.stringify(error)}`);
+          console.log(errorResponse);
         }
         retries++;
       }
@@ -206,10 +216,7 @@ export const processRewards = async (
         )
           break;
 
-        return {
-          type: "error",
-          error: new Error("Error occurred while performing reward fold."),
-        };
+        return errorResponse;
       }
 
       foldNumber++;
@@ -265,7 +272,7 @@ export const processRewards = async (
     if (rewardUTxO.type == "ok") {
       let retries = 0;
       while (retries < maxRetries) {
-        if (retries > 0) console.log(`retries : ${retries}`);
+        if (retries > 0) console.log(`reclaimReward retries : ${retries}`);
 
         const reclaimUnsigned = await reclaimReward(lucid, config);
         const response = await signSubmitValidate(lucid, reclaimUnsigned);
@@ -285,7 +292,7 @@ export const processRewards = async (
     if (headNodeUTxO.type == "ok") {
       let retries = 0;
       while (retries < maxRetries) {
-        if (retries > 0) console.log(`retries : ${retries}`);
+        if (retries > 0) console.log(`dinitNode retries : ${retries}`);
 
         const dinitNodeUnsigned = await dinitNode(lucid, config);
         const response = await signSubmitValidate(lucid, dinitNodeUnsigned);

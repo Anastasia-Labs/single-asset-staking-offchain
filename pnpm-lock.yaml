@@ -9,8 +9,8 @@ dependencies:
     specifier: ^0.10.8-rc.3
     version: 0.10.8-rc.3
   '@lucid-evolution/lucid':
-    specifier: 0.2.40
-    version: 0.2.40(fast-check@3.19.0)
+    specifier: 0.2.39
+    version: 0.2.39(fast-check@3.19.0)
   ts-pattern:
     specifier: ^5.0.5
     version: 5.0.8
@@ -638,8 +638,8 @@ packages:
       '@lucid-evolution/core-utils': 0.1.6
     dev: false
 
-  /@lucid-evolution/core-types@0.1.7:
-    resolution: {integrity: sha512-buNYGDPVCiBI0fe17io3J2du8EoGAUhbm73JnavCVvTDa078mNHQV7BhRj85TCwT7pm1f7Riyn1wNfebIa/ByA==}
+  /@lucid-evolution/core-types@0.1.6:
+    resolution: {integrity: sha512-yLuDAKTaDW5cxhdN2Vxgu9YWllV/MXvolJo9hLBssAjr3KvZ5/9Gze+cn8PKbJm45PK85f7PL3/cocfOpCmwjg==}
     dependencies:
       '@dcspark/cardano-multiplatform-lib-browser': 5.3.1
       '@dcspark/cardano-multiplatform-lib-nodejs': 5.3.1
@@ -656,87 +656,87 @@ packages:
     resolution: {integrity: sha512-D0zxQKAr8Cd/2Z1jmagxo+ia3Pp7odxFzdmV0YrEPro9jEwWRFsWzF02J93ktcJBvkwAVnOSaan9+7JvYHQtJA==}
     dev: false
 
-  /@lucid-evolution/lucid@0.2.40(fast-check@3.19.0):
-    resolution: {integrity: sha512-CrMWdRJmMuHszoiBHugWX9JOW0rDGVKyNTCyxJGofCpWkyXhtLM/dipZkDNgKxH4hpjsc1sjOLMObxaZrzrC6A==}
+  /@lucid-evolution/lucid@0.2.39(fast-check@3.19.0):
+    resolution: {integrity: sha512-dAPlU1uiZX6yZBWaEiYFrSGJ/rIgZ3NuIE58khpwd3A/JsMJe+xtCkViMPJCVNoFUVMa6mX2ndawBrO3NVInuQ==}
     dependencies:
       '@dcspark/cardano-multiplatform-lib-browser': 5.3.1
       '@dcspark/cardano-multiplatform-lib-nodejs': 5.3.1
       '@effect/schema': 0.66.16(effect@3.2.6)(fast-check@3.19.0)
       '@emurgo/cardano-message-signing-nodejs': 1.0.1
       '@lucid-evolution/bip39': 0.2.7
-      '@lucid-evolution/core-types': 0.1.7
+      '@lucid-evolution/core-types': 0.1.6
       '@lucid-evolution/core-utils': 0.1.6
-      '@lucid-evolution/plutus': 0.1.10
-      '@lucid-evolution/provider': 0.1.25
-      '@lucid-evolution/sign_data': 0.1.7
-      '@lucid-evolution/uplc': 0.2.6
-      '@lucid-evolution/utils': 0.1.18
-      '@lucid-evolution/wallet': 0.1.20
+      '@lucid-evolution/plutus': 0.1.9
+      '@lucid-evolution/provider': 0.1.24
+      '@lucid-evolution/sign_data': 0.1.6
+      '@lucid-evolution/uplc': 0.2.5
+      '@lucid-evolution/utils': 0.1.17
+      '@lucid-evolution/wallet': 0.1.19
       effect: 3.2.6
     transitivePeerDependencies:
       - fast-check
     dev: false
 
-  /@lucid-evolution/plutus@0.1.10:
-    resolution: {integrity: sha512-OFQDb2TlANKdS0Enf9r7faxZAlfD47JWM46kfoOMrKj8mmLg+nW+tc8hrmebE6+GFOVu24Dz1Q2blB6e+AmI8g==}
+  /@lucid-evolution/plutus@0.1.9:
+    resolution: {integrity: sha512-I+VTpk4ewWN3CmHiSz+QwSCvXCDfxMOA6hhzSYubK1Ycrxi+9PAGYlkQ3MY2I33kUigtRvDIXX9/0rLi2H5S9Q==}
     dependencies:
       '@dcspark/cardano-multiplatform-lib-browser': 5.3.1
       '@dcspark/cardano-multiplatform-lib-nodejs': 5.3.1
-      '@lucid-evolution/core-types': 0.1.7
+      '@lucid-evolution/core-types': 0.1.6
       '@lucid-evolution/core-utils': 0.1.6
       '@sinclair/typebox': 0.32.31
     dev: false
 
-  /@lucid-evolution/provider@0.1.25:
-    resolution: {integrity: sha512-O3el9+kxH+TAALPLIB0tIR5w2xKELGEz7A9pZBR1mthJRVIJxWOPHWb58b0t/0AFoET4GdATw6ZVzOIw2Pz7Kw==}
+  /@lucid-evolution/provider@0.1.24:
+    resolution: {integrity: sha512-k5baa9udpN28Ff4FS0V5MBHjcyHg9QbXJ/ELGyZh8zXbjACPJsQdtMcRDpXPDo71M1Xsge7FpXPdQ2MPEzXPJg==}
     dependencies:
       '@dcspark/cardano-multiplatform-lib-browser': 5.3.1
       '@dcspark/cardano-multiplatform-lib-nodejs': 5.3.1
       '@effect/schema': 0.67.22(effect@3.2.6)
-      '@lucid-evolution/core-types': 0.1.7
+      '@lucid-evolution/core-types': 0.1.6
       '@lucid-evolution/core-utils': 0.1.6
-      '@lucid-evolution/utils': 0.1.18
+      '@lucid-evolution/utils': 0.1.17
       effect: 3.2.6
     dev: false
 
-  /@lucid-evolution/sign_data@0.1.7:
-    resolution: {integrity: sha512-qufxSZIsWsgD/4fSS+VZ5fnPdwoS/gOGaFNUm4FUT2aSu20M0nraDwrJFkBi3iFwfmAln8xjQpuUK2FJSNSxzQ==}
+  /@lucid-evolution/sign_data@0.1.6:
+    resolution: {integrity: sha512-96raC2yj3WDWa+fAI8CSr4/HYTQcGukybveKl79sVzkObHjhKOViensa/unYLz4129704FZ8/kCmz4eG5EjaeQ==}
     dependencies:
       '@dcspark/cardano-multiplatform-lib-browser': 5.3.1
       '@dcspark/cardano-multiplatform-lib-nodejs': 5.3.1
       '@emurgo/cardano-message-signing-browser': 1.0.1
       '@emurgo/cardano-message-signing-nodejs': 1.0.1
-      '@lucid-evolution/core-types': 0.1.7
+      '@lucid-evolution/core-types': 0.1.6
       '@lucid-evolution/core-utils': 0.1.6
     dev: false
 
-  /@lucid-evolution/uplc@0.2.6:
-    resolution: {integrity: sha512-Z3f/No7TDsM8zugkbXqu6h7gkPKyexNfn8fE1gdEvnZ+6LZVJO2R3OoRrV4gvqAenaREIaFGimAlFbKmnKXc9A==}
+  /@lucid-evolution/uplc@0.2.5:
+    resolution: {integrity: sha512-1qOwnAEVahzGRCu4sdx7g06ZbCzhXCz7vOO2jnQ0+QlfNSeD1gQL2UzKi7EIJz00lyBRotlNGKqs+dH8g9NPsg==}
     dev: false
 
-  /@lucid-evolution/utils@0.1.18:
-    resolution: {integrity: sha512-PuE+FT6PFfljrINyIJOTa9il/e15zIgJqdLDaC0w7t12vpt15k8GHSzxw7hlqBl3dYrSZxD++V61ovBpTKuorA==}
+  /@lucid-evolution/utils@0.1.17:
+    resolution: {integrity: sha512-p2vzKFSzUkkQYTMqP6lDSXFYLfYKQLEcLqug5hdH6pK7hjXXZ7PD1gLV8wZ6IbWVOXG3MakhQ7EletRQtWtWaw==}
     dependencies:
       '@dcspark/cardano-multiplatform-lib-browser': 5.3.1
       '@dcspark/cardano-multiplatform-lib-nodejs': 5.3.1
       '@lucid-evolution/bip39': 0.2.7
-      '@lucid-evolution/core-types': 0.1.7
+      '@lucid-evolution/core-types': 0.1.6
       '@lucid-evolution/core-utils': 0.1.6
       '@lucid-evolution/crc8': 0.1.6
-      '@lucid-evolution/plutus': 0.1.10
-      '@lucid-evolution/uplc': 0.2.6
+      '@lucid-evolution/plutus': 0.1.9
+      '@lucid-evolution/uplc': 0.2.5
       cborg: 4.2.0
     dev: false
 
-  /@lucid-evolution/wallet@0.1.20:
-    resolution: {integrity: sha512-bEIWhW6BBoawM89PRAHI056C/WbcsfhD79NnjmcBFGAPsJ0fseOMeXAW5KIRrHIxva4PMFvK1Ky4t8VoeRyggA==}
+  /@lucid-evolution/wallet@0.1.19:
+    resolution: {integrity: sha512-oAjLwluUNAXzg9MatxFLZ7V/YQpXLSUPaAtxrIBuziDEN8CajUostitGmGUhuZ/Vv8q5rEctnGthoi3v/Bd21g==}
     dependencies:
       '@dcspark/cardano-multiplatform-lib-nodejs': 5.3.1
       '@lucid-evolution/bip39': 0.2.7
-      '@lucid-evolution/core-types': 0.1.7
+      '@lucid-evolution/core-types': 0.1.6
       '@lucid-evolution/core-utils': 0.1.6
-      '@lucid-evolution/sign_data': 0.1.7
-      '@lucid-evolution/utils': 0.1.18
+      '@lucid-evolution/sign_data': 0.1.6
+      '@lucid-evolution/utils': 0.1.17
     dev: false
 
   /@nodelib/fs.scandir@2.1.5:
