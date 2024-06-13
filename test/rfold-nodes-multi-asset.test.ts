@@ -16,7 +16,7 @@ import {
   reclaimReward,
   RemoveNodeConfig,
   RewardFoldNodesConfig,
-  rewardFoldNodes,
+  rewardFoldNodesOld,
   reclaimNode,
   CreateConfig,
   createConfig,
@@ -35,8 +35,8 @@ import {
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test.skip<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - initFold - multiFold - initRewardFold \
-- rewardFoldNodes - reclaimReward - dinit - account3 claimReward)", async ({
+test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - initFold - multiFold - initRewardFold \
+- rewardFoldNodesOld - reclaimReward - dinit - account3 claimReward)", async ({
   lucid,
   users,
   emulator,
@@ -259,7 +259,7 @@ test.skip<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNod
   };
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const rewardFoldUnsigned = await rewardFoldNodes(
+  const rewardFoldUnsigned = await rewardFoldNodesOld(
     lucid,
     rewardFoldNodesConfig,
   );

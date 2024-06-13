@@ -16,7 +16,7 @@ import {
   reclaimReward,
   RemoveNodeConfig,
   RewardFoldNodesConfig,
-  rewardFoldNodes,
+  rewardFoldNodesOld,
   reclaimNode,
   CreateConfig,
   createConfig,
@@ -36,8 +36,8 @@ import * as lucidE from "@lucid-evolution/lucid";
 
 beforeEach<LucidContext>(initializeLucidContext);
 
-test.skip<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - initFold - multiFold - initRewardFold \
-- rewardFoldNodes - reclaimReward - dinit - account3 claimReward)", async ({
+test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - initFold - multiFold - initRewardFold \
+- rewardFoldNodesOld - reclaimReward - dinit - account3 claimReward)", async ({
   lucid,
   users,
   emulator,
@@ -260,23 +260,21 @@ test.skip<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNod
   };
 
   lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const provider = { ...lucid.provider };
-  const lucid_evol = await lucidE.Lucid(provider, lucid.network);
-  lucid_evol.selectWallet.fromSeed(users.treasury1.seedPhrase);
-  const rewardFoldUnsigned = await rewardFoldNodes(
+  // const provider = { ...lucid.provider };
+  // const lucid_evol = await lucidE.Lucid(provider, lucid.network);
+  // lucid_evol.selectWallet.fromSeed(users.treasury1.seedPhrase);
+  const rewardFoldUnsigned = await rewardFoldNodesOld(
     lucid,
-    lucid_evol,
     rewardFoldNodesConfig,
   );
-  console.log(JSON.stringify(rewardFoldUnsigned));
+  // console.log(JSON.stringify(rewardFoldUnsigned, replacer));
 
   expect(rewardFoldUnsigned.type).toBe("ok");
   if (rewardFoldUnsigned.type == "error") return;
   // const completedRFold = await rewardFoldUnsigned.data.complete();
   // console.log(completedRFold.exUnits);
-  const rewardFoldSigned = await rewardFoldUnsigned.data.sign
-    .withWallet()
-    .complete();
+  // const rewardFoldSigned = await rewardFoldUnsigned.data.sign.withWallet().complete();
+  const rewardFoldSigned = await rewardFoldUnsigned.data.sign().complete();
   const rewardFoldHash = await rewardFoldSigned.submit();
 
   emulator.awaitBlock(4);
