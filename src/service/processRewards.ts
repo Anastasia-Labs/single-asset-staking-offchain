@@ -57,6 +57,8 @@ export const processRewards = async (
   if (campaignStatus == CampaignStatus.StakingEnded) {
     let retries = 0;
     while (retries < maxRetries) {
+      // Unsetting current time so that endpoints can set it more accurately
+      config.currentTime = undefined;
       if (retries > 0) console.log(`initFold retries : ${retries}`);
 
       const initFoldUnsigned = await initFold(lucid, config);
@@ -97,6 +99,8 @@ export const processRewards = async (
 
       let retries = 0;
       while (retries < maxRetries) {
+        // Unsetting current time so that endpoints can set it more accurately
+        config.currentTime = undefined;
         if (retries > 0) console.log(`multiFold retries : ${retries}`);
 
         const multiFoldUnsigned = await multiFold(lucid, config);
@@ -135,6 +139,8 @@ export const processRewards = async (
   if (campaignStatus == CampaignStatus.StakeCalculationEnded) {
     let retries = 0;
     while (retries < maxRetries) {
+      // Unsetting current time so that endpoints can set it more accurately
+      config.currentTime = undefined;
       if (retries > 0) console.log(`initRewardFold retries : ${retries}`);
 
       const initRewardFoldUnsigned = await initRewardFold(lucid, config);
@@ -172,21 +178,24 @@ export const processRewards = async (
 
       let retries = 0;
       while (retries < maxRetries) {
+        // Unsetting current time so that endpoints can set it more accurately
+        config.currentTime = undefined;
         if (retries > 0) console.log(`rewardFoldNodes retries : ${retries}`);
 
-        const rewardFoldUnsigned = await rewardFoldNodes(
-          lucid,
-          lucid_evol,
-          config,
-        );
-        if (rewardFoldUnsigned.type == "error") {
-          console.log(rewardFoldUnsigned);
-          errorResponse = rewardFoldUnsigned;
-          retries++;
-          continue;
-        }
-
         try {
+          const rewardFoldUnsigned = await rewardFoldNodes(
+            lucid,
+            lucid_evol,
+            config,
+          );
+          if (rewardFoldUnsigned.type == "error") {
+            console.log("Endpoint error");
+            console.log(rewardFoldUnsigned);
+            errorResponse = rewardFoldUnsigned;
+            retries++;
+            continue;
+          }
+
           const rewardFoldSigned = await rewardFoldUnsigned.data.sign
             .withWallet()
             .complete();
@@ -198,6 +207,7 @@ export const processRewards = async (
             error instanceof Error
               ? error
               : new Error(`${JSON.stringify(error)}`);
+          console.log("Service error");
           console.log(errorResponse);
         }
         retries++;
@@ -272,6 +282,8 @@ export const processRewards = async (
     if (rewardUTxO.type == "ok") {
       let retries = 0;
       while (retries < maxRetries) {
+        // Unsetting current time so that endpoints can set it more accurately
+        config.currentTime = undefined;
         if (retries > 0) console.log(`reclaimReward retries : ${retries}`);
 
         const reclaimUnsigned = await reclaimReward(lucid, config);
@@ -292,6 +304,8 @@ export const processRewards = async (
     if (headNodeUTxO.type == "ok") {
       let retries = 0;
       while (retries < maxRetries) {
+        // Unsetting current time so that endpoints can set it more accurately
+        config.currentTime = undefined;
         if (retries > 0) console.log(`dinitNode retries : ${retries}`);
 
         const dinitNodeUnsigned = await dinitNode(lucid, config);
