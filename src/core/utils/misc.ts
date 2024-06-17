@@ -4,6 +4,7 @@ import {
   Lucid,
   SpendingValidator,
   TxComplete,
+  TxHash,
   UTxO,
   Unit,
   fromText,
@@ -14,7 +15,6 @@ import { Either, ReadableUTxO, Result } from "../types.js";
 import { mkNodeKeyTN } from "./utils.js";
 import { CFOLD, RFOLD, RTHOLDER, originNodeTokenName } from "../constants.js";
 import { setTimeout } from "timers/promises";
-import { match } from "ts-pattern";
 
 export const utxosAtScript = async (
   lucid: Lucid,
@@ -582,44 +582,24 @@ export async function safeAsync<T>(
 export async function signSubmitValidate(
   lucid: Lucid,
   txComplete: Result<TxComplete>,
-): Promise<boolean> {
-  const tx = match(txComplete)
-    .with({ type: "ok" }, (tx) => tx.data)
-    .otherwise((error) => {
-      console.log(error);
-      return null;
-    });
-  if (!tx) return false;
+): Promise<Result<TxHash>> {
+  if (txComplete.type == "error") return txComplete;
 
-  const signed = match(await safeAsync(async () => tx.sign().complete()))
-    .with({ type: "ok" }, (signed) => signed.data)
-    .otherwise((error) => {
-      console.log(error);
-      return null;
-    });
-  if (!signed) return false;
+  const txSigned = await safeAsync(async () =>
+    txComplete.data.sign().complete(),
+  );
+  if (txSigned.type == "error") return txSigned;
 
-  const submitted = match(await safeAsync(async () => signed.submit()))
-    .with({ type: "ok" }, (submmited) => submmited.data)
-    .otherwise((error) => {
-      console.log(error);
-      return null;
-    });
-  if (!submitted) return false;
+  const submitted = await safeAsync(async () => txSigned.data.submit());
+  if (submitted.type == "error") return submitted;
 
-  const awaited = match(
-    await timeoutAsync(async () => lucid.awaitTx(submitted), 120_000),
-  )
-    .with({ type: "ok" }, () => {
-      console.log(`txSubmitted txHash: ${submitted}`);
-      return true;
-    })
-    .otherwise((error) => {
-      console.log(error);
-      return false;
-    });
+  const awaited = await timeoutAsync(
+    async () => lucid.awaitTx(submitted.data),
+    120_000,
+  );
+  if (awaited.type == "error") return awaited;
 
-  return awaited;
+  return { type: "ok", data: submitted.data };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

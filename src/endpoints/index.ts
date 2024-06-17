@@ -12,4 +12,5 @@ export * from "./initFold.js";
 export * from "./multiFold.js";
 export * from "./initRewardFold.js";
 export * from "./rewardFoldNodes.js";
+export * from "./rewardFoldNodesOld.js";
 export * from "./reclaimReward.js";

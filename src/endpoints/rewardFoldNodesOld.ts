@@ -2,6 +2,7 @@ import {
   Lucid,
   SpendingValidator,
   Data,
+  TxComplete,
   MintingPolicy,
   fromText,
   toUnit,
@@ -24,13 +25,18 @@ import {
   sumUtxoAssets,
 } from "../index.js";
 import { fetchConfigUTxO } from "./fetchConfig.js";
-import * as lucidE from "@lucid-evolution/lucid";
 
-export const rewardFoldNodes = async (
+/**
+ * ATTENTION: This is the old version of rewardFoldNodes using lucid instead of the new version
+ * with lucid-evolution. This version is kept around to support emulator tests as lucid-evolution
+ * doesn't at the moment. Try to update this too while updating the actual one, so that unit tests
+ * run latest logic.
+ */
+
+export const rewardFoldNodesOld = async (
   lucid: Lucid,
-  lucid_evol: lucidE.LucidEvolution,
   config: RewardFoldNodesConfig,
-): Promise<Result<lucidE.TxSignBuilder>> => {
+): Promise<Result<TxComplete>> => {
   if (
     !config.refScripts.nodeValidator.scriptRef ||
     !config.refScripts.nodePolicy.scriptRef ||
@@ -133,7 +139,7 @@ export const rewardFoldNodes = async (
   if (configUTxOResponse.type == "error") return configUTxOResponse;
 
   try {
-    let tx = lucid_evol
+    let tx = lucid
       .newTx()
       .collectFrom(nodeInputs, Data.to("RewardFoldAct", NodeValidatorAction));
 
@@ -157,9 +163,9 @@ export const rewardFoldNodes = async (
           error: new Error("No datum found for node input"),
         };
 
-      tx = tx.pay.ToContract(
+      tx = tx.payToContract(
         nodeValidatorAddr,
-        { kind: "inline", value: utxo.datum },
+        { inline: utxo.datum },
         nodeOutputAssets,
       );
 
@@ -187,9 +193,9 @@ export const rewardFoldNodes = async (
     tx = tx
       .collectFrom([rewardUTxO.data], rewardFoldValidatorRedeemer)
       .collectFrom(selectedUtxos.data)
-      .pay.ToContract(
+      .payToContract(
         rewardFoldValidatorAddr,
-        { kind: "inline", value: newFoldDatum },
+        { inline: newFoldDatum },
         updatedRewardUTxOAssets,
       )
       .withdraw(
@@ -208,7 +214,9 @@ export const rewardFoldNodes = async (
 
     return {
       type: "ok",
-      data: await tx.complete(),
+      data: await (process.env.NODE_ENV == "emulator"
+        ? tx.complete()
+        : tx.complete({ nativeUplc: false })),
     };
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };

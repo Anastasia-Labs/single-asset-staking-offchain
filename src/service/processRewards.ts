@@ -11,7 +11,6 @@ import {
   CampaignStatus,
   REWARD_FOLD_BATCH_SIZE,
   TIME_TOLERANCE_MS,
-  catchErrorHandling,
   dinitNode,
   fetchCampaignState,
   fetchNodeUTxOs,
@@ -24,9 +23,11 @@ import {
   rewardFoldNodes,
   signSubmitValidate,
 } from "../index.js";
+import * as lucidE from "@lucid-evolution/lucid";
 
 export const processRewards = async (
   lucid: Lucid,
+  lucid_evol: lucidE.LucidEvolution,
   config: ProcessRewardsConfig,
 ): Promise<Result<{ reclaimReward: TxHash; deinit: TxHash }>> => {
   const currentTime = Date.now();
@@ -49,30 +50,27 @@ export const processRewards = async (
   if (stateRes.type == "error") return stateRes;
 
   let campaignStatus = stateRes.data.campaignStatus;
+  const maxRetries = 3;
 
   // INIT FOLD
 
   if (campaignStatus == CampaignStatus.StakingEnded) {
-    const initFoldUnsigned = await initFold(lucid, config);
+    let retries = 0;
+    while (retries < maxRetries) {
+      // Unsetting current time so that endpoints can set it more accurately
+      config.currentTime = undefined;
+      if (retries > 0) console.log(`initFold retries : ${retries}`);
 
-    if (initFoldUnsigned.type == "error") {
-      console.log(initFoldUnsigned.error);
-      return initFoldUnsigned;
+      const initFoldUnsigned = await initFold(lucid, config);
+      const response = await signSubmitValidate(lucid, initFoldUnsigned);
+
+      if (response.type == "ok") break;
+      if (retries == 2) return response;
+      retries++;
     }
 
-    try {
-      const initFoldSigned = await initFoldUnsigned.data.sign().complete();
-      const initFoldHash = await initFoldSigned.submit();
-      await lucid.awaitTx(initFoldHash);
-      // offset wallet & blockchain sync
-      await setTimeout(20_000);
-      campaignStatus = CampaignStatus.StakeCalculationStarted;
-    } catch (error) {
-      return catchErrorHandling(
-        error,
-        "Error occured while submitting init fold tx.",
-      );
-    }
+    await setTimeout(20_000);
+    campaignStatus = CampaignStatus.StakeCalculationStarted;
   }
 
   if (!config.nodeUTxOs) {
@@ -95,22 +93,25 @@ export const processRewards = async (
     );
 
     let foldNumber = 1;
-    const maxRetries = 3;
 
     while (foldNumber <= totalCommitFolds) {
       console.log(`processing commit fold number: ${foldNumber}`);
 
       let retries = 0;
       while (retries < maxRetries) {
-        if (retries > 0) console.log(`retries : ${retries}`);
+        // Unsetting current time so that endpoints can set it more accurately
+        config.currentTime = undefined;
+        if (retries > 0) console.log(`multiFold retries : ${retries}`);
 
         const multiFoldUnsigned = await multiFold(lucid, config);
+        const response = await signSubmitValidate(lucid, multiFoldUnsigned);
 
-        // console.log(initNodeUnsigned.data.txComplete.to_json());
-        const isValid = await signSubmitValidate(lucid, multiFoldUnsigned);
-        if (isValid) break;
+        if (response.type == "ok") break;
         retries++;
       }
+
+      // offset wallet & blockchain sync
+      await setTimeout(20_000);
 
       if (retries == 3) {
         const stateRes = await fetchCampaignState(lucid, config);
@@ -129,8 +130,6 @@ export const processRewards = async (
       }
 
       foldNumber++;
-      // offset wallet & blockchain sync
-      await setTimeout(20_000);
     }
     campaignStatus = CampaignStatus.StakeCalculationEnded;
   }
@@ -138,27 +137,22 @@ export const processRewards = async (
   // INIT REWARD FOLD
 
   if (campaignStatus == CampaignStatus.StakeCalculationEnded) {
-    const initRewardFoldUnsigned = await initRewardFold(lucid, config);
+    let retries = 0;
+    while (retries < maxRetries) {
+      // Unsetting current time so that endpoints can set it more accurately
+      config.currentTime = undefined;
+      if (retries > 0) console.log(`initRewardFold retries : ${retries}`);
 
-    if (initRewardFoldUnsigned.type == "error") {
-      console.log(initRewardFoldUnsigned.error);
-      return initRewardFoldUnsigned;
+      const initRewardFoldUnsigned = await initRewardFold(lucid, config);
+      const response = await signSubmitValidate(lucid, initRewardFoldUnsigned);
+
+      if (response.type == "ok") break;
+      if (retries == 2) return response;
+      retries++;
     }
 
-    try {
-      const initRewardFoldSigned = await initRewardFoldUnsigned.data
-        .sign()
-        .complete();
-      const initRewardFoldHash = await initRewardFoldSigned.submit();
-      await lucid.awaitTx(initRewardFoldHash);
-      await setTimeout(20_000);
-      campaignStatus = CampaignStatus.RewardsProcessingStarted;
-    } catch (error) {
-      return catchErrorHandling(
-        error,
-        "Error occured while submitting init reward fold tx.",
-      );
-    }
+    await setTimeout(20_000);
+    campaignStatus = CampaignStatus.RewardsProcessingStarted;
   }
 
   // REWARD FOLDS
@@ -174,21 +168,53 @@ export const processRewards = async (
 
     let foldNumber = 1;
     const maxRetries = 3;
+    let errorResponse: Result<object> = {
+      type: "error",
+      error: new Error("Error occurred while performing reward fold."),
+    };
 
     while (foldNumber <= totalRewardFolds) {
       console.log(`processing reward fold number: ${foldNumber}`);
 
       let retries = 0;
       while (retries < maxRetries) {
-        if (retries > 0) console.log(`retries : ${retries}`);
+        // Unsetting current time so that endpoints can set it more accurately
+        config.currentTime = undefined;
+        if (retries > 0) console.log(`rewardFoldNodes retries : ${retries}`);
 
-        const rewardFoldUnsigned = await rewardFoldNodes(lucid, config);
+        try {
+          const rewardFoldUnsigned = await rewardFoldNodes(
+            lucid,
+            lucid_evol,
+            config,
+          );
+          if (rewardFoldUnsigned.type == "error") {
+            console.log("Endpoint error");
+            console.log(rewardFoldUnsigned);
+            errorResponse = rewardFoldUnsigned;
+            retries++;
+            continue;
+          }
 
-        // console.log(initNodeUnsigned.data.txComplete.to_json());
-        const isValid = await signSubmitValidate(lucid, rewardFoldUnsigned);
-        if (isValid) break;
+          const rewardFoldSigned = await rewardFoldUnsigned.data.sign
+            .withWallet()
+            .complete();
+          const rewardFoldHash = await rewardFoldSigned.submit();
+          await lucid.awaitTx(rewardFoldHash);
+          break;
+        } catch (error) {
+          errorResponse.error =
+            error instanceof Error
+              ? error
+              : new Error(`${JSON.stringify(error)}`);
+          console.log("Service error");
+          console.log(errorResponse);
+        }
         retries++;
       }
+
+      // offset wallet & blockchain sync
+      await setTimeout(20_000);
 
       if (retries == 3) {
         const stateRes = await fetchCampaignState(lucid, config);
@@ -200,15 +226,10 @@ export const processRewards = async (
         )
           break;
 
-        return {
-          type: "error",
-          error: new Error("Error occurred while performing reward fold."),
-        };
+        return errorResponse;
       }
 
       foldNumber++;
-      // offset wallet & blockchain sync
-      await setTimeout(20_000);
     }
     campaignStatus = CampaignStatus.UserClaimsAllowed;
   }
@@ -259,43 +280,43 @@ export const processRewards = async (
 
     // If reward utxo is not found, assume reclaim reward to be done
     if (rewardUTxO.type == "ok") {
-      const reclaimUnsigned = await reclaimReward(lucid, config);
+      let retries = 0;
+      while (retries < maxRetries) {
+        // Unsetting current time so that endpoints can set it more accurately
+        config.currentTime = undefined;
+        if (retries > 0) console.log(`reclaimReward retries : ${retries}`);
 
-      if (reclaimUnsigned.type == "error") return reclaimUnsigned;
+        const reclaimUnsigned = await reclaimReward(lucid, config);
+        const response = await signSubmitValidate(lucid, reclaimUnsigned);
 
-      if (reclaimUnsigned.type == "ok") {
-        try {
-          const reclaimSigned = await reclaimUnsigned.data.sign().complete();
-          reclaimTxHash = await reclaimSigned.submit();
-          await lucid.awaitTx(reclaimTxHash);
-        } catch (error) {
-          return catchErrorHandling(
-            error,
-            "Error occured while submitting reclaim reward tx.",
-          );
+        if (response.type == "ok") {
+          reclaimTxHash = response.data;
+          break;
         }
+        if (retries == 2) return response;
+        retries++;
       }
+      // offset wallet & blockchain sync
+      await setTimeout(20_000);
     }
 
     // If head node utxo is not found, assume deinit to be done
     if (headNodeUTxO.type == "ok") {
-      const dinitNodeUnsigned = await dinitNode(lucid, config);
+      let retries = 0;
+      while (retries < maxRetries) {
+        // Unsetting current time so that endpoints can set it more accurately
+        config.currentTime = undefined;
+        if (retries > 0) console.log(`dinitNode retries : ${retries}`);
 
-      if (dinitNodeUnsigned.type == "error") return dinitNodeUnsigned;
+        const dinitNodeUnsigned = await dinitNode(lucid, config);
+        const response = await signSubmitValidate(lucid, dinitNodeUnsigned);
 
-      if (dinitNodeUnsigned.type == "ok") {
-        try {
-          const dinitNodeSigned = await dinitNodeUnsigned.data
-            .sign()
-            .complete();
-          deinitTxHash = await dinitNodeSigned.submit();
-          await lucid.awaitTx(deinitTxHash);
-        } catch (error) {
-          return catchErrorHandling(
-            error,
-            "Error occured while submitting deinit tx.",
-          );
+        if (response.type == "ok") {
+          deinitTxHash = response.data;
+          break;
         }
+        if (retries == 2) return response;
+        retries++;
       }
     }
 

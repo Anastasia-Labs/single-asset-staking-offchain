@@ -274,6 +274,7 @@ export type ProcessRewardsConfig = {
   endStaking: POSIXTime;
   freezeStake: POSIXTime;
   penaltyAddress: Address;
+  currentTime?: POSIXTime;
   refScripts: {
     configPolicy: UTxO;
     nodeValidator: UTxO;
