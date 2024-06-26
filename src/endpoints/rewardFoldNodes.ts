@@ -109,7 +109,9 @@ export const rewardFoldNodes = async (
   const walletUTxOs = await lucid.wallet.getUtxos();
   // adding 4 ADA to cover tx fees as we will do the coin selection.
   // Using more than sufficient ADA to safeguard against high tx costs
-  const selectedUtxos = selectUtxos(walletUTxOs, { lovelace: 4_000_000n });
+  const selectedUtxos = selectUtxos(lucidE.sortUTxOs(walletUTxOs), {
+    lovelace: 4_000_000n,
+  });
   if (selectedUtxos.type == "error") return selectedUtxos;
   const inputIndices = getInputUtxoIndices(nodeInputs, [
     ...selectedUtxos.data,
