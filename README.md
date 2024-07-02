@@ -6,22 +6,21 @@
 - [Overview](#overview)
 - [Details](#details)
   - [Deployment](#deployment)
-    - [Build Scripts](#build-scripts)
-    - [Deploy Reference Scripts](#deploy-reference-scripts)
+    - [Build Scripts](#build-scripts-buildscriptsts)
+    - [Deploy Reference Scripts](#deploy-reference-scripts-deployrefscriptsts)
   - [Setup](#setup)
-    - [Create Config UTxO](#create-config-utxo)
-    - [Lock Rewards](#lock-rewards)
-    - [Initialize Head Node](#initialize-head-node)
+    - [Create Config UTxO](#create-config-utxo-createconfigts)
+    - [Initialize Staking](#initialize-staking-initstakingts)
   - [User Participation](#user-participation)
   - [Active Staking](#active-staking)
-  - [Rewards Processing](#rewards-processing)
-    - [Initialize Commit Fold](#initialize-commit-fold)
-    - [Complete Commit Fold](#complete-commit-fold)
-    - [Initialize Reward Fold](#initialize-reward-fold)
-    - [Complete Reward Fold](#complete-reward-fold)
-  - [Claim](#claim)
-    - [Project Reclaims Reward](#project-reclaims-reward)
-    - [Deinitialize Head Node](#deinitialize-head-node)
+  - [Rewards Processing](#rewards-processing-processrewardsts)
+    - [Initialize Commit Fold](#initialize-commit-fold-initfoldts)
+    - [Complete Commit Fold](#complete-commit-fold-multifoldts)
+    - [Initialize Reward Fold](#initialize-reward-fold-initrewardfoldts)
+    - [Complete Reward Fold](#complete-reward-fold-rewardfoldnodests)
+    - [Project Reclaims Reward](#project-reclaims-reward-reclaimrewardts)
+    - [Deinitialize Head Node](#deinitialize-head-node-dinitnodets)
+  - [Claim](#claim-reclaimnodets)
 - [Important Notes](#important-notes)
 
 # Introduction
@@ -62,8 +61,7 @@ timeline
                : Deploy Reference Scripts
 
     Setup : Create Config UTxO
-          : Lock Rewards
-          : Initialize Head Node
+          : Initialize Staking
 
     User Participation : Register Stake
                        : Modify Stake*
@@ -75,10 +73,10 @@ timeline
                        : Complete Commit Fold
                        : Initialize Reward Fold
                        : Complete Reward Fold
+                       : Project Reclaims Reward
+                       : Deinitialize Head Node
 
     Claim : Users Claim Stake & Reward
-          : Project Reclaims Reward
-          : Deinitialize Head Node
 ```
 
 > Note: [*] - Actions which can be performed if user wishes to.
@@ -134,7 +132,6 @@ Every individual Staking Campaign begins by first creating a Config UTxO for it.
 ```hs
 data StakingConfig = StakingConfig
   { stakingInitUTxO :: TxOutRef
-  , rewardInitUTxO :: TxOutRef
   , freezeStake :: POSIXTime
   , endStaking :: POSIXTime
   , penaltyAddress :: Address
@@ -169,16 +166,23 @@ graph LR
     TX --> O1
 ```
 
-### **Lock Rewards** `initTokenHolder.ts`
+### **Initialize Staking** `initStaking.ts`
 
-Here project locks the entire staking reward in `tokenHolderValidator`. The total reward amount will be distributed among participants in proportion to their stake. Locking of rewards beforehand gives high assurance to all the participants before they can begin staking. One percent of total reward amount is paid as protocol fees for facilitating staking.
+Here project locks the entire staking reward in `tokenHolderValidator`. The total reward amount will be distributed among participants in proportion to their stake. Locking of rewards beforehand gives high assurance to all the participants before they can begin staking. Additional one percent of total reward amount is paid as protocol fees for facilitating staking to Anastasia Labs.
+
+> Note: The wallet containing the `stakingInitUTxO` must have enough reward tokens to cover the total reward amount plus 1% protocol fees along with
+> sufficient lovelaces to cover mininum ADA costs and transaction fees.
+
+This transaction also marks the beginning of the association list which will contain all the stake by different participants as separate UTxOs. The first node of the list know as head node is created in this step.
+
+Head node differs from all the nodes in that its key is null. Every valid stake UTxO in the list has a unique "Node Token" which is minted by `nodePolicy` at the time of its insertion. The token name is derived as NODE_PREFIX ("FSN") + PaymentPubKeyHash thereby making every node token unique. Head node just has NODE_PREFIX as the token name.
 
 ```mermaid
 ---
-title: Lock Rewards
+title: Initialize Staking
 ---
 graph LR
-    I1(Reward Init UTxO)
+    I1(Staking Init UTxO)
     TX[ Transaction ]
     subgraph Token Holder Validator
     O1(("Output 1
@@ -186,41 +190,22 @@ graph LR
         $TokenHolderPolicy.RTHolder: 1n
         datum: configTN = abc"))
     end
-    O2(("Output 2"))
-    I1 --> TX
-    MP{"Ref Input
-      $deployId.TokenHolderPolicy"}  -.-o|Mint $TokenHolderPolicy.RTHolder| TX
-    TX --> O1
-    TX -->|1% Protocol Fees| O2
-    R1(("Ref Input
-        $ConfigPolicy.abc: 1n
-        datum: StakingConfig")) -.-o TX
-```
-
-### **Initialize Head Node** `initNode.ts`
-
-This marks the beginning of the association list which will contain all the stake by different participants as separate UTxOs. The first node of the list know as head node is created in this step.
-
-Head node differs from all the nodes in that its key is null. Every valid stake UTxO in the list has a unique "Node Token" which is minted by `nodePolicy` at the time of its insertion. The token name is derived as NODE_PREFIX ("FSN") + PaymentPubKeyHash thereby making every node token unique. Head node just has NODE_PREFIX as the token name.
-
-```mermaid
----
-title: Initialize Head Node
----
-graph LR
-    I1(Staking Init UTxO)
-    TX[ Transaction ]
     subgraph Staking Validator
-    O1(("Head Node
+    O2(("Head Node
         $stakeCS.stakeTN: minStake
         $NodePolicy.FSN: 1n
         datum: key = null, next = null,
         configTN = abc"))
     end
+    O3(("Output 3"))
     I1 --> TX
-    MP{"Ref Input
-      $deployId.NodePolicy"}  -.-o|Mint $NodePolicy.FSN| TX
+    MP1{"Ref Input
+      $deployId.TokenHolderPolicy"}  -.-o|Mint $TokenHolderPolicy.RTHolder| TX
     TX --> O1
+    TX --> O2
+    MP2{"Ref Input
+      $deployId.NodePolicy"}  -.-o|Mint $NodePolicy.FSN| TX
+    TX -->|1% Protocol Fees| O3
     R1(("Ref Input
         $ConfigPolicy.abc: 1n
         datum: StakingConfig")) -.-o TX
@@ -234,13 +219,14 @@ Now the Staking event is opened and users can participate by locking their stake
 
 Once stake is frozen (configured by parameter `freezeStake :: POSIXTime`), the active staking phase begins for which the participants will be earning rewards. This phase lasts till `endStaking :: POSIXTime` as decided by the project. During this period, new participants cannot enter nor can the old ones modify their stake. However, existing stakers can still get their stake back if they choose to, by paying 25% of their stake as penalty fee.
 
-## Rewards Processing
+## Rewards Processing `processRewards.ts`
 
 After the active staking phase has ended (after `endStaking :: POSIXTime`) comes the part where project processes and allocates rewards to its participants who staked till now.
 
 Its done by first calculating and saving the total amount staked on-chain. Then every participant's stake UTxO is updated to include rewards in it, in proportion to their stake. Reward calculation is given by the formula `(userStake * totalRewards) / totalStake`.
 
-Following sequence of on-chain actions elaborate further on how rewards processing mechanism works.
+Following sequence of on-chain actions elaborate further on how rewards processing mechanism works. The `processRewards.ts` endpoint carries out all
+the below actions for the project in a sequential manner.
 
 ### **Initialize Commit Fold** `initFold.ts`
 
@@ -503,10 +489,6 @@ graph LR
 
 > Note: [*] - If any reward tokens are left due to remainder from integer division in `(userStake * totalRewards) / totalStake`
 
-## Claim `claimNode.ts`
-
-Only after rewards are processed can the participants claim their stake and reward. They can do so by spending their stake UTxO from "Staking Validator" after signing transaction with private key belonging to the PaymentPubKeyHash as `key` in UTxO's datum.
-
 ### **Project Reclaims Reward** `reclaimReward.ts`
 
 Once the rewards are processed, project is free to claim any remaining project tokens left in "Reward Fold UTxO" along with any lovelaces present. They'll have to additionally burn "$RewardPolicy.RFold" token for this, which is only allowed when `next = null` i.e. all rewards are processed.
@@ -515,8 +497,15 @@ Once the rewards are processed, project is free to claim any remaining project t
 
 The project is also free to reclaim the Head Node with the "minStake" and lovelaces present in it. It can only be done after the reward fold is initiated (Reward Fold Token datum has `next == *head node's next*`), therefore ensuring no information is lost.
 
+## Claim `reclaimNode.ts`
+
+Only after rewards are processed can the participants claim their stake and reward. They can do so by spending their stake UTxO from "Staking Validator" after signing transaction with private key belonging to the PaymentPubKeyHash as `key` in UTxO's datum.
+
 # Important Notes
 
-1. Its advisable to use three different wallets, each containing one Init UTxO (`configInitUTxO`, `stakingInitUTxO` & `rewardInitUTxO`). So that they aren’t spent before their respective Init transactions.
+1. Its advisable to use two different wallets, each containing one Init UTxO (`configInitUTxO` & `stakingInitUTxO`). So that they aren’t spent before their respective initialization transactions. The wallet containing the `stakingInitUTxO` must have enough reward tokens to cover the total reward amount plus 1% protocol fees along with sufficient lovelaces to cover mininum ADA costs and transaction fees.
 2. Only `stakeTN` and `rewardTN` fields are expected to be UTF-8 encoded strings. All the other Currency Symbols/ Policy Ids and Token name strings are expected to Hex encoded strings.
-3. The offchain expects Cardano Native Token amounts in their lowest denomination/unit. For example, if the Stake Token is [MIN](https://cardanoscan.io/token/29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c64d494e) which has 6 decimal places and you want 10 MIN to be the minimum stake. You will have to configure `minimumStake`(field in `StakingConfig` and other Config objects) to be `10 * 10^6` (`Amount * 10 ^ Decimals`) i.e `10_000_000`. Similarly, the reponses obtained from the endpoint will provide CNT amount values in their lowest unit. Fields like `totalStake` & `totalReward` (in `CampaignState`) and `rewardAmount` in `InitTokenHolderConfig` adhere to this representation.
+3. The offchain expects Cardano Native Token amounts in their lowest denomination/unit. For example, if the Stake Token is [MIN](https://cardanoscan.io/token/29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c64d494e) which has 6 decimal places and you want 10 MIN to be the minimum stake. You will have to configure `minimumStake`(field in `StakingConfig` and other Config objects) to be `10 * 10^6` (`Amount * 10 ^ Decimals`) i.e `10_000_000`. Similarly, the reward amount the project wants to lock as total staking reward, specified by `rewardsAmount` must be in its lowest unit for e.g. if total reward is 1000 MIN then `rewardsAmount == 1_000_000_000`. Likewise, the reponses obtained from the endpoint will provide CNT amount values in their lowest unit. Fields like `totalStake` & `totalReward` (in `CampaignState`), `rewardAmount` in `InitStakingConfig` and `toStake` used while staking or modifying stake, adhere to this representation.
+4. All the transactions provided will have a validity range of 6 minutes. Attempting to perform any action using the SDK endpoints with less than 3 minutes of difference from either the `freezeStake` or `endStaking` will result in an error i.e. `|Date.now() - freezeStakeOrEndStaking| > 3 minutes`.
+5. Using an on-chain association list for managing stake provides increased throughput with increased number of stakers. However, it
+   is susceptible to contention due to multiple users updating the list concurrently. Hence, it is recommended that the project user of Maestro APIs (adding, modifying and withdrawing stake) implement a retry mechanism (with some delay) to handle failures encountered after submitting the signed transactions.

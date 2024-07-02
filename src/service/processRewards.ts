@@ -39,7 +39,7 @@ export const processRewards = async (
       type: "error",
       error: new Error(
         currentTime < config.endStaking
-          ? "Cannot starting processing rewards before endStaking time"
+          ? "Cannot start processing rewards before endStaking time"
           : `Transaction validity range is overlapping staking phases. 
           Please wait for ${TIME_TOLERANCE_MS / 1_000} seconds before trying
           to process rewards.`,
@@ -67,6 +67,7 @@ export const processRewards = async (
       if (response.type == "ok") break;
       if (retries == 2) return response;
       retries++;
+      await setTimeout(20_000);
     }
 
     await setTimeout(20_000);
@@ -108,6 +109,7 @@ export const processRewards = async (
 
         if (response.type == "ok") break;
         retries++;
+        await setTimeout(20_000);
       }
 
       // offset wallet & blockchain sync
@@ -149,6 +151,7 @@ export const processRewards = async (
       if (response.type == "ok") break;
       if (retries == 2) return response;
       retries++;
+      await setTimeout(20_000);
     }
 
     await setTimeout(20_000);
@@ -189,10 +192,9 @@ export const processRewards = async (
             config,
           );
           if (rewardFoldUnsigned.type == "error") {
-            console.log("Endpoint error");
-            console.log(rewardFoldUnsigned);
             errorResponse = rewardFoldUnsigned;
             retries++;
+            await setTimeout(20_000);
             continue;
           }
 
@@ -207,10 +209,9 @@ export const processRewards = async (
             error instanceof Error
               ? error
               : new Error(`${JSON.stringify(error)}`);
-          console.log("Service error");
-          console.log(errorResponse);
         }
         retries++;
+        await setTimeout(20_000);
       }
 
       // offset wallet & blockchain sync
@@ -295,6 +296,7 @@ export const processRewards = async (
         }
         if (retries == 2) return response;
         retries++;
+        await setTimeout(20_000);
       }
       // offset wallet & blockchain sync
       await setTimeout(20_000);
@@ -317,6 +319,7 @@ export const processRewards = async (
         }
         if (retries == 2) return response;
         retries++;
+        await setTimeout(20_000);
       }
     }
 

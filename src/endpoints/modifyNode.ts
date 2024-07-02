@@ -39,6 +39,16 @@ export const modifyNode = async (
   if (config.currentTime > config.freezeStake)
     return { type: "error", error: new Error("Stake has been frozen") };
 
+  const upperBound = config.currentTime + TIME_TOLERANCE_MS;
+  const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
+
+  if (upperBound >= config.freezeStake)
+    return {
+      type: "error",
+      error: new Error(`Transaction validity range has crossed freezeStake. 
+                        Creating a stake modification transaction is allowed ${TIME_TOLERANCE_MS / 1_000} seconds before freezeStake.`),
+    };
+
   if (
     !config.refScripts.nodeValidator.scriptRef ||
     !config.refScripts.nodePolicy.scriptRef
@@ -75,9 +85,6 @@ export const modifyNode = async (
       type: "error",
       error: new Error("New stake is equal to old stake"),
     };
-
-  const upperBound = config.currentTime + TIME_TOLERANCE_MS;
-  const lowerBound = config.currentTime - TIME_TOLERANCE_MS;
 
   const configUTxOResponse = await fetchConfigUTxO(lucid, config);
   if (configUTxOResponse.type == "error") return configUTxOResponse;
