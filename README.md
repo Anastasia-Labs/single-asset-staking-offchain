@@ -22,6 +22,10 @@
     - [Deinitialize Head Node](#deinitialize-head-node-dinitnodets)
   - [Claim](#claim-reclaimnodets)
 - [Important Notes](#important-notes)
+- [Local Build](#local-build)
+- [Tests](#tests)
+  - [Test Framework](#testing-framework)
+  - [Running Tests](#running-tests)
 
 # Introduction
 
@@ -512,3 +516,25 @@ Only after rewards are processed can the participants claim their stake and rewa
    is susceptible to contention due to multiple users updating the list concurrently. Hence, it is recommended that the project user of Maestro APIs (adding, modifying and withdrawing stake) implement a retry mechanism (with some delay) to handle failures encountered after submitting the signed transactions.
 7. Every wallet that stakes need to provide 3 ADA along with the intended stake amount, greater than minimum stake that is configured by the
    project. Out of this 3 ADA, a variable folding fee ranging from ~1 to 1.5 ADA will be taken. The remaining ADA (minimum ADA requirement) will be returned to the wallet along with its stake and reward, after claims are open.
+
+# Local Build
+
+In the main directory
+
+```
+pnpm run build
+```
+
+# Tests
+
+## Testing Framework
+
+https://github.com/vitest-dev/vitest
+
+## Running Tests
+
+```sh
+pnpm test
+```
+
+![single-asset-staking-offchain](/assets/gifs/single-asset-staking-offchain.gif)
