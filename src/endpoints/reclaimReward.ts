@@ -1,12 +1,15 @@
 import {
-  Lucid,
   SpendingValidator,
   Data,
-  TxComplete,
   MintingPolicy,
   toUnit,
   fromText,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  mintingPolicyToId,
+  validatorToAddress,
+  getAddressDetails,
+  TxSignBuilder
+} from "@lucid-evolution/lucid";
 import {
   RewardFoldDatum,
   RewardFoldAct,
@@ -17,9 +20,11 @@ import { findRewardFoldUTxO, rFold } from "../index.js";
 import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const reclaimReward = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: InitRewardFoldConfig,
-): Promise<Result<TxComplete>> => {
+): Promise<Result<TxSignBuilder>> => {
+  const network = lucid.config().network;
+
   if (
     !config.refScripts.rewardFoldValidator.scriptRef ||
     !config.refScripts.rewardFoldPolicy.scriptRef
@@ -29,11 +34,11 @@ export const reclaimReward = async (
   const rewardFoldValidator: SpendingValidator =
     config.refScripts.rewardFoldValidator.scriptRef;
   const rewardFoldValidatorAddr =
-    lucid.utils.validatorToAddress(rewardFoldValidator);
+    validatorToAddress(network,rewardFoldValidator);
 
   const rewardFoldPolicy: MintingPolicy =
     config.refScripts.rewardFoldPolicy.scriptRef;
-  const rewardFoldPolicyId = lucid.utils.mintingPolicyToId(rewardFoldPolicy);
+  const rewardFoldPolicyId = mintingPolicyToId(rewardFoldPolicy);
 
   const rewardUTxO = await findRewardFoldUTxO(
     lucid,
@@ -53,9 +58,9 @@ export const reclaimReward = async (
       error: new Error("Cannot reclaim reward as Reward Fold is not completed"),
     };
 
-  const userAddr = await lucid.wallet.address();
+  const userAddr = await lucid.wallet().address();
   const userPubKeyHash =
-    lucid.utils.getAddressDetails(userAddr).paymentCredential?.hash;
+    getAddressDetails(userAddr).paymentCredential?.hash;
 
   if (!userPubKeyHash)
     return { type: "error", error: new Error("User PubKeyHash not found") };
@@ -87,7 +92,7 @@ export const reclaimReward = async (
       // claims ADA. No asset is sent to project's penalty address.
       .compose(
         remainingReward > 0n
-          ? lucid.newTx().payToAddress(config.penaltyAddress, {
+          ? lucid.newTx().pay.ToAddress(config.penaltyAddress, {
               [rewardToken]: remainingReward,
             })
           : null,

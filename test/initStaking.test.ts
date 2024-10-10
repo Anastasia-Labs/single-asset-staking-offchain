@@ -40,7 +40,7 @@ test<LucidContext>("Test - deploy - createConfig - initStaking", async ({
   const currentTime = emulator.now();
 
   // DEPLOY
-  lucid.selectWalletFromSeed(users.account3.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account3.seedPhrase);
   const refUTxOsRes = await buildDeployFetchRefScripts(lucid, emulator);
 
   expect(refUTxOsRes.type).toBe("ok");
@@ -68,13 +68,13 @@ test<LucidContext>("Test - deploy - createConfig - initStaking", async ({
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.account1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account1.seedPhrase);
   const createConfigUnsigned = await createConfig(lucid, createConfigObj);
 
   expect(createConfigUnsigned.type).toBe("ok");
   if (createConfigUnsigned.type == "error") return;
   const createConfigSigned = await createConfigUnsigned.data.tx
-    .sign()
+    .sign.withWallet()
     .complete();
   await createConfigSigned.submit();
 
@@ -104,14 +104,14 @@ test<LucidContext>("Test - deploy - createConfig - initStaking", async ({
     refScripts: refUTxOs,
   };
 
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
   const initStakingUnsigned = await initStaking(lucid, initStakingConfig);
   // console.log(initStakingUnsigned);
 
   expect(initStakingUnsigned.type).toBe("ok");
   if (initStakingUnsigned.type == "error") return;
   // console.log(tx.data.txComplete.to_json())
-  const initStakingSigned = await initStakingUnsigned.data.sign().complete();
+  const initStakingSigned = await initStakingUnsigned.data.sign.withWallet().complete();
   await initStakingSigned.submit();
 
   emulator.awaitBlock(4);

@@ -1,31 +1,35 @@
 import {
-  Lucid,
   SpendingValidator,
   MintingPolicy,
   Data,
   toUnit,
-  TxComplete,
   fromText,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  validatorToAddress,
+  mintingPolicyToId,
+  TxSignBuilder,
+  getUniqueTokenName,
+} from "@lucid-evolution/lucid";
 import { OutputReference, StakingConfig } from "../core/contract.types.js";
 import { CreateConfig, Result } from "../core/types.js";
-import { fromAddress, getUniqueTokenName } from "../index.js";
+import { fromAddress } from "../index.js";
 
 export const createConfig = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: CreateConfig,
-): Promise<Result<{ tx: TxComplete; configTN: string }>> => {
+): Promise<Result<{ tx: TxSignBuilder; configTN: string }>> => {
+  const network = lucid.config().network;
   const alwaysFails: SpendingValidator = {
     type: "PlutusV2",
     script: config.alwaysFails,
   };
-  const alwaysFailsAddr = lucid.utils.validatorToAddress(alwaysFails);
+  const alwaysFailsAddr = validatorToAddress(network,alwaysFails);
 
   if (!config.refScripts.configPolicy.scriptRef)
     return { type: "error", error: new Error("Missing Script Reference") };
 
   const configPolicy: MintingPolicy = config.refScripts.configPolicy.scriptRef;
-  const configPolicyId = lucid.utils.mintingPolicyToId(configPolicy);
+  const configPolicyId = mintingPolicyToId(configPolicy);
   const configTN = await getUniqueTokenName(config.configInitUTXO);
 
   const assets = {
@@ -63,7 +67,7 @@ export const createConfig = async (
     const tx = await lucid
       .newTx()
       .collectFrom([config.configInitUTXO])
-      .payToContract(alwaysFailsAddr, { inline: datum }, assets)
+      .pay.ToContract(alwaysFailsAddr, {kind: "inline", value: datum}, assets)
       .mintAssets(assets, redeemerConfigPolicy)
       .readFrom([config.refScripts.configPolicy])
       .complete();

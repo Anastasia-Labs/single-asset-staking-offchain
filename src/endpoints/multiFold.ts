@@ -1,13 +1,15 @@
 import {
-  Lucid,
   SpendingValidator,
   Data,
-  TxComplete,
   MintingPolicy,
   fromText,
   toUnit,
   UTxO,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  validatorToAddress,
+  mintingPolicyToId,
+  TxSignBuilder,
+} from "@lucid-evolution/lucid";
 import { FoldAct, FoldDatum, SetNode } from "../core/contract.types.js";
 import { MultiFoldConfig, Result } from "../core/types.js";
 import {
@@ -20,12 +22,13 @@ import {
 import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const multiFold = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: MultiFoldConfig,
-): Promise<Result<TxComplete>> => {
+): Promise<Result<TxSignBuilder>> => {
+  const network = lucid.config().network;
   config.currentTime ??= Date.now();
 
-  const walletUtxos = await lucid.wallet.getUtxos();
+  const walletUtxos = await lucid.wallet().getUtxos();
 
   if (!walletUtxos.length)
     return { type: "error", error: new Error("No utxos in wallet") };
@@ -40,18 +43,18 @@ export const multiFold = async (
 
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   const foldValidator: SpendingValidator =
     config.refScripts.foldValidator.scriptRef;
-  const foldValidatorAddr = lucid.utils.validatorToAddress(foldValidator);
+  const foldValidatorAddr = validatorToAddress(network,foldValidator);
 
   const foldPolicy: MintingPolicy = config.refScripts.foldPolicy.scriptRef;
-  const foldPolicyId = lucid.utils.mintingPolicyToId(foldPolicy);
-  const walletAddr = await lucid.wallet.address();
+  const foldPolicyId = mintingPolicyToId(foldPolicy);
+  const walletAddr = await lucid.wallet().address();
 
   const foldUTxO = await findFoldUTxO(
     lucid,
@@ -134,9 +137,9 @@ export const multiFold = async (
       .collectFrom([foldUTxO.data], redeemerValidator)
       .readFrom([config.refScripts.foldValidator, configUTxOResponse.data])
       .readFrom(nodeRefUTxOs)
-      .payToContract(
+      .pay.ToContract(
         foldValidatorAddr,
-        { inline: newFoldDatum },
+        { kind: "inline", value: newFoldDatum },
         foldUTxO.data.assets,
       )
       .validFrom(lowerBound)

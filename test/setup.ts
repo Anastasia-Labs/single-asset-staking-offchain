@@ -1,8 +1,6 @@
 import {
   deployRefScripts,
-  Emulator,
   fromText,
-  generateAccountSeedPhrase,
   Lucid,
   parseUTxOsAtScript,
   replacer,
@@ -11,7 +9,6 @@ import {
   AppliedScripts,
   Deploy,
   Result,
-  UTxO,
   InsertNodeConfig,
   insertNode,
   SetNode,
@@ -23,6 +20,8 @@ import {
   CreateConfig,
   FetchCampaignStateConfig,
   fetchCampaignState,
+  LucidEvolution,
+  generateAccountSeedPhrase,
 } from "../src/index.js";
 import { expect } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
@@ -38,7 +37,7 @@ import tokenHolderPolicy from "./compiled/tokenHolderPolicy.json";
 import tokenHolderValidator from "./compiled/tokenHolderValidator.json";
 
 export type LucidContext = {
-  lucid: Lucid;
+  lucid: LucidEvolution;
   users: any;
   emulator: Emulator;
 };
@@ -46,7 +45,7 @@ export type LucidContext = {
 // INITIALIZE EMULATOR + ACCOUNTS
 export async function initializeLucidContext(context: LucidContext) {
   context.users = {
-    treasury1: await generateAccountSeedPhrase({
+    treasury1: await ({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
@@ -87,11 +86,11 @@ export async function initializeLucidContext(context: LucidContext) {
     context.users.account3,
   ]);
 
-  context.lucid = await Lucid.new(context.emulator);
+  context.lucid = await Lucid(context.emulator, "Custom");
 }
 
 export async function buildDeployFetchRefScripts(
-  lucid: Lucid,
+  lucid: LucidEvolution,
   emulator: Emulator,
 ): Promise<Result<RefScripts>> {
   const newScripts = buildScripts(lucid, {
@@ -136,7 +135,7 @@ export async function buildDeployFetchRefScripts(
 }
 
 export async function deploy(
-  lucid: Lucid,
+  lucid: LucidEvolution,
   emulator: Emulator,
   scripts: AppliedScripts,
   deployTime: number,
@@ -156,7 +155,7 @@ export async function deploy(
 
     expect(deploy.type).toBe("ok");
     if (deploy.type == "ok") {
-      (await deploy.data.tx.sign().complete()).submit();
+      (await deploy.data.tx.sign.withWallet().complete()).submit();
       emulator.awaitBlock(4);
     }
   }
@@ -166,7 +165,7 @@ export async function deploy(
 
 // Inserts three nodes belonging to account 1, 2 & 3 in the same order
 export async function insertThreeNodes(
-  lucid: Lucid,
+  lucid: LucidEvolution,
   emulator: Emulator,
   users: any,
   configTN: string,
@@ -187,7 +186,7 @@ export async function insertThreeNodes(
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.account1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account1.seedPhrase);
   const insertNodeUnsigned = await insertNode(lucid, insertNodeConfig);
   // console.log(insertNodeUnsigned);
 
@@ -195,8 +194,8 @@ export async function insertThreeNodes(
   if (insertNodeUnsigned.type == "error") return;
 
   // console.log(insertNodeUnsigned.data.txComplete.to_json())
-  lucid.selectWalletFromSeed(users.account1.seedPhrase);
-  const insertNodeSigned = await insertNodeUnsigned.data.sign().complete();
+  lucid.selectWallet.fromSeed(users.account1.seedPhrase);
+  const insertNodeSigned = await insertNodeUnsigned.data.sign.withWallet().complete();
   const insertNodeHash = await insertNodeSigned.submit();
 
   emulator.awaitBlock(4);
@@ -209,13 +208,13 @@ export async function insertThreeNodes(
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.account2.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account2.seedPhrase);
   const insertNodeUnsigned2 = await insertNode(lucid, insertNodeConfig2);
 
   expect(insertNodeUnsigned2.type).toBe("ok");
   if (insertNodeUnsigned2.type == "error") return;
 
-  const insertNodeSigned2 = await insertNodeUnsigned2.data.sign().complete();
+  const insertNodeSigned2 = await insertNodeUnsigned2.data.sign.withWallet().complete();
   const insertNodeHash2 = await insertNodeSigned2.submit();
 
   emulator.awaitBlock(4);
@@ -228,14 +227,14 @@ export async function insertThreeNodes(
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.account3.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account3.seedPhrase);
   const insertNodeUnsigned3 = await insertNode(lucid, insertNodeConfig3);
 
   expect(insertNodeUnsigned3.type).toBe("ok");
   if (insertNodeUnsigned3.type == "error") return;
   // console.log(insertNodeUnsigned.data.txComplete.to_json())
 
-  const insertNodeSigned3 = await insertNodeUnsigned3.data.sign().complete();
+  const insertNodeSigned3 = await insertNodeUnsigned3.data.sign.withWallet().complete();
   const insertNodeHash3 = await insertNodeSigned3.submit();
 
   emulator.awaitBlock(4);
@@ -257,7 +256,7 @@ export async function insertThreeNodes(
 }
 
 export async function checkCampaignStatus(
-  lucid: Lucid,
+  lucid: LucidEvolution,
   emulator: Emulator,
   expectedStatus: CampaignStatus,
   refUTxOs: RefScripts,

@@ -3,9 +3,10 @@ import {
   Assets,
   OutRef,
   PolicyId,
-  TxComplete,
+  TxSignBuilder,
+  //TxComplete,
   UTxO,
-} from "@anastasia-labs/lucid-cardano-fork";
+} from "@lucid-evolution/lucid";
 import { CampaignStatus } from "./constants.js";
 
 export type CborHex = string;
@@ -336,6 +337,6 @@ export type RefScripts = {
 };
 
 export type Deploy = {
-  tx: TxComplete;
+  tx: TxSignBuilder;
   deployPolicyId: string;
 };

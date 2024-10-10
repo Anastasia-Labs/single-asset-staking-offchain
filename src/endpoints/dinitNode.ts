@@ -1,12 +1,14 @@
 import {
-  Lucid,
   SpendingValidator,
   MintingPolicy,
   Data,
   toUnit,
-  TxComplete,
   fromText,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  validatorToAddress,
+  mintingPolicyToId,
+  TxSignBuilder,
+} from "@lucid-evolution/lucid";
 import { NODE_ADA, originNodeTokenName } from "../core/constants.js";
 import {
   NodeValidatorAction,
@@ -17,9 +19,10 @@ import { fetchConfigUTxO } from "./fetchConfig.js";
 import { findHeadNode } from "../index.js";
 
 export const dinitNode = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: DInitNodeConfig,
-): Promise<Result<TxComplete>> => {
+): Promise<Result<TxSignBuilder>> => {
+  const network = lucid.config().network;
   if (
     !config.refScripts.nodeValidator.scriptRef ||
     !config.refScripts.nodePolicy.scriptRef
@@ -27,10 +30,10 @@ export const dinitNode = async (
     return { type: "error", error: new Error("Missing Script Reference") };
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   const headNodeUTxO = await findHeadNode(
     lucid,
@@ -66,7 +69,7 @@ export const dinitNode = async (
         Data.to("LinkedListAct", NodeValidatorAction),
       )
       .mintAssets(assets, redeemerNodePolicy)
-      .payToAddress(config.penaltyAddress, {
+      .pay.ToAddress(config.penaltyAddress, {
         [stakeToken]: headNodeUTxO.data.assets[stakeToken],
       })
       .readFrom([

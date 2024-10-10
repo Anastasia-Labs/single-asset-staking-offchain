@@ -1,17 +1,24 @@
 import {
-  Lucid,
   SpendingValidator,
   toUnit,
   fromText,
   Script,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  validatorToAddress,
+  getAddressDetails,
+  nativeScriptFromJson,
+  unixTimeToSlot,
+  mintingPolicyToId,
+  Data,
+} from "@lucid-evolution/lucid";
 import { Deploy, DeployRefScriptsConfig, Result } from "../core/types.js";
 
 export const deployRefScripts = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: DeployRefScriptsConfig,
 ): Promise<Result<Deploy>> => {
-  const walletUtxos = await lucid.wallet.getUtxos();
+  const network = lucid.config().network;
+  const walletUtxos = await lucid.wallet().getUtxos();
 
   if (!walletUtxos.length)
     return { type: "error", error: new Error("No utxos in wallet") };
@@ -26,39 +33,41 @@ export const deployRefScripts = async (
     script: config.alwaysFails,
   };
 
-  const alwaysFailsAddr = lucid.utils.validatorToAddress(alwaysFailsValidator);
+  const alwaysFailsAddr = validatorToAddress(network,alwaysFailsValidator);
 
-  const deployKey = lucid.utils.getAddressDetails(await lucid.wallet.address())
+  const deployKey = getAddressDetails(await lucid.wallet().address())
     .paymentCredential?.hash;
 
   if (!deployKey)
     return { type: "error", error: new Error("missing PubKeyHash") };
 
-  const deployPolicy = lucid.utils.nativeScriptFromJson({
+  const deployPolicy = nativeScriptFromJson({
     type: "all",
     scripts: [
       { type: "sig", keyHash: deployKey },
       {
         type: "before",
         // 30 minutes interval to create all Reference Script UTxOs
-        slot: lucid.utils.unixTimeToSlot(config.currentTime + 30 * 60 * 1000),
+        slot: unixTimeToSlot(network,config.currentTime + 30 * 60 * 1000),
       },
     ],
   });
 
-  const deployPolicyId = lucid.utils.mintingPolicyToId(deployPolicy);
+  const deployPolicyId = mintingPolicyToId(deployPolicy);
 
   try {
     const tx = await lucid
       .newTx()
-      .attachMintingPolicy(deployPolicy)
+      .attach.MintingPolicy(deployPolicy)
       .mintAssets({
         [toUnit(deployPolicyId, fromText(config.name))]: 1n,
       })
-      .payToAddressWithData(
+      .pay.ToAddressWithData(
         alwaysFailsAddr,
-        { scriptRef: script },
+        { kind : "inline", value : Data.void()},
         { [toUnit(deployPolicyId, fromText(config.name))]: 1n },
+        script
+        //{ scriptRef: script },
       )
       .validTo(config.currentTime + 29 * 60 * 1000)
       .complete();

@@ -13,6 +13,7 @@ import {
   initStaking,
   InitStakingConfig,
   MintingPolicy,
+  mintingPolicyToId,
   ONE_HOUR_MS,
   parseUTxOsAtScript,
   replacer,
@@ -20,6 +21,7 @@ import {
   SpendingValidator,
   toUnit,
   TWENTY_FOUR_HOURS_MS,
+  validatorToAddress,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
@@ -38,7 +40,7 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
   emulator,
 }) => {
   const logFlag = false;
-
+  const network = lucid.config().network;
   const [treasuryUTxO] = await lucid
     .selectWalletFrom({ address: users.treasury1.address })
     .wallet.getUtxos();
@@ -50,7 +52,7 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
   const currentTime = emulator.now();
 
   // DEPLOY
-  lucid.selectWalletFromSeed(users.account3.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account3.seedPhrase);
   const refUTxOsRes = await buildDeployFetchRefScripts(lucid, emulator);
 
   expect(refUTxOsRes.type).toBe("ok");
@@ -79,13 +81,13 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.account1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account1.seedPhrase);
   const createConfigUnsigned = await createConfig(lucid, createConfigObj);
 
   expect(createConfigUnsigned.type).toBe("ok");
   if (createConfigUnsigned.type == "error") return;
   const createConfigSigned = await createConfigUnsigned.data.tx
-    .sign()
+    .sign.withWallet()
     .complete();
   await createConfigSigned.submit();
 
@@ -106,14 +108,14 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
     refScripts: refUTxOs,
   };
 
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
   const initStakingUnsigned = await initStaking(lucid, initStakingConfig);
   // console.log(initStakingUnsigned);
 
   expect(initStakingUnsigned.type).toBe("ok");
   if (initStakingUnsigned.type == "error") return;
   // console.log(tx.data.txComplete.to_json())
-  const initStakingSigned = await initStakingUnsigned.data.sign().complete();
+  const initStakingSigned = await initStakingUnsigned.data.sign.withWallet().complete();
   await initStakingSigned.submit();
 
   emulator.awaitBlock(4);
@@ -153,7 +155,7 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
   const initFoldUnsignedF = await initFold(lucid, initFoldConfig);
 
   // console.log(initFoldUnsignedF);
@@ -165,7 +167,7 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
 
   // INIT FOLD X 2
 
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
 
   for (let i = 0; i < 2; i++) {
     const initFoldUnsigned = await initFold(lucid, {
@@ -178,17 +180,17 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
     if (initFoldUnsigned.type == "error") return;
     // console.log(insertNodeUnsigned.data.txComplete.to_json())
 
-    const initFoldSigned = await initFoldUnsigned.data.sign().complete();
+    const initFoldSigned = await initFoldUnsigned.data.sign.withWallet().complete();
     const initFoldHash = await initFoldSigned.submit();
 
     emulator.awaitBlock(100);
   }
 
   const foldValidator: SpendingValidator = refUTxOs.foldValidator.scriptRef!;
-  const commitFoldValidatorAddr = lucid.utils.validatorToAddress(foldValidator);
+  const commitFoldValidatorAddr = validatorToAddress(network,foldValidator);
 
   const foldPolicy: MintingPolicy = refUTxOs.foldPolicy.scriptRef!;
-  const commitFoldPolicyId = lucid.utils.mintingPolicyToId(foldPolicy);
+  const commitFoldPolicyId = mintingPolicyToId(foldPolicy);
 
   const reclaimCommitFoldAct = Data.to(new Constr(1, []));
   const burnCommitFoldAct = Data.to(new Constr(1, []));
@@ -215,7 +217,7 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
         refUTxOs.foldPolicy,
         configUTxOResponse.data,
       ])
-      .addSigner(await lucid.wallet.address())
+      .addSigner(await lucid.wallet().address())
       .complete();
   } catch (error) {
     failed = true;

@@ -1,13 +1,16 @@
 import {
   Address,
   Data,
-  Lucid,
+  LucidEvolution,
   MintingPolicy,
   SpendingValidator,
   UTxO,
   fromText,
+  getAddressDetails,
+  mintingPolicyToId,
   toUnit,
-} from "@anastasia-labs/lucid-cardano-fork";
+  validatorToAddress,
+} from "@lucid-evolution/lucid";
 import { FoldDatum, RewardFoldDatum, SetNode } from "../core/contract.types.js";
 import {
   CampaignState,
@@ -32,9 +35,10 @@ import {
 } from "../index.js";
 
 export const fetchCampaignState = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: FetchCampaignStateConfig,
 ): Promise<Result<CampaignState>> => {
+  const network = lucid.config().network;
   config.currentTime ??= Date.now();
 
   if (
@@ -51,35 +55,35 @@ export const fetchCampaignState = async (
 
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   const rewardFoldValidator: SpendingValidator =
     config.refScripts.rewardFoldValidator.scriptRef;
   const rewardFoldValidatorAddr =
-    lucid.utils.validatorToAddress(rewardFoldValidator);
+    validatorToAddress(network,rewardFoldValidator);
 
   const rewardFoldPolicy: MintingPolicy =
     config.refScripts.rewardFoldPolicy.scriptRef;
-  const rewardFoldPolicyId = lucid.utils.mintingPolicyToId(rewardFoldPolicy);
+  const rewardFoldPolicyId = mintingPolicyToId(rewardFoldPolicy);
 
   const tokenHolderValidator: SpendingValidator =
     config.refScripts.tokenHolderValidator.scriptRef;
   const tokenHolderValidatorAddr =
-    lucid.utils.validatorToAddress(tokenHolderValidator);
+    validatorToAddress(network,tokenHolderValidator);
 
   const tokenHolderPolicy: MintingPolicy =
     config.refScripts.tokenHolderPolicy.scriptRef;
-  const tokenHolderPolicyId = lucid.utils.mintingPolicyToId(tokenHolderPolicy);
+  const tokenHolderPolicyId = mintingPolicyToId(tokenHolderPolicy);
 
   const foldValidator: SpendingValidator =
     config.refScripts.foldValidator.scriptRef;
-  const foldValidatorAddr = lucid.utils.validatorToAddress(foldValidator);
+  const foldValidatorAddr = validatorToAddress(network,foldValidator);
 
   const foldPolicy: MintingPolicy = config.refScripts.foldPolicy.scriptRef;
-  const foldPolicyId = lucid.utils.mintingPolicyToId(foldPolicy);
+  const foldPolicyId = mintingPolicyToId(foldPolicy);
 
   let totalReward;
   const rewardToken = toUnit(config.rewardCS, fromText(config.rewardTN));
@@ -178,7 +182,7 @@ export const fetchCampaignState = async (
 };
 
 export const checkRewardFoldState = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: FetchCampaignStateConfig,
   campaignState: CampaignState,
   rewardFoldValidatorAddr: Address,
@@ -236,9 +240,10 @@ export const checkRewardFoldState = async (
 };
 
 export const fetchUserNode = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: FetchUserNodeConfig,
 ): Promise<Result<ReadableUTxO<SetNode>>> => {
+  const network = lucid.config().network;
   if (
     !config.refScripts.nodeValidator.scriptRef ||
     !config.refScripts.nodePolicy.scriptRef
@@ -246,13 +251,13 @@ export const fetchUserNode = async (
     return { type: "error", error: new Error("Missing Script Reference") };
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   try {
-    const userKey = lucid.utils.getAddressDetails(
+    const userKey = getAddressDetails(
       config.userAddress,
     ).paymentCredential;
 
@@ -292,9 +297,10 @@ export const fetchUserNode = async (
 };
 
 export const fetchReadableNodeUTxOs = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: FetchNodesConfig,
 ): Promise<Result<ReadableUTxO<SetNode>[]>> => {
+  const network = lucid.config().network;
   if (
     !config.refScripts.nodeValidator.scriptRef ||
     !config.refScripts.nodePolicy.scriptRef
@@ -302,10 +308,10 @@ export const fetchReadableNodeUTxOs = async (
     return { type: "error", error: new Error("Missing Script Reference") };
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   try {
     const utxos = await lucid.utxosAt(nodeValidatorAddr);
@@ -347,9 +353,10 @@ export const fetchReadableNodeUTxOs = async (
 };
 
 export const fetchNodeUTxOs = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: FetchNodesConfig,
 ): Promise<Result<UTxO[]>> => {
+  const network = lucid.config().network;
   if (
     !config.refScripts.nodeValidator.scriptRef ||
     !config.refScripts.nodePolicy.scriptRef
@@ -357,10 +364,10 @@ export const fetchNodeUTxOs = async (
     return { type: "error", error: new Error("Missing Script Reference") };
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   try {
     const utxos = await lucid.utxosAt(nodeValidatorAddr);

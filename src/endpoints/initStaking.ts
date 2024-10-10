@@ -1,12 +1,16 @@
 import {
-  Lucid,
   SpendingValidator,
   MintingPolicy,
   Data,
   toUnit,
-  TxComplete,
   fromText,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  validatorToAddress,
+  mintingPolicyToId,
+  credentialToAddress,
+  keyHashToCredential,
+  TxSignBuilder,
+} from "@lucid-evolution/lucid";
 import {
   NODE_ADA,
   PROTOCOL_FEE,
@@ -25,9 +29,10 @@ import { fetchConfigUTxO } from "./fetchConfig.js";
 import { sumUtxoAssets } from "../index.js";
 
 export const initStaking = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: InitStakingConfig,
-): Promise<Result<TxComplete>> => {
+): Promise<Result<TxSignBuilder>> => {
+  const network = lucid.config().network;
   if (
     !config.refScripts.nodeValidator.scriptRef ||
     !config.refScripts.nodePolicy.scriptRef ||
@@ -36,7 +41,7 @@ export const initStaking = async (
   )
     return { type: "error", error: new Error("Missing Script Reference") };
 
-  const walletUtxos = await lucid.wallet.getUtxos();
+  const walletUtxos = await lucid.wallet().getUtxos();
 
   if (!walletUtxos.length)
     return { type: "error", error: new Error("No utxos in wallet") };
@@ -79,19 +84,19 @@ export const initStaking = async (
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
 
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   const tokenHolderValidator: SpendingValidator =
     config.refScripts.tokenHolderValidator.scriptRef;
   const tokenHolderValidatorAddr =
-    lucid.utils.validatorToAddress(tokenHolderValidator);
+    validatorToAddress(network,tokenHolderValidator);
 
   const tokenHolderPolicy: MintingPolicy =
     config.refScripts.tokenHolderPolicy.scriptRef;
-  const tokenHolderPolicyId = lucid.utils.mintingPolicyToId(tokenHolderPolicy);
+  const tokenHolderPolicyId = mintingPolicyToId(tokenHolderPolicy);
 
   const rtHolderAsset = toUnit(tokenHolderPolicyId, fromText(RTHOLDER));
   const mintRTHolderAct = Data.to("PMintHolder", TokenHolderMintAction);
@@ -125,9 +130,9 @@ export const initStaking = async (
     const tx = await lucid
       .newTx()
       .collectFrom([config.stakingInitUTXO])
-      .payToContract(
+      .pay.ToContract(
         nodeValidatorAddr,
-        { inline: datum },
+        { kind: "inline", value: datum },
         {
           [toUnit(nodePolicyId, originNodeTokenName)]: 1n,
           lovelace: NODE_ADA,
@@ -138,19 +143,20 @@ export const initStaking = async (
         { [toUnit(nodePolicyId, originNodeTokenName)]: 1n },
         redeemerNodePolicy,
       )
-      .payToContract(
+      .pay.ToContract(
         tokenHolderValidatorAddr,
-        { inline: Data.to(config.configTN) },
+        { kind : "inline", value: Data.to(config.configTN) },
         {
           [rtHolderAsset]: BigInt(1),
           [rewardToken]: BigInt(config.rewardAmount),
         },
       )
       .mintAssets({ [rtHolderAsset]: BigInt(1) }, mintRTHolderAct)
-      .payToAddress(
-        lucid.utils.credentialToAddress(
-          lucid.utils.keyHashToCredential(PROTOCOL_PAYMENT_KEY),
-          lucid.utils.keyHashToCredential(PROTOCOL_STAKE_KEY),
+      .pay.ToAddress(
+        credentialToAddress(
+          network,
+          keyHashToCredential(PROTOCOL_PAYMENT_KEY),
+          keyHashToCredential(PROTOCOL_STAKE_KEY),
         ),
         {
           [rewardToken]: BigInt(config.rewardAmount * PROTOCOL_FEE),

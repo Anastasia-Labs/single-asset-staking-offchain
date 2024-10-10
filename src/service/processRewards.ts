@@ -1,9 +1,11 @@
 import {
-  Lucid,
   SpendingValidator,
   MintingPolicy,
   TxHash,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  validatorToAddress,
+  mintingPolicyToId,
+} from "@lucid-evolution/lucid";
 import { setTimeout } from "timers/promises";
 import { ProcessRewardsConfig, Result } from "../core/types.js";
 import {
@@ -26,10 +28,11 @@ import {
 import * as lucidE from "@lucid-evolution/lucid";
 
 export const processRewards = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   lucid_evol: lucidE.LucidEvolution,
   config: ProcessRewardsConfig,
 ): Promise<Result<{ reclaimReward: TxHash; deinit: TxHash }>> => {
+  const network = lucid.config().network;
   const currentTime = Date.now();
   if (
     currentTime < config.endStaking ||
@@ -248,18 +251,18 @@ export const processRewards = async (
   const rewardFoldValidator: SpendingValidator =
     config.refScripts.rewardFoldValidator.scriptRef;
   const rewardFoldValidatorAddr =
-    lucid.utils.validatorToAddress(rewardFoldValidator);
+    validatorToAddress(network,rewardFoldValidator);
 
   const rewardFoldPolicy: MintingPolicy =
     config.refScripts.rewardFoldPolicy.scriptRef;
-  const rewardFoldPolicyId = lucid.utils.mintingPolicyToId(rewardFoldPolicy);
+  const rewardFoldPolicyId = mintingPolicyToId(rewardFoldPolicy);
 
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   const rewardUTxO = await findRewardFoldUTxO(
     lucid,

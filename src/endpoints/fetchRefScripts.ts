@@ -1,12 +1,13 @@
-import { Lucid, fromText, toUnit } from "@anastasia-labs/lucid-cardano-fork";
+import { LucidEvolution, fromText, toUnit, validatorToAddress } from "@lucid-evolution/lucid";
 import { FetchRefScriptsConfig, RefScripts, Result } from "../core/types.js";
 import { REF_SCRIPT_TNs } from "../index.js";
 
 export const fetchRefScripts = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: FetchRefScriptsConfig,
 ): Promise<Result<RefScripts>> => {
-  const alwaysFailsAddr = lucid.utils.validatorToAddress({
+  const network = lucid.config().network;
+  const alwaysFailsAddr = validatorToAddress(network,{
     type: "PlutusV2",
     script: config.alwaysFails,
   });
