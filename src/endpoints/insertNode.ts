@@ -63,13 +63,12 @@ export const insertNode = async (
 
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network, nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
   const nodePolicyId = mintingPolicyToId(nodePolicy);
-
-  const userKey = getAddressDetails(await lucid.wallet().address())
-    .paymentCredential?.hash;
+  const walletAddress = await lucid.wallet().address();
+  const userKey = getAddressDetails(walletAddress).paymentCredential?.hash;
 
   if (!userKey)
     return { type: "error", error: new Error("missing PubKeyHash") };
@@ -136,12 +135,12 @@ export const insertNode = async (
       .collectFrom([coveringNode.data], redeemerNodeValidator)
       .pay.ToContract(
         nodeValidatorAddr,
-        { kind : "inline", value : prevNodeDatum },
+        { kind: "inline", value: prevNodeDatum },
         coveringNode.data.assets,
       )
       .pay.ToContract(
         nodeValidatorAddr,
-        { kind :"inline", value : nodeDatum },
+        { kind: "inline", value: nodeDatum },
         {
           ...assets,
           [toUnit(config.stakeCS, fromText(config.stakeTN))]: BigInt(
