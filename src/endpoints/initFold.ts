@@ -1,11 +1,13 @@
 import {
-  Lucid,
   SpendingValidator,
   MintingPolicy,
   Data,
   toUnit,
-  TxComplete,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  validatorToAddress,
+  mintingPolicyToId,
+  TxSignBuilder,
+} from "@lucid-evolution/lucid";
 import { cFold, TIME_TOLERANCE_MS } from "../core/constants.js";
 import { FoldDatum, FoldMintAct, SetNode } from "../core/contract.types.js";
 import { InitFoldConfig, Result } from "../core/types.js";
@@ -13,9 +15,11 @@ import { findHeadNode, fromAddress } from "../index.js";
 import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const initFold = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: InitFoldConfig,
-): Promise<Result<TxComplete>> => {
+): Promise<Result<TxSignBuilder>> => {
+  const network = lucid.config().network;
+
   config.currentTime ??= Date.now();
 
   if (
@@ -28,10 +32,10 @@ export const initFold = async (
 
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   const headNodeUTxO = await findHeadNode(
     lucid,
@@ -43,10 +47,10 @@ export const initFold = async (
 
   const foldValidator: SpendingValidator =
     config.refScripts.foldValidator.scriptRef;
-  const foldValidatorAddr = lucid.utils.validatorToAddress(foldValidator);
+  const foldValidatorAddr = validatorToAddress(network,foldValidator);
 
   const foldPolicy: MintingPolicy = config.refScripts.foldPolicy.scriptRef;
-  const foldPolicyId = lucid.utils.mintingPolicyToId(foldPolicy);
+  const foldPolicyId = mintingPolicyToId(foldPolicy);
 
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const currentNode = Data.from(headNodeUTxO.data.datum!, SetNode);
@@ -55,7 +59,7 @@ export const initFold = async (
     {
       currNode: currentNode,
       staked: 0n,
-      owner: fromAddress(await lucid.wallet.address()), //NOTE: owner is not being used in fold minting or validator
+      owner: fromAddress(await lucid.wallet().address()), //NOTE: owner is not being used in fold minting or validator
     },
     FoldDatum,
   );
@@ -76,7 +80,7 @@ export const initFold = async (
     const tx = await lucid
       .newTx()
       .readFrom([headNodeUTxO.data])
-      .payToContract(foldValidatorAddr, { inline: datum }, assets)
+      .pay.ToContract(foldValidatorAddr, { kind: "inline", value: datum }, assets)
       .mintAssets(assets, redeemerFoldPolicy)
       .readFrom([config.refScripts.foldPolicy, configUTxOResponse.data])
       .validFrom(lowerBound)

@@ -1,13 +1,16 @@
 import {
-  Lucid,
   SpendingValidator,
   Data,
-  TxComplete,
   MintingPolicy,
   fromText,
   toUnit,
   WithdrawalValidator,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  validatorToAddress,
+  mintingPolicyToId,
+  validatorToRewardAddress,
+  TxSignBuilder,
+} from "@lucid-evolution/lucid";
 import {
   NodeValidatorAction,
   SetNode,
@@ -35,9 +38,10 @@ import * as lucidE from "@lucid-evolution/lucid";
  */
 
 export const rewardFoldNodesOld = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: RewardFoldNodesConfig,
-): Promise<Result<TxComplete>> => {
+): Promise<Result<TxSignBuilder>> => {
+  const network = lucid.config().network;
   if (
     !config.refScripts.nodeValidator.scriptRef ||
     !config.refScripts.nodePolicy.scriptRef ||
@@ -48,19 +52,19 @@ export const rewardFoldNodesOld = async (
     return { type: "error", error: new Error("Missing Script Reference") };
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   const rewardFoldValidator: SpendingValidator =
     config.refScripts.rewardFoldValidator.scriptRef;
   const rewardFoldValidatorAddr =
-    lucid.utils.validatorToAddress(rewardFoldValidator);
+    validatorToAddress(network,rewardFoldValidator);
 
   const rewardFoldPolicy: MintingPolicy =
     config.refScripts.rewardFoldPolicy.scriptRef;
-  const rewardFoldPolicyId = lucid.utils.mintingPolicyToId(rewardFoldPolicy);
+  const rewardFoldPolicyId = mintingPolicyToId(rewardFoldPolicy);
 
   const nodeStakeValidator: WithdrawalValidator =
     config.refScripts.nodeStakeValidator.scriptRef;
@@ -113,7 +117,7 @@ export const rewardFoldNodesOld = async (
     RewardFoldDatum,
   );
 
-  const walletUTxOs = await lucid.wallet.getUtxos();
+  const walletUTxOs = await lucid.wallet().getUtxos();
   // adding 4 ADA to cover tx fees as we will do the coin selection.
   // Using more than sufficient ADA to safeguard against high tx costs
   const selectedUtxos = selectUtxos(lucidE.sortUTxOs(walletUTxOs), {
@@ -166,9 +170,9 @@ export const rewardFoldNodesOld = async (
           error: new Error("No datum found for node input"),
         };
 
-      tx = tx.payToContract(
+      tx = tx.pay.ToContract(
         nodeValidatorAddr,
-        { inline: utxo.datum },
+        { kind :"inline", value: utxo.datum },
         nodeOutputAssets,
       );
 
@@ -196,13 +200,13 @@ export const rewardFoldNodesOld = async (
     tx = tx
       .collectFrom([rewardUTxO.data], rewardFoldValidatorRedeemer)
       .collectFrom(selectedUtxos.data)
-      .payToContract(
+      .pay.ToContract(
         rewardFoldValidatorAddr,
-        { inline: newFoldDatum },
+        { kind : "inline", value: newFoldDatum },
         updatedRewardUTxOAssets,
       )
       .withdraw(
-        lucid.utils.validatorToRewardAddress(nodeStakeValidator),
+        validatorToRewardAddress(network,nodeStakeValidator),
         0n,
         Data.void(),
       )
@@ -219,7 +223,8 @@ export const rewardFoldNodesOld = async (
       type: "ok",
       data: await (process.env.NODE_ENV == "emulator"
         ? tx.complete()
-        : tx.complete({ nativeUplc: false })),
+        : tx.complete({ localUPLCEval: false })),
+        //: tx.complete({ nativeUplc: false })),
     };
   } catch (error) {
     if (error instanceof Error) return { type: "error", error: error };

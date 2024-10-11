@@ -1,31 +1,36 @@
 import {
-  Lucid,
   SpendingValidator,
   Data,
   toUnit,
-  TxComplete,
   fromText,
   MintingPolicy,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  getAddressDetails,
+  validatorToAddress,
+  mintingPolicyToId,
+  TxSignBuilder,
+} from "@lucid-evolution/lucid";
 import { NodeValidatorAction } from "../core/contract.types.js";
 import { InsertNodeConfig, Result } from "../core/types.js";
 import { TIME_TOLERANCE_MS, findOwnNode } from "../index.js";
 import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const modifyNode = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: InsertNodeConfig,
-): Promise<Result<TxComplete>> => {
+): Promise<Result<TxSignBuilder>> => {
+  const network = lucid.config().network;
+
   config.currentTime ??= Date.now();
 
-  const walletUtxos = await lucid.wallet.getUtxos();
+  const walletUtxos = await lucid.wallet().getUtxos();
 
   if (!walletUtxos.length)
     return { type: "error", error: new Error("No utxos in wallet") };
 
-  const userAddress = await lucid.wallet.address();
+  const userAddress = await lucid.wallet().address();
   const userKey =
-    lucid.utils.getAddressDetails(userAddress).paymentCredential?.hash;
+    getAddressDetails(userAddress).paymentCredential?.hash;
 
   if (!userKey)
     return { type: "error", error: new Error("missing PubKeyHash") };
@@ -56,10 +61,10 @@ export const modifyNode = async (
     return { type: "error", error: new Error("Missing Script Reference") };
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   const ownNode = await findOwnNode(
     lucid,
@@ -94,9 +99,9 @@ export const modifyNode = async (
       .newTx()
       .collectFrom([ownNode.data], redeemerNodeValidator)
       .readFrom([config.refScripts.nodeValidator, configUTxOResponse.data])
-      .payToContract(
+      .pay.ToContract(
         nodeValidatorAddr,
-        { inline: ownNode.data.datum },
+        { kind : "inline", value : ownNode.data.datum },
         { ...ownNode.data.assets, [stakeToken]: newStake }, // Only updating the stakeToken to new stake
       )
       .addSignerKey(userKey)

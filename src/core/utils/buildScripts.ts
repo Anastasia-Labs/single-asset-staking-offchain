@@ -1,23 +1,27 @@
 import {
   applyParamsToScript,
   Constr,
-  Lucid,
   MintingPolicy,
+  mintingPolicyToId,
   SpendingValidator,
+  validatorToAddress,
+  validatorToScriptHash,
   WithdrawalValidator,
-} from "@anastasia-labs/lucid-cardano-fork";
+} from "@lucid-evolution/lucid";
 import { AppliedScripts, BuildScriptsConfig, Result } from "../types.js";
 import { fromAddressToData } from "./utils.js";
+import { LucidEvolution } from "@lucid-evolution/lucid";
 
 export const buildScripts = (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: BuildScriptsConfig,
 ): Result<AppliedScripts> => {
+  const network = lucid.config().network;
   const alwaysFails: SpendingValidator = {
     type: "PlutusV2",
     script: config.alwaysFails,
   };
-  const alwaysFailsAddr = lucid.utils.validatorToAddress(alwaysFails);
+  const alwaysFailsAddr = validatorToAddress(network,alwaysFails);
   const alwaysFailsAddrD = fromAddressToData(alwaysFailsAddr);
   if (alwaysFailsAddrD.type == "error") return alwaysFailsAddrD;
 
@@ -33,7 +37,7 @@ export const buildScripts = (
     script: configPolicyCbor,
   };
 
-  const configPolicyId = lucid.utils.mintingPolicyToId(configPolicy);
+  const configPolicyId = mintingPolicyToId(configPolicy);
 
   // RewardTokenHolder Minting Policy
   //
@@ -59,7 +63,7 @@ export const buildScripts = (
     script: nodePolicyCbor,
   };
 
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
   // Commit Fold Spending Validator
   //
@@ -78,7 +82,7 @@ export const buildScripts = (
   };
 
   const foldValidatorAddress = fromAddressToData(
-    lucid.utils.validatorToAddress(foldValidator),
+    validatorToAddress(network,foldValidator),
   );
 
   if (foldValidatorAddress.type == "error")
@@ -124,7 +128,7 @@ export const buildScripts = (
   };
 
   const rewardValidatorAddress = fromAddressToData(
-    lucid.utils.validatorToAddress(rewardFoldValidator),
+    validatorToAddress(network,rewardFoldValidator),
   );
 
   if (rewardValidatorAddress.type == "error")
@@ -148,9 +152,9 @@ export const buildScripts = (
   const rewardFoldPolicyCbor = applyParamsToScript(config.rewardFoldPolicy, [
     new Constr(0, [
       nodePolicyId, // nodeCS
-      lucid.utils.mintingPolicyToId(tokenHolderPolicy), //tokenHolderCS
+      mintingPolicyToId(tokenHolderPolicy), //tokenHolderCS
       rewardValidatorAddress.data, // rewardScriptAddr
-      lucid.utils.mintingPolicyToId(foldPolicy), // commitFoldCS
+      mintingPolicyToId(foldPolicy), // commitFoldCS
       configPolicyId, // configCS
     ]),
   ]);
@@ -167,7 +171,7 @@ export const buildScripts = (
 
   const nodeStakeValidatorCbor = applyParamsToScript(
     config.nodeStakeValidator,
-    [lucid.utils.mintingPolicyToId(rewardFoldPolicy)],
+    [mintingPolicyToId(rewardFoldPolicy)],
   );
 
   const nodeStakeValidator: WithdrawalValidator = {
@@ -184,7 +188,7 @@ export const buildScripts = (
   const nodeValidatorCbor = applyParamsToScript(config.nodeValidator, [
     configPolicyId,
     new Constr(0, [
-      new Constr(1, [lucid.utils.validatorToScriptHash(nodeStakeValidator)]),
+      new Constr(1, [validatorToScriptHash(nodeStakeValidator)]),
     ]), // PStakingCredential
   ]);
 
@@ -195,7 +199,7 @@ export const buildScripts = (
   //   plam $ \configCS rewardFoldCS dat _red ctx -> unTermCont $ do
   const tokenHolderValidatorCbor = applyParamsToScript(
     config.tokenHolderValidator,
-    [configPolicyId, lucid.utils.mintingPolicyToId(rewardFoldPolicy)],
+    [configPolicyId, mintingPolicyToId(rewardFoldPolicy)],
   );
 
   return {

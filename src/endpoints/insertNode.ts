@@ -1,12 +1,15 @@
 import {
-  Lucid,
   SpendingValidator,
   MintingPolicy,
   Data,
   toUnit,
-  TxComplete,
   fromText,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  validatorToAddress,
+  mintingPolicyToId,
+  getAddressDetails,
+  TxSignBuilder,
+} from "@lucid-evolution/lucid";
 import {
   StakingNodeAction,
   NodeValidatorAction,
@@ -22,12 +25,13 @@ import {
 import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const insertNode = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: InsertNodeConfig,
-): Promise<Result<TxComplete>> => {
+): Promise<Result<TxSignBuilder>> => {
+  const network = lucid.config().network;
   config.currentTime ??= Date.now();
 
-  const walletUtxos = await lucid.wallet.getUtxos();
+  const walletUtxos = await lucid.wallet().getUtxos();
 
   if (!walletUtxos.length)
     return { type: "error", error: new Error("No utxos in wallet") };
@@ -59,13 +63,12 @@ export const insertNode = async (
 
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network, nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
-
-  const userKey = lucid.utils.getAddressDetails(await lucid.wallet.address())
-    .paymentCredential?.hash;
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
+  const walletAddress = await lucid.wallet().address();
+  const userKey = getAddressDetails(walletAddress).paymentCredential?.hash;
 
   if (!userKey)
     return { type: "error", error: new Error("missing PubKeyHash") };
@@ -130,14 +133,14 @@ export const insertNode = async (
     const tx = await lucid
       .newTx()
       .collectFrom([coveringNode.data], redeemerNodeValidator)
-      .payToContract(
+      .pay.ToContract(
         nodeValidatorAddr,
-        { inline: prevNodeDatum },
+        { kind: "inline", value: prevNodeDatum },
         coveringNode.data.assets,
       )
-      .payToContract(
+      .pay.ToContract(
         nodeValidatorAddr,
-        { inline: nodeDatum },
+        { kind: "inline", value: nodeDatum },
         {
           ...assets,
           [toUnit(config.stakeCS, fromText(config.stakeTN))]: BigInt(

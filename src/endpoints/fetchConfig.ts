@@ -1,16 +1,17 @@
 import {
-  Lucid,
+  LucidEvolution,
+  mintingPolicyToId,
   MintingPolicy,
   UTxO,
   toText,
   toUnit,
-} from "@anastasia-labs/lucid-cardano-fork";
+} from "@lucid-evolution/lucid";
 import { StakingConfig } from "../core/contract.types.js";
 import { FetchConfig, ReadableUTxO, Result } from "../core/types.js";
 import { parseSafeDatum } from "../index.js";
 
 export const fetchConfigReadableUTxO = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: FetchConfig,
 ): Promise<Result<ReadableUTxO<StakingConfig>>> => {
   try {
@@ -46,14 +47,14 @@ export const fetchConfigReadableUTxO = async (
 };
 
 export const fetchConfigUTxO = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: FetchConfig,
 ): Promise<Result<UTxO>> => {
   if (!config.refScripts.configPolicy.scriptRef)
     return { type: "error", error: new Error("Missing Script Reference") };
 
   const configPolicy: MintingPolicy = config.refScripts.configPolicy.scriptRef;
-  const configPolicyId = lucid.utils.mintingPolicyToId(configPolicy);
+  const configPolicyId = mintingPolicyToId(configPolicy);
 
   try {
     const configUTxO = await lucid.utxoByUnit(

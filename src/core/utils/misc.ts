@@ -1,15 +1,18 @@
 import {
   Address,
   Data,
-  Lucid,
+  LucidEvolution,
   SpendingValidator,
-  TxComplete,
   TxHash,
+  TxSignBuilder,
   UTxO,
   Unit,
   fromText,
+  getAddressDetails,
+  keyHashToCredential,
   toUnit,
-} from "@anastasia-labs/lucid-cardano-fork";
+  validatorToAddress,
+} from "@lucid-evolution/lucid";
 import { FoldDatum, RewardFoldDatum, SetNode } from "../contract.types.js";
 import { Either, ReadableUTxO, Result } from "../types.js";
 import { mkNodeKeyTN } from "./utils.js";
@@ -17,21 +20,23 @@ import { CFOLD, RFOLD, RTHOLDER, originNodeTokenName } from "../constants.js";
 import { setTimeout } from "timers/promises";
 
 export const utxosAtScript = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   script: string,
   stakeCredentialHash?: string,
 ) => {
+  const network = lucid.config().network;
+
   const scriptValidator: SpendingValidator = {
     type: "PlutusV2",
     script: script,
   };
 
   const scriptValidatorAddr = stakeCredentialHash
-    ? lucid.utils.validatorToAddress(
+    ? validatorToAddress(network,
         scriptValidator,
-        lucid.utils.keyHashToCredential(stakeCredentialHash),
+        keyHashToCredential(stakeCredentialHash),
       )
-    : lucid.utils.validatorToAddress(scriptValidator);
+    : validatorToAddress(network,scriptValidator);
 
   return lucid.utxosAt(scriptValidatorAddr);
 };
@@ -56,7 +61,7 @@ export const parseSafeDatum = <T>(
 };
 
 export const parseUTxOsAtScript = async <T>(
-  lucid: Lucid,
+  lucid: LucidEvolution,
   script: string,
   datumType: T,
   stakeCredentialHash?: string,
@@ -146,7 +151,7 @@ export const sortByOutRefWithIndex = (utxos: ReadableUTxO<SetNode>[]) => {
 };
 
 export const findHeadNode = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   configTN: string,
   nodeValidatorAddr: Address,
   nodePolicyId: string,
@@ -220,7 +225,7 @@ export const getKeyToNodeMap = (
  * @returns
  */
 export const findConsecutiveNodes = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   configTN: string,
   nodeValidatorAddr: Address,
   nodePolicyId: string,
@@ -265,7 +270,7 @@ export const findConsecutiveNodes = async (
 };
 
 export const findCoveringNode = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   configTN: string,
   nodeValidatorAddr: Address,
   nodePolicyId: string,
@@ -306,7 +311,7 @@ export const findCoveringNode = async (
 };
 
 export const findOwnNode = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   configTN: string,
   nodeValidatorAddr: Address,
   nodePolicyId: string,
@@ -343,7 +348,7 @@ export const findOwnNode = async (
 };
 
 export const findPreviousNode = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   configTN: string,
   nodeValidatorAddr: Address,
   nodePolicyId: string,
@@ -384,7 +389,7 @@ export const findPreviousNode = async (
 
 // TODO make these findUTxO functions use same helper function
 export const findTokenHolderUTxO = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   configTN: string,
   tokenHolderValidatorAddr: Address,
   tokenHolderPolicyId: string,
@@ -412,7 +417,7 @@ export const findTokenHolderUTxO = async (
 };
 
 export const findFoldUTxO = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   configTN: string,
   foldValidatorAddr: Address,
   foldPolicyId: string,
@@ -428,7 +433,7 @@ export const findFoldUTxO = async (
 
     if (walletAddr) {
       pubKeyHash =
-        lucid.utils.getAddressDetails(walletAddr).paymentCredential?.hash;
+        getAddressDetails(walletAddr).paymentCredential?.hash;
 
       if (!pubKeyHash)
         return { type: "error", error: new Error("User PubKeyHash not found") };
@@ -466,7 +471,7 @@ export const findFoldUTxO = async (
 };
 
 export const findRewardFoldUTxO = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   configTN: string,
   rfoldValidatorAddr: Address,
   rfoldPolicyId: string,
@@ -498,7 +503,7 @@ export const findRewardFoldUTxO = async (
 // TODO fix stake calculation when stake and reward token are the same
 // after rewards claim is done. (No rewardFold UTxO datum to fetch total stake)
 export const calculateTotalStake = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   configTN: string,
   stakeToken: Unit,
   nodeValidatorAddr: Address,
@@ -580,13 +585,13 @@ export async function safeAsync<T>(
 // The below structure allows for modular error handling and
 // it adds type safety for async functions and timeouts async functions
 export async function signSubmitValidate(
-  lucid: Lucid,
-  txComplete: Result<TxComplete>,
+  lucid: LucidEvolution,
+  txComplete: Result<TxSignBuilder>,
 ): Promise<Result<TxHash>> {
   if (txComplete.type == "error") return txComplete;
 
   const txSigned = await safeAsync(async () =>
-    txComplete.data.sign().complete(),
+    txComplete.data.sign.withWallet().complete(),
   );
   if (txSigned.type == "error") return txSigned;
 

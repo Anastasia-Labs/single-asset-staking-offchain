@@ -23,6 +23,7 @@ import {
   FoldDatum,
   DInitNodeConfig,
   dinitNode,
+  validatorToRewardAddress,
 } from "../src/index.js";
 import { test, expect, beforeEach } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
@@ -43,18 +44,25 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
 }) => {
   const logFlag = false;
 
-  const [treasuryUTxO] = await lucid
-    .selectWalletFrom({ address: users.treasury1.address })
-    .wallet.getUtxos();
+  const network = lucid.config().network;
 
-  const [configUTxO] = await lucid
-    .selectWalletFrom({ address: users.account1.address })
-    .wallet.getUtxos();
+  // const [treasuryUTxO] = await lucid
+  //   .selectWalletFrom({ address: users.treasury1.address })
+  //   .wallet.getUtxos();
+  const treasury1Address = users.treasury1.address;
+  const [treasuryUTxO] = await lucid.config().provider.getUtxos(treasury1Address);
+
+  // const [configUTxO] = await lucid
+  //   .selectWalletFrom({ address: users.account1.address })
+  //   .wallet.getUtxos();
+
+  const accountAddress = users.account1.address;
+  const [configUTxO] = await lucid.config().provider.getUtxos(accountAddress);
 
   const currentTime = emulator.now();
 
   // DEPLOY
-  lucid.selectWalletFromSeed(users.account3.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account3.seedPhrase);
   const refUTxOsRes = await buildDeployFetchRefScripts(lucid, emulator);
 
   expect(refUTxOsRes.type).toBe("ok");
@@ -83,13 +91,13 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.account1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account1.seedPhrase);
   const createConfigUnsigned = await createConfig(lucid, createConfigObj);
 
   expect(createConfigUnsigned.type).toBe("ok");
   if (createConfigUnsigned.type == "error") return;
   const createConfigSigned = await createConfigUnsigned.data.tx
-    .sign()
+    .sign.withWallet()
     .complete();
   await createConfigSigned.submit();
 
@@ -100,7 +108,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   // REGISTER STAKE VALIDATOR
   emulator.distributeRewards(BigInt(100_000_000));
 
-  const nodeStakeRewardAddress = lucid.utils.validatorToRewardAddress(
+  const nodeStakeRewardAddress = validatorToRewardAddress(network,
     refUTxOs.nodeStakeValidator.scriptRef!,
   );
 
@@ -109,7 +117,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
       await (
         await lucid.newTx().registerStake(nodeStakeRewardAddress!).complete()
       )
-        .sign()
+        .sign.withWallet()
         .complete()
     ).submit(),
   );
@@ -129,14 +137,14 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
     refScripts: refUTxOs,
   };
 
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
   const initStakingUnsigned = await initStaking(lucid, initStakingConfig);
   // console.log(initStakingUnsigned);
 
   expect(initStakingUnsigned.type).toBe("ok");
   if (initStakingUnsigned.type == "error") return;
   // console.log(tx.data.txComplete.to_json())
-  const initStakingSigned = await initStakingUnsigned.data.sign().complete();
+  const initStakingSigned = await initStakingUnsigned.data.sign.withWallet().complete();
   await initStakingSigned.submit();
 
   emulator.awaitBlock(4);
@@ -173,13 +181,13 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
   const initFoldUnsigned = await initFold(lucid, initFoldConfig);
 
   expect(initFoldUnsigned.type).toBe("ok");
   if (initFoldUnsigned.type == "error") return;
   // console.log(insertNodeUnsigned.data.txComplete.to_json())
-  const initFoldSigned = await initFoldUnsigned.data.sign().complete();
+  const initFoldSigned = await initFoldUnsigned.data.sign.withWallet().complete();
   const initFoldHash = await initFoldSigned.submit();
 
   emulator.awaitBlock(4);
@@ -200,8 +208,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   expect(multiFoldUnsigned.type).toBe("ok");
   if (multiFoldUnsigned.type == "error") return;
   // console.log(insertNodeUnsigned.data.txComplete.to_json())
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
-  const multiFoldSigned = await multiFoldUnsigned.data.sign().complete();
+  lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
+  const multiFoldSigned = await multiFoldUnsigned.data.sign.withWallet().complete();
   const multiFoldHash = await multiFoldSigned.submit();
 
   emulator.awaitBlock(4);
@@ -229,7 +237,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
     penaltyAddress: users.treasury1.address,
   };
 
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
   const initRewardFoldUnsigned = await initRewardFold(
     lucid,
     initRewardFoldConfig,
@@ -240,7 +248,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   if (initRewardFoldUnsigned.type == "error") return;
 
   const initRewardFoldSigned = await initRewardFoldUnsigned.data
-    .sign()
+    .sign.withWallet()
     .complete();
   const initRewardFoldHash = await initRewardFoldSigned.submit();
 
@@ -258,7 +266,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
   const rewardFoldUnsigned = await rewardFoldNodesOld(
     lucid,
     rewardFoldNodesConfig,
@@ -269,14 +277,14 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   if (rewardFoldUnsigned.type == "error") return;
   // const completedRFold = await rewardFoldUnsigned.data.complete();
   // console.log(completedRFold.exUnits);
-  const rewardFoldSigned = await rewardFoldUnsigned.data.sign().complete();
+  const rewardFoldSigned = await rewardFoldUnsigned.data.sign.withWallet().complete();
   const rewardFoldHash = await rewardFoldSigned.submit();
 
   emulator.awaitBlock(4);
 
   // RECLAIM REWARD
 
-  lucid.selectWalletFromSeed(users.treasury1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
   const reclaimRewardUnsigned = await reclaimReward(
     lucid,
     initRewardFoldConfig,
@@ -287,7 +295,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   if (reclaimRewardUnsigned.type == "error") return;
 
   const reclaimRewardSigned = await reclaimRewardUnsigned.data
-    .sign()
+    .sign.withWallet()
     .complete();
   const rewardFoldHash4 = await reclaimRewardSigned.submit();
 
@@ -306,7 +314,8 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
 
   expect(dinitNodeUnsigned.type).toBe("ok");
   if (dinitNodeUnsigned.type == "error") return;
-  const dinitNodeSigned = await dinitNodeUnsigned.data.sign().complete();
+  const dinitNodeSigned = await dinitNodeUnsigned.data.sign.withWallet().complete();
+
   const dinitNodeHash = await dinitNodeSigned.submit();
 
   emulator.awaitBlock(4);
@@ -340,13 +349,13 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
     stakeTN: "MIN",
   };
 
-  lucid.selectWalletFromSeed(users.account3.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account3.seedPhrase);
   const removeNodeUnsigned = await reclaimNode(lucid, removeNodeConfig);
   // console.log(removeNodeUnsigned);
   expect(removeNodeUnsigned.type).toBe("ok");
   if (removeNodeUnsigned.type == "error") return;
   // console.log(removeNodeUnsigned.data.txComplete.to_json())
-  const removeNodeSigned = await removeNodeUnsigned.data.sign().complete();
+  const removeNodeSigned = await removeNodeUnsigned.data.sign.withWallet().complete();
   const removeNodeHash = await removeNodeSigned.submit();
 
   emulator.awaitBlock(4);

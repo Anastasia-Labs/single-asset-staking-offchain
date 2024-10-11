@@ -27,18 +27,23 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
 }) => {
   const logFlag = false;
 
-  const [treasuryUTxO] = await lucid
-    .selectWalletFrom({ address: users.treasury1.address })
-    .wallet.getUtxos();
+  // const [treasuryUTxO] = await lucid
+  //   .selectWalletFrom({ address: users.treasury1.address })
+  //   .wallet.getUtxos();
+  const treasuryAddress = users.treasury1.address;
+  const [treasuryUTxO] = await lucid.config().provider.getUtxos(treasuryAddress);
 
-  const [configUTxO] = await lucid
-    .selectWalletFrom({ address: users.account1.address })
-    .wallet.getUtxos();
+  // const [configUTxO] = await lucid
+  //   .selectWalletFrom({ address: users.account1.address })
+  //   .wallet.getUtxos();
+  
+    const accountAddress = users.account1.address;
+    const [configUTxO] = await lucid.config().provider.getUtxos(accountAddress);
 
   const currentTime = emulator.now();
 
   // DEPLOY
-  lucid.selectWalletFromSeed(users.account3.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account3.seedPhrase);
   const refUTxOsRes = await buildDeployFetchRefScripts(lucid, emulator);
 
   expect(refUTxOsRes.type).toBe("ok");
@@ -67,7 +72,7 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.account1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account1.seedPhrase);
   const createConfigUnsigned1 = await createConfig(lucid, createConfigObj1);
   // console.log(createConfigUnsigned1);
 
@@ -83,14 +88,14 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
     currentTime: emulator.now(),
   };
 
-  lucid.selectWalletFromSeed(users.account1.seedPhrase);
+  lucid.selectWallet.fromSeed(users.account1.seedPhrase);
   const createConfigUnsigned2 = await createConfig(lucid, createConfigObj2);
   // console.log(createConfigUnsigned2);
 
   expect(createConfigUnsigned2.type).toBe("ok");
   if (createConfigUnsigned2.type == "error") return;
   const createConfigSigned2 = await createConfigUnsigned2.data.tx
-    .sign()
+    .sign.withWallet()
     .complete();
   await createConfigSigned2.submit();
 

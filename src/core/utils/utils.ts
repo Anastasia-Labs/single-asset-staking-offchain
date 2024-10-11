@@ -4,18 +4,24 @@ import {
   applyDoubleCborEncoding,
   Assets,
   Constr,
+  credentialToAddress,
   Data,
+  Emulator,
   fromHex,
   fromText,
   generateSeedPhrase,
   getAddressDetails,
+  keyHashToCredential,
   Lucid,
+  LucidEvolution,
+  scriptHashToCredential,
   toHex,
   UTxO,
-} from "@anastasia-labs/lucid-cardano-fork";
+} from "@lucid-evolution/lucid";
 import { SETNODE_PREFIX } from "../constants.js";
 import { AddressD } from "../contract.types.js";
 import { Result } from "../types.js";
+import { sha3_256 } from "@noble/hashes/sha3";
 
 export const toCBORHex = (rawHex: string) => {
   return applyDoubleCborEncoding(rawHex);
@@ -23,11 +29,12 @@ export const toCBORHex = (rawHex: string) => {
 
 export const generateAccountSeedPhrase = async (assets: Assets) => {
   const seedPhrase = generateSeedPhrase();
+  const lucid = await Lucid(new Emulator([]), "Custom");
+  lucid.selectWallet.fromSeed(seedPhrase);
+  const address = lucid.wallet().address;
   return {
     seedPhrase,
-    address: await (await Lucid.new(undefined, "Custom"))
-      .selectWalletFromSeed(seedPhrase)
-      .wallet.address(),
+    address,
     assets,
   };
 };
@@ -60,14 +67,15 @@ export function fromAddress(address: Address): AddressD {
   };
 }
 
-export function toAddress(address: AddressD, lucid: Lucid): Address {
+export function toAddress(address: AddressD, lucid: LucidEvolution): Address {
+  const network = lucid.config().network;
   const paymentCredential = (() => {
     if ("PublicKeyCredential" in address.paymentCredential) {
-      return lucid.utils.keyHashToCredential(
+      return keyHashToCredential(
         address.paymentCredential.PublicKeyCredential[0],
       );
     } else {
-      return lucid.utils.scriptHashToCredential(
+      return scriptHashToCredential(
         address.paymentCredential.ScriptCredential[0],
       );
     }
@@ -76,11 +84,11 @@ export function toAddress(address: AddressD, lucid: Lucid): Address {
     if (!address.stakeCredential) return undefined;
     if ("Inline" in address.stakeCredential) {
       if ("PublicKeyCredential" in address.stakeCredential.Inline[0]) {
-        return lucid.utils.keyHashToCredential(
+        return keyHashToCredential(
           address.stakeCredential.Inline[0].PublicKeyCredential[0],
         );
       } else {
-        return lucid.utils.scriptHashToCredential(
+        return scriptHashToCredential(
           address.stakeCredential.Inline[0].ScriptCredential[0],
         );
       }
@@ -88,7 +96,7 @@ export function toAddress(address: AddressD, lucid: Lucid): Address {
       return undefined;
     }
   })();
-  return lucid.utils.credentialToAddress(paymentCredential, stakeCredential);
+  return credentialToAddress(network,paymentCredential, stakeCredential);
 }
 
 export function mkNodeKeyTN(tokenName: string) {
@@ -233,8 +241,7 @@ export function remove(a: Assets, b: Assets): Assets {
 export async function getUniqueTokenName(utxo: UTxO): Promise<string> {
   const id = fromHex(utxo.txHash);
   const data = new Uint8Array([utxo.outputIndex, ...id]);
-
-  const hash = new Uint8Array(await crypto.subtle.digest("SHA3-256", data));
-
+//const hash = new Uint8Array(fromHex(sha3_256(data)));
+  const hash = sha3_256(data);
   return toHex(hash);
 }

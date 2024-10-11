@@ -1,12 +1,15 @@
 import {
-  Lucid,
   SpendingValidator,
   MintingPolicy,
   Data,
   toUnit,
-  TxComplete,
   fromText,
-} from "@anastasia-labs/lucid-cardano-fork";
+  LucidEvolution,
+  validatorToAddress,
+  mintingPolicyToId,
+  getAddressDetails,
+  TxSignBuilder,
+} from "@lucid-evolution/lucid";
 import {
   StakingNodeAction,
   NodeValidatorAction,
@@ -23,12 +26,13 @@ import {
 import { fetchConfigUTxO } from "./fetchConfig.js";
 
 export const removeNode = async (
-  lucid: Lucid,
+  lucid: LucidEvolution,
   config: RemoveNodeConfig,
-): Promise<Result<TxComplete>> => {
+): Promise<Result<TxSignBuilder>> => {
+  const network = lucid.config().network;
   config.currentTime ??= Date.now();
 
-  const walletUtxos = await lucid.wallet.getUtxos();
+  const walletUtxos = await lucid.wallet().getUtxos();
 
   if (!walletUtxos.length)
     return { type: "error", error: new Error("No utxos in wallet") };
@@ -41,14 +45,14 @@ export const removeNode = async (
   const nodeValidator: SpendingValidator =
     config.refScripts.nodeValidator.scriptRef;
 
-  const nodeValidatorAddr = lucid.utils.validatorToAddress(nodeValidator);
+  const nodeValidatorAddr = validatorToAddress(network,nodeValidator);
 
   const nodePolicy: MintingPolicy = config.refScripts.nodePolicy.scriptRef;
-  const nodePolicyId = lucid.utils.mintingPolicyToId(nodePolicy);
+  const nodePolicyId = mintingPolicyToId(nodePolicy);
 
-  const userAddress = await lucid.wallet.address();
+  const userAddress = await lucid.wallet().address();
   const userPubKeyHash =
-    lucid.utils.getAddressDetails(userAddress).paymentCredential?.hash;
+    getAddressDetails(userAddress).paymentCredential?.hash;
 
   if (!userPubKeyHash)
     return { type: "error", error: new Error("missing PubKeyHash") };
@@ -135,9 +139,9 @@ export const removeNode = async (
       const tx = await lucid
         .newTx()
         .collectFrom([node, prevNode], redeemerNodeValidator)
-        .payToContract(
+        .pay.ToContract(
           nodeValidatorAddr,
-          { inline: newPrevNodeDatum },
+          { kind : "inline", value: newPrevNodeDatum },
           prevNode.assets,
         )
         .addSignerKey(userPubKeyHash)
@@ -158,15 +162,15 @@ export const removeNode = async (
       const tx = await lucid
         .newTx()
         .collectFrom([node, prevNode], redeemerNodeValidator)
-        .payToContract(
+        .pay.ToContract(
           nodeValidatorAddr,
-          { inline: newPrevNodeDatum },
+          { kind : "inline", value: newPrevNodeDatum },
           prevNode.assets,
         )
-        .payToAddress(config.penaltyAddress, {
+        .pay.ToAddress(config.penaltyAddress, {
           [stakeToken]: penaltyAmount,
         })
-        .payToAddress(userAddress, {
+        .pay.ToAddress(userAddress, {
           [stakeToken]: balanceAmount,
         })
         .addSignerKey(userPubKeyHash)

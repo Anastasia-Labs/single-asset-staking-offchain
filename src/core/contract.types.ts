@@ -1,5 +1,4 @@
-import { Data } from "@anastasia-labs/lucid-cardano-fork";
-
+import { Data } from "@lucid-evolution/lucid";
 export const PubKeyHashSchema = Data.Bytes({ minLength: 28, maxLength: 28 });
 export type PubKeyHash = Data.Static<typeof PubKeyHashSchema>;
 export const PubKeyHash = PubKeyHashSchema as unknown as PubKeyHash;
