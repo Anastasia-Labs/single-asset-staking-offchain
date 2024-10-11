@@ -21,6 +21,7 @@ import {
 import { SETNODE_PREFIX } from "../constants.js";
 import { AddressD } from "../contract.types.js";
 import { Result } from "../types.js";
+import { sha3_256 } from "js-sha3";
 
 export const toCBORHex = (rawHex: string) => {
   return applyDoubleCborEncoding(rawHex);
@@ -241,7 +242,7 @@ export async function getUniqueTokenName(utxo: UTxO): Promise<string> {
   const id = fromHex(utxo.txHash);
   const data = new Uint8Array([utxo.outputIndex, ...id]);
 
-  const hash = new Uint8Array(await crypto.subtle.digest("SHA3-256", data));
+  const hash = new Uint8Array(fromHex(sha3_256(data)));
 
   return toHex(hash);
 }
