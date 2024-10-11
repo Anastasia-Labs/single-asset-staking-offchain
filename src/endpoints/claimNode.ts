@@ -101,7 +101,7 @@ export const claimNode = async (
       const tx = await lucid
         .newTx()
         .collectFrom([node.data], redeemerNodeValidator)
-        .addSigner(userPubKeyHash)
+        .addSignerKey(userPubKeyHash)
         .mintAssets(assets, redeemerNodePolicy)
         .readFrom([
           config.refScripts.nodePolicy,

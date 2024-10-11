@@ -99,8 +99,6 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   const createConfigSigned = await createConfigUnsigned.data.tx
     .sign.withWallet()
     .complete();
-    console.log("!!! 1",createConfigObj);
-    console.log("Address accoun1",users.account1.address);
   await createConfigSigned.submit();
 
   const configTN = createConfigUnsigned.data.configTN;
@@ -119,7 +117,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
       await (
         await lucid.newTx().registerStake(nodeStakeRewardAddress!).complete()
       )
-       // .sign()
+        .sign.withWallet()
         .complete()
     ).submit(),
   );
@@ -147,7 +145,6 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   if (initStakingUnsigned.type == "error") return;
   // console.log(tx.data.txComplete.to_json())
   const initStakingSigned = await initStakingUnsigned.data.sign.withWallet().complete();
-  console.log("!!! 2");
   await initStakingSigned.submit();
 
   emulator.awaitBlock(4);
@@ -191,7 +188,6 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   if (initFoldUnsigned.type == "error") return;
   // console.log(insertNodeUnsigned.data.txComplete.to_json())
   const initFoldSigned = await initFoldUnsigned.data.sign.withWallet().complete();
-  console.log("!!! 3");
   const initFoldHash = await initFoldSigned.submit();
 
   emulator.awaitBlock(4);
@@ -214,7 +210,6 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   // console.log(insertNodeUnsigned.data.txComplete.to_json())
   lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
   const multiFoldSigned = await multiFoldUnsigned.data.sign.withWallet().complete();
-  console.log("!!! 4");
   const multiFoldHash = await multiFoldSigned.submit();
 
   emulator.awaitBlock(4);
@@ -255,7 +250,6 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   const initRewardFoldSigned = await initRewardFoldUnsigned.data
     .sign.withWallet()
     .complete();
-    console.log("!!! 5");
   const initRewardFoldHash = await initRewardFoldSigned.submit();
 
   emulator.awaitBlock(4);
@@ -284,7 +278,6 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   // const completedRFold = await rewardFoldUnsigned.data.complete();
   // console.log(completedRFold.exUnits);
   const rewardFoldSigned = await rewardFoldUnsigned.data.sign.withWallet().complete();
-  console.log("!!! 6");
   const rewardFoldHash = await rewardFoldSigned.submit();
 
   emulator.awaitBlock(4);

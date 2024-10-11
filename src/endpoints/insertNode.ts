@@ -150,7 +150,7 @@ export const insertNode = async (
           lovelace: NODE_ADA,
         },
       )
-      .addSigner(userKey)
+      .addSignerKey(userKey)
       .mintAssets(assets, redeemerNodePolicy)
       .readFrom([
         config.refScripts.nodeValidator,

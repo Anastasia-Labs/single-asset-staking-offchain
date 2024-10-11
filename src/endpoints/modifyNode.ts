@@ -104,7 +104,7 @@ export const modifyNode = async (
         { kind : "inline", value : ownNode.data.datum },
         { ...ownNode.data.assets, [stakeToken]: newStake }, // Only updating the stakeToken to new stake
       )
-      .addSigner(userKey)
+      .addSignerKey(userKey)
       .validFrom(lowerBound)
       .validTo(upperBound)
       .complete();

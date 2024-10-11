@@ -107,7 +107,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
       await (
         await lucid.newTx().registerStake(nodeStakeRewardAddress!).complete()
       )
-        //.sign()
+        .sign.withWallet()
         .complete()
     ).submit(),
   );

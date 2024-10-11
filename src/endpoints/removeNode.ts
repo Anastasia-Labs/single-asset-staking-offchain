@@ -144,7 +144,7 @@ export const removeNode = async (
           { kind : "inline", value: newPrevNodeDatum },
           prevNode.assets,
         )
-        .addSigner(userPubKeyHash)
+        .addSignerKey(userPubKeyHash)
         .mintAssets(assets, redeemerNodePolicy)
         .readFrom([
           config.refScripts.nodePolicy,
@@ -173,7 +173,7 @@ export const removeNode = async (
         .pay.ToAddress(userAddress, {
           [stakeToken]: balanceAmount,
         })
-        .addSigner(userPubKeyHash)
+        .addSignerKey(userPubKeyHash)
         .mintAssets(assets, redeemerNodePolicy)
         .readFrom([
           config.refScripts.nodePolicy,
