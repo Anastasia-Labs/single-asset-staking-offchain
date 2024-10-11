@@ -30,13 +30,18 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
 }) => {
   const logFlag = false;
 
-  const [treasuryUTxO] = await lucid
-    .selectWalletFrom({ address: users.treasury1.address })
-    .wallet.getUtxos();
+ // const [treasuryUTxO] = await lucid
+  //   .selectWalletFrom({ address: users.treasury1.address })
+  //   .wallet.getUtxos();
+  const treasury1Address = users.treasury1.address;
+  const [treasuryUTxO] = await lucid.config().provider.getUtxos(treasury1Address);
 
-  const [configUTxO] = await lucid
-    .selectWalletFrom({ address: users.account1.address })
-    .wallet.getUtxos();
+  // const [configUTxO] = await lucid
+  //   .selectWalletFrom({ address: users.account1.address })
+  //   .wallet.getUtxos();
+
+  const accountAddress = users.account1.address;
+  const [configUTxO] = await lucid.config().provider.getUtxos(accountAddress);
 
   const currentTime = emulator.now();
 

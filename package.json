@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "test": "export NODE_ENV='emulator' && vitest run",
-    "build": "tsup src/index.ts --minify --format esm,cjs --dts --clean",
+    "build": "tsup src/index.ts --minify --format esm,cjs --clean",
     "lint": "eslint",
     "repack": "pnpm run build  && pnpm pack",
     "ts-node": "ts-node"

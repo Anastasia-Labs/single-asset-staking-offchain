@@ -1,4 +1,5 @@
 import {
+  Address,
   CFOLD,
   cFold,
   Constr,
@@ -41,13 +42,22 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
 }) => {
   const logFlag = false;
   const network = lucid.config().network;
-  const [treasuryUTxO] = await lucid
-    .selectWalletFrom({ address: users.treasury1.address })
-    .wallet.getUtxos();
 
-  const [configUTxO] = await lucid
-    .selectWalletFrom({ address: users.account1.address })
-    .wallet.getUtxos();
+  // const [treasuryUTxO] = await lucid
+  //   .selectWalletFrom({ address: users.treasury1.address })
+  //   .wallet.getUtxos();
+  //lucid.selectWallet.fromSeed(users.treasury1.seedPhrase);
+  const treasury1Address =  users.treasury1.address;
+  //const utxos1 = await lucid.wallet().getUtxos()
+  const [treasuryUTxO] = await lucid.config().provider.getUtxos(treasury1Address);
+  //const [treasuryUTxO] = await lucid.selectWallet.fromAddress(treasury1Address,utxos1);
+
+  // const [configUTxO] = await lucid
+  //   .selectWalletFrom({ address: users.account1.address })
+  //   .wallet.getUtxos();
+
+  const accountAddress : Address = users.account1.address;
+  const [configUTxO] = await lucid.config().provider.getUtxos(accountAddress);
 
   const currentTime = emulator.now();
 

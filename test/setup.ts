@@ -21,7 +21,8 @@ import {
   FetchCampaignStateConfig,
   fetchCampaignState,
   LucidEvolution,
-  generateAccountSeedPhrase,
+  Emulator,
+  generateEmulatorAccount,
 } from "../src/index.js";
 import { expect } from "vitest";
 import alwaysFails from "./compiled/alwaysFails.json";
@@ -56,21 +57,21 @@ export async function initializeLucidContext(context: LucidContext) {
         fromText("WIN"),
       )]: BigInt(10_000_000_000_000),
     }),
-    account1: await generateAccountSeedPhrase({
+    account1: await generateEmulatorAccount({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
         fromText("MIN"),
       )]: BigInt(2_000_000_000_000),
     }),
-    account2: await generateAccountSeedPhrase({
+    account2: await generateEmulatorAccount({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
         fromText("MIN"),
       )]: BigInt(2_000_000_000_000),
     }),
-    account3: await generateAccountSeedPhrase({
+    account3: await generateEmulatorAccount({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",

@@ -45,13 +45,19 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
 }) => {
   const logFlag = false;
   const network = lucid.config().network;
-  const [treasuryUTxO] = await lucid
-    .selectWalletFrom({ address: users.treasury1.address })
-    .wallet.getUtxos();
 
-  const [configUTxO] = await lucid
-    .selectWalletFrom({ address: users.account1.address })
-    .wallet.getUtxos();
+  // const [treasuryUTxO] = await lucid
+  //   .selectWalletFrom({ address: users.treasury1.address })
+  //   .wallet.getUtxos();
+  const treasury1Address = users.treasury1.address;
+  const [treasuryUTxO] = await lucid.config().provider.getUtxos(treasury1Address);
+
+  // const [configUTxO] = await lucid
+  //   .selectWalletFrom({ address: users.account1.address })
+  //   .wallet.getUtxos();
+
+  const accountAddress = users.account1.address;
+  const [configUTxO] = await lucid.config().provider.getUtxos(accountAddress);
 
   const currentTime = emulator.now();
 
@@ -293,7 +299,7 @@ test<LucidContext>("Test - initRewardTokenHolder - initStaking  - insertNodes - 
   if (reclaimRewardUnsigned.type == "error") return;
 
   const reclaimRewardSigned = await reclaimRewardUnsigned.data
-    .sign()
+    .sign.withWallet()
     .complete();
   const rewardFoldHash4 = await reclaimRewardSigned.submit();
 

@@ -6,6 +6,7 @@ import {
   Constr,
   credentialToAddress,
   Data,
+  Emulator,
   fromText,
   generateSeedPhrase,
   getAddressDetails,

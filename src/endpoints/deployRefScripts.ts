@@ -6,10 +6,10 @@ import {
   LucidEvolution,
   validatorToAddress,
   getAddressDetails,
-  nativeScriptFromJson,
   unixTimeToSlot,
   mintingPolicyToId,
   Data,
+  scriptFromNative,
 } from "@lucid-evolution/lucid";
 import { Deploy, DeployRefScriptsConfig, Result } from "../core/types.js";
 
@@ -41,7 +41,7 @@ export const deployRefScripts = async (
   if (!deployKey)
     return { type: "error", error: new Error("missing PubKeyHash") };
 
-  const deployPolicy = nativeScriptFromJson({
+  const deployPolicy = scriptFromNative({
     type: "all",
     scripts: [
       { type: "sig", keyHash: deployKey },
