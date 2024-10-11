@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@lucid-evolution/lucid": "0.3.47",
-    "js-sha3": "^0.9.3",
+    "@noble/hashes": "^1.5.0",
     "ts-pattern": "^5.0.5"
   },
   "directories": {
