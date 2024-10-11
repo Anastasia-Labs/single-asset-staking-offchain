@@ -39,7 +39,6 @@ test<LucidContext>("Test - initStaking - account1 insertNode - account2 insertNo
   
     const accountAddress = users.account1.address;
     const [configUTxO] = await lucid.config().provider.getUtxos(accountAddress);
-    console.log("Config Utxo", [configUTxO]);
 
   const currentTime = emulator.now();
 
