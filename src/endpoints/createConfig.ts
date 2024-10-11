@@ -8,11 +8,10 @@ import {
   validatorToAddress,
   mintingPolicyToId,
   TxSignBuilder,
-  getUniqueTokenName,
 } from "@lucid-evolution/lucid";
 import { OutputReference, StakingConfig } from "../core/contract.types.js";
 import { CreateConfig, Result } from "../core/types.js";
-import { fromAddress } from "../index.js";
+import { fromAddress, getUniqueTokenName } from "../index.js";
 
 export const createConfig = async (
   lucid: LucidEvolution,

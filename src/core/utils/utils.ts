@@ -7,6 +7,7 @@ import {
   credentialToAddress,
   Data,
   Emulator,
+  fromHex,
   fromText,
   generateSeedPhrase,
   getAddressDetails,
@@ -14,6 +15,7 @@ import {
   Lucid,
   LucidEvolution,
   scriptHashToCredential,
+  toHex,
   UTxO,
 } from "@lucid-evolution/lucid";
 import { SETNODE_PREFIX } from "../constants.js";
@@ -235,11 +237,11 @@ export function remove(a: Assets, b: Assets): Assets {
  * Returns a unique token name using a Utxo's txid and idx
  * @param utxo UTxO whose OutRef will be used
  */
-// export async function getUniqueTokenName(utxo: UTxO): Promise<string> {
-//   const id = fromHex(utxo.txHash);
-//   const data = new Uint8Array([utxo.outputIndex, ...id]);
+export async function getUniqueTokenName(utxo: UTxO): Promise<string> {
+  const id = fromHex(utxo.txHash);
+  const data = new Uint8Array([utxo.outputIndex, ...id]);
 
-//   const hash = new Uint8Array(await crypto.subtle.digest("SHA3-256", data));
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA3-256", data));
 
-//   return toHex(hash);
-// }
+  return toHex(hash);
+}

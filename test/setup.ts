@@ -46,7 +46,7 @@ export type LucidContext = {
 // INITIALIZE EMULATOR + ACCOUNTS
 export async function initializeLucidContext(context: LucidContext) {
   context.users = {
-    treasury1: await ({
+    treasury1: await generateEmulatorAccount({
       lovelace: BigInt(500_000_000),
       [toUnit(
         "2c04fa26b36a376440b0615a7cdf1a0c2df061df89c8c055e2650505",
