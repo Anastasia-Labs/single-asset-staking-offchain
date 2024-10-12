@@ -1,6 +1,6 @@
 {
   "name": "single-asset-staking-offchain",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "https://docs.github.com/en/packages/quickstart",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
