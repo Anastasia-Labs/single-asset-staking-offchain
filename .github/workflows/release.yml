@@ -36,7 +36,7 @@ jobs:
           node-version: 18
           cache: "pnpm"
           registry-url: 'https://registry.npmjs.org'
-      - run: pnpm i --frozen-lockfile
+      - run: pnpm i --no-frozen-lockfile
       - name: Build 🔨
         run: pnpm build
       - run: pnpm publish --no-git-checks --access public
