@@ -1,6 +1,6 @@
 {
   "name": "@anastasia-labs/single-asset-staking-offchain",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "https://docs.github.com/en/packages/quickstart",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
